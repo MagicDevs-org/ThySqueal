@@ -10,6 +10,8 @@ REST API for thy-squeal, Elasticsearch-style endpoints for data access.
 | GET `/` | ✅ Implemented |
 | GET `/health` | ✅ Implemented |
 | POST `/_query` | ✅ Implemented |
+| GET `/_dump` | ✅ Implemented |
+| POST `/_restore` | ✅ Implemented |
 | GET `/_stats` | ❌ Not implemented |
 | REST CRUD (`/<db>/<table>`, etc.) | ❌ Not implemented |
 | Search, KV | ❌ Not implemented |
@@ -41,6 +43,8 @@ logging:
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/_query` | Execute SQL query |
+| GET | `/_dump` | Export full database as SQL script |
+| POST | `/_restore` | Import database from SQL script |
 
 ### Database
 | Method | Path | Description |

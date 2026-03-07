@@ -37,7 +37,7 @@
 - [x] Transactions (BEGIN, COMMIT, ROLLBACK)
 - [x] Write-Ahead Logging (WAL) for durability
 - [x] Information Schema (tables, columns metadata)
-- [ ] SQL Dump/Restore (.sql script export)
+- [x] SQL Dump/Restore (.sql script export)
 - [ ] MySQL Protocol Compatibility (TCP 3306)
 - [ ] Parameterized Queries (Prepared Statements)
 

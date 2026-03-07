@@ -8,6 +8,7 @@ A lightweight, MySQL-compatible SQL server with dual-protocol support (SQL over 
 - **Full-Text Search**: Integrated Tantivy-powered search with `SEARCH` command.
 - **Persistence**: Hybrid in-memory storage with Sled-based snapshotting.
 - **HTTP API**: Axum-based JSON API for easy integration.
+- **Backup & Restore**: Export and import full database state as SQL scripts.
 - **REPL**: Interactive CLI client for manual querying and management.
 - **Observability**: Built-in `EXPLAIN` support for query plan visualization.
 
@@ -23,6 +24,12 @@ cargo run -p thy-squeal
 ```bash
 # Start the interactive REPL
 cargo run -p thy-squeal-client
+
+# Export database to a file
+cargo run -p thy-squeal-client -- --export backup.sql
+
+# Import database from a file
+cargo run -p thy-squeal-client -- --import backup.sql
 ```
 
 ### Example Queries
