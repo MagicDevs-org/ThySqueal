@@ -1,8 +1,8 @@
-use crate::storage::{Column, DataType};
-use super::super::ast::{CreateIndexStmt, CreateTableStmt, DropTableStmt, SqlStmt, IndexType};
+use super::super::ast::{CreateIndexStmt, CreateTableStmt, DropTableStmt, IndexType, SqlStmt};
 use super::super::error::{SqlError, SqlResult};
 use super::super::parser::Rule;
 use super::utils::expect_identifier;
+use crate::storage::{Column, DataType};
 
 pub fn parse_create_table(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
     let mut inner = pair.into_inner();
@@ -21,7 +21,10 @@ pub fn parse_create_table(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStm
             continue;
         }
         let mut col_inner = col_def.into_inner();
-        let col_name = expect_identifier(col_inner.find(|p| p.as_rule() == Rule::identifier), "column name")?;
+        let col_name = expect_identifier(
+            col_inner.find(|p| p.as_rule() == Rule::identifier),
+            "column name",
+        )?;
         let type_str = col_inner
             .find(|p| p.as_rule() == Rule::data_type)
             .ok_or_else(|| SqlError::Parse("Missing column type".to_string()))?
@@ -48,7 +51,7 @@ pub fn parse_drop_table(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt>
 
 pub fn parse_create_index(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
     let inner = pair.into_inner();
-    
+
     let mut unique = false;
     let mut index_name = None;
     let mut table = None;
@@ -73,7 +76,9 @@ pub fn parse_create_index(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStm
                 }
             }
             Rule::index_type_clause => {
-                let type_inner = p.into_inner().find(|it| it.as_rule() == Rule::index_type)
+                let type_inner = p
+                    .into_inner()
+                    .find(|it| it.as_rule() == Rule::index_type)
                     .ok_or_else(|| SqlError::Parse("Missing index type".to_string()))?;
                 if type_inner.as_str().to_uppercase() == "HASH" {
                     index_type = IndexType::Hash;
@@ -89,15 +94,17 @@ pub fn parse_create_index(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStm
     let name = index_name.ok_or_else(|| SqlError::Parse("Missing index name".to_string()))?;
     let table = table.ok_or_else(|| SqlError::Parse("Missing table name".to_string()))?;
     if expressions.is_empty() {
-        return Err(SqlError::Parse("Index must have at least one expression".to_string()));
+        return Err(SqlError::Parse(
+            "Index must have at least one expression".to_string(),
+        ));
     }
 
-    Ok(SqlStmt::CreateIndex(CreateIndexStmt { 
-        name, 
-        table, 
-        expressions, 
-        unique, 
+    Ok(SqlStmt::CreateIndex(CreateIndexStmt {
+        name,
+        table,
+        expressions,
+        unique,
         index_type,
-        where_clause
+        where_clause,
     }))
 }

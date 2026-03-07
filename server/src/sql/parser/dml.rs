@@ -5,7 +5,7 @@ use super::expr::{parse_expression, parse_literal};
 
 pub fn parse_insert(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
     let inner = pair.into_inner();
-    
+
     let mut table = None;
     let mut values = Vec::new();
 
@@ -98,7 +98,9 @@ pub fn parse_delete(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
     }))
 }
 
-pub fn parse_value_list(pair: pest::iterators::Pair<Rule>) -> SqlResult<Vec<crate::storage::Value>> {
+pub fn parse_value_list(
+    pair: pest::iterators::Pair<Rule>,
+) -> SqlResult<Vec<crate::storage::Value>> {
     let inner = pair.into_inner();
     let mut values = Vec::new();
     for p in inner {

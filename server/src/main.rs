@@ -29,8 +29,12 @@ async fn main() -> anyhow::Result<()> {
 
     let db = if !config.storage.data_dir.is_empty() {
         info!("Initializing persistence at {}", config.storage.data_dir);
-        let persister = Box::new(storage::persistence::SledPersister::new(&config.storage.data_dir).expect("Failed to open database"));
-        storage::Database::with_persister(persister, config.storage.data_dir.clone()).expect("Failed to load database")
+        let persister = Box::new(
+            storage::persistence::SledPersister::new(&config.storage.data_dir)
+                .expect("Failed to open database"),
+        );
+        storage::Database::with_persister(persister, config.storage.data_dir.clone())
+            .expect("Failed to load database")
     } else {
         storage::Database::new()
     };

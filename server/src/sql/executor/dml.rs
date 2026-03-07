@@ -6,25 +6,32 @@ use crate::sql::error::SqlResult;
 use crate::storage::WalRecord;
 
 impl Executor {
-    pub(crate) async fn exec_insert(&self, stmt: InsertStmt, tx_id: Option<&str>) -> SqlResult<QueryResult> {
+    pub(crate) async fn exec_insert(
+        &self,
+        stmt: InsertStmt,
+        tx_id: Option<&str>,
+    ) -> SqlResult<QueryResult> {
         // Log to WAL first
         {
             let db = self.db.read().await;
-            db.log_operation(&WalRecord::Insert { 
-                tx_id: tx_id.map(|s| s.to_string()), 
-                table: stmt.table.clone(), 
-                values: stmt.values.clone() 
-            }).map_err(|e| SqlError::Storage(e.to_string()))?;
+            db.log_operation(&WalRecord::Insert {
+                tx_id: tx_id.map(|s| s.to_string()),
+                table: stmt.table.clone(),
+                values: stmt.values.clone(),
+            })
+            .map_err(|e| SqlError::Storage(e.to_string()))?;
         }
 
         self.mutate_state(tx_id, |state| {
             let db_state = state.clone();
-            state.get_table_mut(&stmt.table)
+            state
+                .get_table_mut(&stmt.table)
                 .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?
                 .insert(self, stmt.values, &db_state)
                 .map_err(|e| SqlError::Storage(e.to_string()))?;
             Ok(())
-        }).await?;
+        })
+        .await?;
 
         Ok(QueryResult {
             columns: vec![],
@@ -34,86 +41,42 @@ impl Executor {
         })
     }
 
-    pub(crate) async fn exec_update(&self, stmt: UpdateStmt, tx_id: Option<&str>) -> SqlResult<QueryResult> {
+    pub(crate) async fn exec_update(
+        &self,
+        stmt: UpdateStmt,
+        tx_id: Option<&str>,
+    ) -> SqlResult<QueryResult> {
         // If tx_id is None, we'll hold a write lock on self.db
         // If tx_id is Some, we only lock the DashMap entry
-        
-        if tx_id.is_none() {
-            let mut db = self.db.write().await;
-            let mut updated_rows = Vec::new();
-            let mut count = 0;
-            let db_state_eval = db.state().clone();
-            {
-                let table = db.get_table(&stmt.table).ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
-                for row in &table.rows {
-                    if let Some(ref where_clause) = stmt.where_clause {
-                        if evaluate_condition(self, where_clause, table, row, &db_state_eval)? {
-                            let mut new_values = row.values.clone();
-                            for (col_name, expr) in &stmt.assignments {
-                                let col_idx = table.column_index(col_name).ok_or_else(|| SqlError::ColumnNotFound(col_name.clone()))?;
-                                new_values[col_idx] = evaluate_expression(self, expr, table, row, &db_state_eval)?;
-                            }
-                            updated_rows.push((row.id.clone(), new_values));
-                            count += 1;
-                        }
-                    } else {
-                        let mut new_values = row.values.clone();
-                        for (col_name, expr) in &stmt.assignments {
-                            let col_idx = table.column_index(col_name).ok_or_else(|| SqlError::ColumnNotFound(col_name.clone()))?;
-                            new_values[col_idx] = evaluate_expression(self, expr, table, row, &db_state_eval)?;
-                        }
-                        updated_rows.push((row.id.clone(), new_values));
-                        count += 1;
-                    }
-                }
-            }
 
-            for (row_id, values) in &updated_rows {
-                db.log_operation(&WalRecord::Update { 
-                    tx_id: None, 
-                    table: stmt.table.clone(), 
-                    id: row_id.clone(), 
-                    values: values.clone() 
-                }).map_err(|e| SqlError::Storage(e.to_string()))?;
-            }
+        if let Some(id) = tx_id {
+            let mut state = self
+                .transactions
+                .get_mut(id)
+                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
 
-            let table = db.get_table_mut(&stmt.table).unwrap();
-            for (row_id, values) in updated_rows {
-                table.update(self, &row_id, values, &db_state_eval).map_err(|e| SqlError::Storage(e.to_string()))?;
-            }
-            db.save().map_err(|e| SqlError::Storage(e.to_string()))?;
-
-            Ok(QueryResult {
-                columns: vec![],
-                rows: vec![],
-                rows_affected: count,
-                transaction_id: None,
-            })
-        } else {
-            let id = tx_id.unwrap();
-            let mut state = self.transactions.get_mut(id).ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
-            
             let mut updated_rows = Vec::new();
             let mut count = 0;
             let db_state_eval = state.clone();
             {
-                let table = state.get_table(&stmt.table).ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+                let table = state
+                    .get_table(&stmt.table)
+                    .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
                 for row in &table.rows {
-                    if let Some(ref where_clause) = stmt.where_clause {
-                        if evaluate_condition(self, where_clause, table, row, &db_state_eval)? {
-                            let mut new_values = row.values.clone();
-                            for (col_name, expr) in &stmt.assignments {
-                                let col_idx = table.column_index(col_name).ok_or_else(|| SqlError::ColumnNotFound(col_name.clone()))?;
-                                new_values[col_idx] = evaluate_expression(self, expr, table, row, &db_state_eval)?;
-                            }
-                            updated_rows.push((row.id.clone(), new_values));
-                            count += 1;
-                        }
+                    let matches = if let Some(ref where_clause) = stmt.where_clause {
+                        evaluate_condition(self, where_clause, table, row, &db_state_eval)?
                     } else {
+                        true
+                    };
+
+                    if matches {
                         let mut new_values = row.values.clone();
                         for (col_name, expr) in &stmt.assignments {
-                            let col_idx = table.column_index(col_name).ok_or_else(|| SqlError::ColumnNotFound(col_name.clone()))?;
-                            new_values[col_idx] = evaluate_expression(self, expr, table, row, &db_state_eval)?;
+                            let col_idx = table
+                                .column_index(col_name)
+                                .ok_or_else(|| SqlError::ColumnNotFound(col_name.clone()))?;
+                            new_values[col_idx] =
+                                evaluate_expression(self, expr, table, row, &db_state_eval)?;
                         }
                         updated_rows.push((row.id.clone(), new_values));
                         count += 1;
@@ -125,18 +88,22 @@ impl Executor {
             {
                 let db_lock = self.db.read().await;
                 for (row_id, values) in &updated_rows {
-                    db_lock.log_operation(&WalRecord::Update { 
-                        tx_id: Some(id.to_string()), 
-                        table: stmt.table.clone(), 
-                        id: row_id.clone(), 
-                        values: values.clone() 
-                    }).map_err(|e| SqlError::Storage(e.to_string()))?;
+                    db_lock
+                        .log_operation(&WalRecord::Update {
+                            tx_id: Some(id.to_string()),
+                            table: stmt.table.clone(),
+                            id: row_id.clone(),
+                            values: values.clone(),
+                        })
+                        .map_err(|e| SqlError::Storage(e.to_string()))?;
                 }
             }
 
             let table = state.get_table_mut(&stmt.table).unwrap();
             for (row_id, values) in updated_rows {
-                table.update(self, &row_id, values, &db_state_eval).map_err(|e| SqlError::Storage(e.to_string()))?;
+                table
+                    .update(self, &row_id, values, &db_state_eval)
+                    .map_err(|e| SqlError::Storage(e.to_string()))?;
             }
 
             Ok(QueryResult {
@@ -145,41 +112,52 @@ impl Executor {
                 rows_affected: count,
                 transaction_id: Some(id.to_string()),
             })
-        }
-    }
-
-    pub(crate) async fn exec_delete(&self, stmt: DeleteStmt, tx_id: Option<&str>) -> SqlResult<QueryResult> {
-        if tx_id.is_none() {
+        } else {
             let mut db = self.db.write().await;
-            let mut ids_to_delete = Vec::new();
+            let mut updated_rows = Vec::new();
             let mut count = 0;
             let db_state_eval = db.state().clone();
             {
-                let table = db.get_table(&stmt.table).ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+                let table = db
+                    .get_table(&stmt.table)
+                    .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
                 for row in &table.rows {
-                    if let Some(ref where_clause) = stmt.where_clause {
-                        if evaluate_condition(self, where_clause, table, row, &db_state_eval)? {
-                            ids_to_delete.push(row.id.clone());
-                            count += 1;
-                        }
+                    let matches = if let Some(ref where_clause) = stmt.where_clause {
+                        evaluate_condition(self, where_clause, table, row, &db_state_eval)?
                     } else {
-                        ids_to_delete.push(row.id.clone());
+                        true
+                    };
+
+                    if matches {
+                        let mut new_values = row.values.clone();
+                        for (col_name, expr) in &stmt.assignments {
+                            let col_idx = table
+                                .column_index(col_name)
+                                .ok_or_else(|| SqlError::ColumnNotFound(col_name.clone()))?;
+                            new_values[col_idx] =
+                                evaluate_expression(self, expr, table, row, &db_state_eval)?;
+                        }
+                        updated_rows.push((row.id.clone(), new_values));
                         count += 1;
                     }
                 }
             }
 
-            for row_id in &ids_to_delete {
-                db.log_operation(&WalRecord::Delete { 
-                    tx_id: None, 
-                    table: stmt.table.clone(), 
-                    id: row_id.clone() 
-                }).map_err(|e| SqlError::Storage(e.to_string()))?;
+            for (row_id, values) in &updated_rows {
+                db.log_operation(&WalRecord::Update {
+                    tx_id: None,
+                    table: stmt.table.clone(),
+                    id: row_id.clone(),
+                    values: values.clone(),
+                })
+                .map_err(|e| SqlError::Storage(e.to_string()))?;
             }
 
             let table = db.get_table_mut(&stmt.table).unwrap();
-            for row_id in ids_to_delete {
-                table.delete(self, &row_id, &db_state_eval).map_err(|e| SqlError::Storage(e.to_string()))?;
+            for (row_id, values) in updated_rows {
+                table
+                    .update(self, &row_id, values, &db_state_eval)
+                    .map_err(|e| SqlError::Storage(e.to_string()))?;
             }
             db.save().map_err(|e| SqlError::Storage(e.to_string()))?;
 
@@ -189,22 +167,35 @@ impl Executor {
                 rows_affected: count,
                 transaction_id: None,
             })
-        } else {
-            let id = tx_id.unwrap();
-            let mut state = self.transactions.get_mut(id).ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
-            
+        }
+    }
+
+    pub(crate) async fn exec_delete(
+        &self,
+        stmt: DeleteStmt,
+        tx_id: Option<&str>,
+    ) -> SqlResult<QueryResult> {
+        if let Some(id) = tx_id {
+            let mut state = self
+                .transactions
+                .get_mut(id)
+                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+
             let mut ids_to_delete = Vec::new();
             let mut count = 0;
             let db_state_eval = state.clone();
             {
-                let table = state.get_table(&stmt.table).ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+                let table = state
+                    .get_table(&stmt.table)
+                    .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
                 for row in &table.rows {
-                    if let Some(ref where_clause) = stmt.where_clause {
-                        if evaluate_condition(self, where_clause, table, row, &db_state_eval)? {
-                            ids_to_delete.push(row.id.clone());
-                            count += 1;
-                        }
+                    let matches = if let Some(ref where_clause) = stmt.where_clause {
+                        evaluate_condition(self, where_clause, table, row, &db_state_eval)?
                     } else {
+                        true
+                    };
+
+                    if matches {
                         ids_to_delete.push(row.id.clone());
                         count += 1;
                     }
@@ -215,17 +206,21 @@ impl Executor {
             {
                 let db_lock = self.db.read().await;
                 for row_id in &ids_to_delete {
-                    db_lock.log_operation(&WalRecord::Delete { 
-                        tx_id: Some(id.to_string()), 
-                        table: stmt.table.clone(), 
-                        id: row_id.clone() 
-                    }).map_err(|e| SqlError::Storage(e.to_string()))?;
+                    db_lock
+                        .log_operation(&WalRecord::Delete {
+                            tx_id: Some(id.to_string()),
+                            table: stmt.table.clone(),
+                            id: row_id.clone(),
+                        })
+                        .map_err(|e| SqlError::Storage(e.to_string()))?;
                 }
             }
 
             let table = state.get_table_mut(&stmt.table).unwrap();
             for row_id in ids_to_delete {
-                table.delete(self, &row_id, &db_state_eval).map_err(|e| SqlError::Storage(e.to_string()))?;
+                table
+                    .delete(self, &row_id, &db_state_eval)
+                    .map_err(|e| SqlError::Storage(e.to_string()))?;
             }
 
             Ok(QueryResult {
@@ -233,6 +228,52 @@ impl Executor {
                 rows: vec![],
                 rows_affected: count,
                 transaction_id: Some(id.to_string()),
+            })
+        } else {
+            let mut db = self.db.write().await;
+            let mut ids_to_delete = Vec::new();
+            let mut count = 0;
+            let db_state_eval = db.state().clone();
+            {
+                let table = db
+                    .get_table(&stmt.table)
+                    .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+                for row in &table.rows {
+                    let matches = if let Some(ref where_clause) = stmt.where_clause {
+                        evaluate_condition(self, where_clause, table, row, &db_state_eval)?
+                    } else {
+                        true
+                    };
+
+                    if matches {
+                        ids_to_delete.push(row.id.clone());
+                        count += 1;
+                    }
+                }
+            }
+
+            for row_id in &ids_to_delete {
+                db.log_operation(&WalRecord::Delete {
+                    tx_id: None,
+                    table: stmt.table.clone(),
+                    id: row_id.clone(),
+                })
+                .map_err(|e| SqlError::Storage(e.to_string()))?;
+            }
+
+            let table = db.get_table_mut(&stmt.table).unwrap();
+            for row_id in ids_to_delete {
+                table
+                    .delete(self, &row_id, &db_state_eval)
+                    .map_err(|e| SqlError::Storage(e.to_string()))?;
+            }
+            db.save().map_err(|e| SqlError::Storage(e.to_string()))?;
+
+            Ok(QueryResult {
+                columns: vec![],
+                rows: vec![],
+                rows_affected: count,
+                transaction_id: None,
             })
         }
     }

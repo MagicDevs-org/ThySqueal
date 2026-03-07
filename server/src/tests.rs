@@ -6,10 +6,10 @@ mod tests {
         http::{Request, StatusCode},
         response::Response,
     };
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
     use std::sync::Arc;
-    use tower::ServiceExt; // for `oneshot`
     use std::sync::Once;
+    use tower::ServiceExt; // for `oneshot`
 
     static INIT: Once = Once::new();
 
@@ -22,15 +22,19 @@ mod tests {
     #[tokio::test]
     async fn test_sql_lifecycle() {
         setup();
-        let temp_dir = std::env::temp_dir().join(format!("thy-squeal-lifecycle-test-{}", uuid::Uuid::new_v4()));
+        let temp_dir = std::env::temp_dir().join(format!(
+            "thy-squeal-lifecycle-test-{}",
+            uuid::Uuid::new_v4()
+        ));
         let data_dir = temp_dir.to_str().unwrap().to_string();
-        
+
         let db = crate::storage::Database::with_persister(
             Box::new(crate::storage::persistence::SledPersister::new(&data_dir).unwrap()),
-            data_dir.clone()
-        ).unwrap();
+            data_dir.clone(),
+        )
+        .unwrap();
         let executor = Arc::new(Executor::new(db));
-        
+
         let config = crate::config::Config {
             server: crate::config::ServerConfig {
                 host: "127.0.0.1".to_string(),
@@ -74,7 +78,9 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert!(body["success"].as_bool().unwrap());
 
@@ -98,7 +104,9 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert!(body["success"].as_bool().unwrap());
         assert_eq!(body["rows_affected"].as_u64().unwrap(), 1);
@@ -123,7 +131,9 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert!(body["success"].as_bool().unwrap());
         assert_eq!(body["data"].as_array().unwrap().len(), 1);
@@ -149,7 +159,9 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert!(body["success"].as_bool().unwrap());
         assert_eq!(body["rows_affected"].as_u64().unwrap(), 1);
@@ -173,7 +185,9 @@ mod tests {
             .await
             .unwrap();
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(body["data"][0]["name"], "bob");
 
@@ -183,9 +197,10 @@ mod tests {
     #[tokio::test]
     async fn test_persistence() {
         setup();
-        let temp_dir = std::env::temp_dir().join(format!("thy-squeal-test-{}", uuid::Uuid::new_v4()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("thy-squeal-test-{}", uuid::Uuid::new_v4()));
         let data_dir = temp_dir.to_str().unwrap().to_string();
-        
+
         let config = crate::config::Config {
             server: crate::config::ServerConfig {
                 host: "127.0.0.1".to_string(),
@@ -210,47 +225,67 @@ mod tests {
 
         // 1. Create table and insert data in first instance
         {
-            let persister = Box::new(crate::storage::persistence::SledPersister::new(&data_dir).unwrap());
+            let persister =
+                Box::new(crate::storage::persistence::SledPersister::new(&data_dir).unwrap());
             let db = crate::storage::Database::with_persister(persister, data_dir.clone()).unwrap();
             let executor = Arc::new(Executor::new(db));
             let app = create_app(executor, config.clone());
 
-            app.clone().oneshot(
-                Request::builder()
-                    .method("POST")
-                    .uri("/_query")
-                    .header("Content-Type", "application/json")
-                    .body(Body::from(json!({"sql": "CREATE TABLE p (id INT, v TEXT)"}).to_string()))
-                    .unwrap(),
-            ).await.unwrap();
+            app.clone()
+                .oneshot(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/_query")
+                        .header("Content-Type", "application/json")
+                        .body(Body::from(
+                            json!({"sql": "CREATE TABLE p (id INT, v TEXT)"}).to_string(),
+                        ))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
 
-            app.clone().oneshot(
-                Request::builder()
-                    .method("POST")
-                    .uri("/_query")
-                    .header("Content-Type", "application/json")
-                    .body(Body::from(json!({"sql": "INSERT INTO p (id, v) VALUES (1, 'persisted')"}).to_string()))
-                    .unwrap(),
-            ).await.unwrap();
+            app.clone()
+                .oneshot(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/_query")
+                        .header("Content-Type", "application/json")
+                        .body(Body::from(
+                            json!({"sql": "INSERT INTO p (id, v) VALUES (1, 'persisted')"})
+                                .to_string(),
+                        ))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
         }
 
         // 2. Start a second instance and verify data exists
         {
-            let persister = Box::new(crate::storage::persistence::SledPersister::new(&data_dir).unwrap());
+            let persister =
+                Box::new(crate::storage::persistence::SledPersister::new(&data_dir).unwrap());
             let db = crate::storage::Database::with_persister(persister, data_dir.clone()).unwrap();
             let executor = Arc::new(Executor::new(db));
             let app = create_app(executor, config);
 
-            let response = app.oneshot(
-                Request::builder()
-                    .method("POST")
-                    .uri("/_query")
-                    .header("Content-Type", "application/json")
-                    .body(Body::from(json!({"sql": "SELECT v FROM p WHERE id = 1"}).to_string()))
-                    .unwrap(),
-            ).await.unwrap();
+            let response = app
+                .oneshot(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/_query")
+                        .header("Content-Type", "application/json")
+                        .body(Body::from(
+                            json!({"sql": "SELECT v FROM p WHERE id = 1"}).to_string(),
+                        ))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
 
-            let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+            let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap();
             let body: Value = serde_json::from_slice(&body).unwrap();
             assert_eq!(body["data"][0]["v"], "persisted");
         }
@@ -262,13 +297,15 @@ mod tests {
     #[tokio::test]
     async fn test_full_text_search() {
         setup();
-        let temp_dir = std::env::temp_dir().join(format!("thy-squeal-search-test-{}", uuid::Uuid::new_v4()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("thy-squeal-search-test-{}", uuid::Uuid::new_v4()));
         let data_dir = temp_dir.to_str().unwrap().to_string();
-        
+
         let db = crate::storage::Database::with_persister(
             Box::new(crate::storage::persistence::SledPersister::new(&data_dir).unwrap()),
-            data_dir.clone()
-        ).unwrap();
+            data_dir.clone(),
+        )
+        .unwrap();
         let executor = Arc::new(Executor::new(db));
 
         let config = crate::config::Config {
@@ -294,14 +331,19 @@ mod tests {
         };
         let app = create_app(executor, config);
 
-        app.clone().oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/_query")
-                .header("Content-Type", "application/json")
-                .body(Body::from(json!({"sql": "CREATE TABLE articles (id INT, content TEXT)"}).to_string()))
-                .unwrap(),
-        ).await.unwrap();
+        app.clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/_query")
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(
+                        json!({"sql": "CREATE TABLE articles (id INT, content TEXT)"}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
 
         app.clone().oneshot(
             Request::builder()
@@ -321,18 +363,25 @@ mod tests {
                 .unwrap(),
         ).await.unwrap();
 
-        let response = app.oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/_query")
-                .header("Content-Type", "application/json")
-                .body(Body::from(json!({"sql": "SEARCH articles 'programming'"}).to_string()))
-                .unwrap(),
-        ).await.unwrap();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/_query")
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(
+                        json!({"sql": "SEARCH articles 'programming'"}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let body: Value = serde_json::from_slice(&body).unwrap();
-        
+
         assert!(body["success"].as_bool().unwrap());
         let data = body["data"].as_array().unwrap();
         assert_eq!(data.len(), 1);
@@ -368,7 +417,9 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert!(!body["success"].as_bool().unwrap());
         assert_eq!(body["error"]["type"], "TableNotFound");
@@ -382,26 +433,37 @@ mod tests {
         let app = create_app(executor, config);
 
         // 1. Create table
-        app.clone().oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/_query")
-                .header("Content-Type", "application/json")
-                .body(Body::from(json!({"sql": "CREATE TABLE accounts (id INT, balance FLOAT)"}).to_string()))
-                .unwrap(),
-        ).await.unwrap();
+        app.clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/_query")
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(
+                        json!({"sql": "CREATE TABLE accounts (id INT, balance FLOAT)"}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
 
         // 2. BEGIN
-        let response = app.clone().oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/_query")
-                .header("Content-Type", "application/json")
-                .body(Body::from(json!({"sql": "BEGIN"}).to_string()))
-                .unwrap(),
-        ).await.unwrap();
-        
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/_query")
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(json!({"sql": "BEGIN"}).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let body: Value = serde_json::from_slice(&body).unwrap();
         let tx_id = body["transaction_id"].as_str().unwrap().to_string();
 
@@ -416,38 +478,59 @@ mod tests {
         ).await.unwrap();
 
         // 4. Verify NOT visible globally
-        let response = app.clone().oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/_query")
-                .header("Content-Type", "application/json")
-                .body(Body::from(json!({"sql": "SELECT * FROM accounts"}).to_string()))
-                .unwrap(),
-        ).await.unwrap();
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/_query")
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(
+                        json!({"sql": "SELECT * FROM accounts"}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(body["data"].as_array().unwrap().len(), 0);
 
         // 5. COMMIT
-        app.clone().oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/_query")
-                .header("Content-Type", "application/json")
-                .body(Body::from(json!({"sql": "COMMIT", "transaction_id": tx_id}).to_string()))
-                .unwrap(),
-        ).await.unwrap();
+        app.clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/_query")
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(
+                        json!({"sql": "COMMIT", "transaction_id": tx_id}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
 
         // 6. Verify visible globally
-        let response = app.clone().oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/_query")
-                .header("Content-Type", "application/json")
-                .body(Body::from(json!({"sql": "SELECT * FROM accounts"}).to_string()))
-                .unwrap(),
-        ).await.unwrap();
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/_query")
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(
+                        json!({"sql": "SELECT * FROM accounts"}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(body["data"].as_array().unwrap().len(), 1);
     }
@@ -459,54 +542,82 @@ mod tests {
         let config = crate::config::Config::default();
         let app = create_app(executor, config);
 
-        app.clone().oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/_query")
-                .header("Content-Type", "application/json")
-                .body(Body::from(json!({"sql": "CREATE TABLE t (id INT)"}).to_string()))
-                .unwrap(),
-        ).await.unwrap();
+        app.clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/_query")
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(
+                        json!({"sql": "CREATE TABLE t (id INT)"}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
 
-        let response = app.clone().oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/_query")
-                .header("Content-Type", "application/json")
-                .body(Body::from(json!({"sql": "BEGIN"}).to_string()))
-                .unwrap(),
-        ).await.unwrap();
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/_query")
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(json!({"sql": "BEGIN"}).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let body: Value = serde_json::from_slice(&body).unwrap();
         let tx_id = body["transaction_id"].as_str().unwrap().to_string();
 
-        app.clone().oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/_query")
-                .header("Content-Type", "application/json")
-                .body(Body::from(json!({"sql": "INSERT INTO t VALUES (1)", "transaction_id": tx_id}).to_string()))
-                .unwrap(),
-        ).await.unwrap();
+        app.clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/_query")
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(
+                        json!({"sql": "INSERT INTO t VALUES (1)", "transaction_id": tx_id})
+                            .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
 
-        app.clone().oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/_query")
-                .header("Content-Type", "application/json")
-                .body(Body::from(json!({"sql": "ROLLBACK", "transaction_id": tx_id}).to_string()))
-                .unwrap(),
-        ).await.unwrap();
+        app.clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/_query")
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(
+                        json!({"sql": "ROLLBACK", "transaction_id": tx_id}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
 
-        let response = app.clone().oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/_query")
-                .header("Content-Type", "application/json")
-                .body(Body::from(json!({"sql": "SELECT * FROM t"}).to_string()))
-                .unwrap(),
-        ).await.unwrap();
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/_query")
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(json!({"sql": "SELECT * FROM t"}).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(body["data"].as_array().unwrap().len(), 0);
     }
@@ -514,34 +625,47 @@ mod tests {
     #[tokio::test]
     async fn test_wal_recovery() {
         setup();
-        let temp_dir = std::env::temp_dir().join(format!("thy-squeal-wal-test-{}", uuid::Uuid::new_v4()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("thy-squeal-wal-test-{}", uuid::Uuid::new_v4()));
         let data_dir = temp_dir.to_str().unwrap().to_string();
-        
+
         // 1. Create table and insert data (it will be logged to WAL and applied to in-memory)
         // But we won't call manual `save()` or wait for a snapshot if it were background.
         // Actually, our current implementation of `insert()` calls `db.save()` which clears the WAL.
         // To test WAL recovery, we need to bypass `db.save()` or simulate a crash.
-        
+
         {
-            let persister = Box::new(crate::storage::persistence::SledPersister::new(&data_dir).unwrap());
+            let persister =
+                Box::new(crate::storage::persistence::SledPersister::new(&data_dir).unwrap());
             // Create a DB but we will manually log to WAL to simulate a partial write or bypass save
-            let mut db = crate::storage::Database::with_persister(persister, data_dir.clone()).unwrap();
+            let mut db =
+                crate::storage::Database::with_persister(persister, data_dir.clone()).unwrap();
             let executor = Arc::new(Executor::new(db));
-            
-            executor.execute("CREATE TABLE w (id INT, v TEXT)", None).await.unwrap();
-            executor.execute("INSERT INTO w VALUES (1, 'wal_data')", None).await.unwrap();
-            
+
+            executor
+                .execute("CREATE TABLE w (id INT, v TEXT)", None)
+                .await
+                .unwrap();
+            executor
+                .execute("INSERT INTO w VALUES (1, 'wal_data')", None)
+                .await
+                .unwrap();
+
             // Note: our current `execute` for global calls `db.insert` which calls `db.save()`.
             // Let's verify if WAL was cleared.
         }
 
         // 2. Start a second instance and verify data exists
         {
-            let persister = Box::new(crate::storage::persistence::SledPersister::new(&data_dir).unwrap());
+            let persister =
+                Box::new(crate::storage::persistence::SledPersister::new(&data_dir).unwrap());
             let db = crate::storage::Database::with_persister(persister, data_dir.clone()).unwrap();
             let executor = Arc::new(Executor::new(db));
 
-            let r = executor.execute("SELECT v FROM w WHERE id = 1", None).await.unwrap();
+            let r = executor
+                .execute("SELECT v FROM w WHERE id = 1", None)
+                .await
+                .unwrap();
             assert_eq!(r.rows[0][0].as_text(), Some("wal_data"));
         }
 

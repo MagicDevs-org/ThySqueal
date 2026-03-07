@@ -1,133 +1,152 @@
-use super::super::ast::{
-    Expression, Join, JoinType, LimitClause, Order, OrderByItem, SelectColumn, SelectStmt, SqlStmt,
-};
+use super::super::ast::{Join, JoinType, SelectColumn, SelectStmt, SqlStmt, OrderByItem, LimitClause};
 use super::super::error::{SqlError, SqlResult};
 use super::super::parser::Rule;
-use super::expr::{parse_condition, parse_expression, parse_where_clause};
+use super::utils::expect_identifier;
 
 pub fn parse_select(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
-    let inner = pair.into_inner();
+    let mut inner = pair.into_inner();
 
-    let distinct = inner
-        .clone()
-        .find(|p| p.as_rule() == Rule::distinct)
-        .is_some();
+    let distinct = inner.clone().any(|p| p.as_rule() == Rule::distinct);
 
-    let select_columns_pair = inner
-        .clone()
-        .find(|p| p.as_rule() == Rule::select_columns)
-        .ok_or_else(|| SqlError::Parse("Missing SELECT columns".to_string()))?;
-    let columns = parse_select_columns(select_columns_pair)?;
-
-    let table = inner
-        .clone()
+    let table_name = inner
         .find(|p| p.as_rule() == Rule::table_name)
         .map(|p| p.as_str().trim().to_string())
-        .ok_or_else(|| SqlError::Parse("Missing table name".to_string()))?;
+        .ok_or_else(|| SqlError::Parse("Missing table name in SELECT".to_string()))?;
 
-    let joins = inner
-        .clone()
-        .filter(|p| p.as_rule() == Rule::join_clause)
-        .map(parse_join)
-        .collect::<SqlResult<Vec<Join>>>()?;
+    let columns = parse_select_columns(
+        inner
+            .clone()
+            .find(|p| p.as_rule() == Rule::select_columns)
+            .ok_or_else(|| SqlError::Parse("Missing columns in SELECT".to_string()))?,
+    )?;
 
-    let where_clause = if let Some(p) = inner.clone().find(|p| p.as_rule() == Rule::where_clause) {
-        Some(parse_where_clause(p)?)
-    } else {
-        None
-    };
+    let mut joins = Vec::new();
+    let mut where_clause = None;
+    let mut order_by = Vec::new();
+    let mut limit = None;
+    let mut group_by = Vec::new();
+    let mut having = None;
 
-    let group_by = if let Some(p) = inner.clone().find(|p| p.as_rule() == Rule::group_by_clause) {
-        parse_group_by(p)?
-    } else {
-        Vec::new()
-    };
-
-    let having = if let Some(p) = inner.clone().find(|p| p.as_rule() == Rule::having_clause) {
-        Some(parse_having(p)?)
-    } else {
-        None
-    };
-
-    let order_by = if let Some(p) = inner.clone().find(|p| p.as_rule() == Rule::order_by_clause) {
-        parse_order_by(p)?
-    } else {
-        Vec::new()
-    };
-
-    let limit = if let Some(p) = inner.clone().find(|p| p.as_rule() == Rule::limit_clause) {
-        Some(parse_limit(p)?)
-    } else {
-        None
-    };
+    for p in inner {
+        match p.as_rule() {
+            Rule::join_clause => {
+                joins.push(parse_join(p)?);
+            }
+            Rule::where_clause => {
+                where_clause = Some(super::expr::parse_where_clause(p)?);
+            }
+            Rule::group_by_clause => {
+                group_by = parse_group_by(p)?;
+            }
+            Rule::having_clause => {
+                having = Some(parse_having(p)?);
+            }
+            Rule::order_by_clause => {
+                order_by = parse_order_by(p)?;
+            }
+            Rule::limit_clause => {
+                limit = Some(parse_limit(p)?);
+            }
+            _ => {}
+        }
+    }
 
     Ok(SqlStmt::Select(SelectStmt {
+        table: table_name,
         columns,
-        table,
-        distinct,
         joins,
         where_clause,
-        group_by,
-        having,
         order_by,
         limit,
+        distinct,
+        group_by,
+        having,
     }))
 }
 
-pub fn parse_join(pair: pest::iterators::Pair<Rule>) -> SqlResult<Join> {
-    let mut inner = pair.into_inner();
+pub fn parse_select_columns(pair: pest::iterators::Pair<Rule>) -> SqlResult<Vec<SelectColumn>> {
+    let mut columns = Vec::new();
+    let inner = pair.into_inner();
+    
+    // Check if it's a "*"
+    let mut inner_clone = inner.clone();
+    if let Some(first) = inner_clone.next()
+        && first.as_str() == "*"
+    {
+        columns.push(SelectColumn {
+            expr: crate::sql::ast::Expression::Star,
+            alias: None,
+        });
+        return Ok(columns);
+    }
 
-    let first = inner
-        .next()
-        .ok_or_else(|| SqlError::Parse("Empty join clause".to_string()))?;
-    let join_type = if first.as_rule() == Rule::KW_LEFT {
-        inner
-            .next()
-            .ok_or_else(|| SqlError::Parse("Missing JOIN keyword after LEFT".to_string()))?;
-        JoinType::Left
-    } else {
-        if first.as_rule() == Rule::KW_INNER {
-            inner
-                .next()
-                .ok_or_else(|| SqlError::Parse("Missing JOIN keyword after INNER".to_string()))?;
+    // It's a column_list
+    for p in inner {
+        if p.as_rule() == Rule::column_list {
+            for col_expr_pair in p.into_inner() {
+                if col_expr_pair.as_rule() == Rule::column_expr {
+                    let mut col_inner = col_expr_pair.into_inner();
+                    let expr = super::expr::parse_expression(
+                        col_inner
+                            .next()
+                            .ok_or_else(|| SqlError::Parse("Missing expression in column".to_string()))?,
+                    )?;
+                    let alias = col_inner
+                        .find(|p| p.as_rule() == Rule::alias)
+                        .and_then(|p| p.into_inner().find(|p| p.as_rule() == Rule::identifier))
+                        .map(|p| p.as_str().trim().to_string());
+                    columns.push(SelectColumn { expr, alias });
+                }
+            }
         }
-        JoinType::Inner
-    };
+    }
+    Ok(columns)
+}
 
-    let table = inner
-        .find(|p| p.as_rule() == Rule::table_name)
-        .map(|p| p.as_str().trim().to_string())
-        .ok_or_else(|| SqlError::Parse("Missing join table name".to_string()))?;
+fn parse_join(pair: pest::iterators::Pair<Rule>) -> SqlResult<Join> {
+    let mut inner = pair.into_inner();
+    
+    let mut join_type = JoinType::Inner;
+    
+    let next = inner.next().ok_or_else(|| SqlError::Parse("Empty JOIN clause".to_string()))?;
+    
+    if next.as_rule() == Rule::KW_INNER {
+        join_type = JoinType::Inner;
+        inner.next(); // skip KW_JOIN
+    } else if next.as_rule() == Rule::KW_LEFT {
+        join_type = JoinType::Left;
+        inner.next(); // skip KW_JOIN
+    } else if next.as_rule() == Rule::KW_JOIN {
+        join_type = JoinType::Inner;
+    }
 
-    let on_cond = inner
-        .find(|p| p.as_rule() == Rule::condition)
-        .ok_or_else(|| SqlError::Parse("Missing JOIN ON condition".to_string()))?;
-    let on = parse_condition(on_cond)?;
+    let table = expect_identifier(inner.find(|p| p.as_rule() == Rule::table_name), "join table")?;
+    let on = super::expr::parse_condition(
+        inner
+            .find(|p| p.as_rule() == Rule::condition)
+            .ok_or_else(|| SqlError::Parse("Missing JOIN condition".to_string()))?,
+    )?;
 
     Ok(Join {
         table,
-        join_type,
         on,
+        join_type,
     })
 }
 
-pub fn parse_group_by(pair: pest::iterators::Pair<Rule>) -> SqlResult<Vec<Expression>> {
+pub fn parse_group_by(pair: pest::iterators::Pair<Rule>) -> SqlResult<Vec<super::super::ast::Expression>> {
+    let mut exprs = Vec::new();
     let mut inner = pair.into_inner();
+    
     let column_list = inner
         .find(|p| p.as_rule() == Rule::column_list)
-        .ok_or_else(|| SqlError::Parse("Missing GROUP BY column list".to_string()))?;
-    let mut exprs = Vec::new();
-    for col_expr in column_list.into_inner() {
-        if col_expr.as_rule() == Rule::column_expr {
-            let mut ce_inner = col_expr.into_inner();
-            let expr = parse_expression(
-                ce_inner
-                    .find(|p| p.as_rule() == Rule::expression)
-                    .ok_or_else(|| {
-                        SqlError::Parse("Empty GROUP BY column expression".to_string())
-                    })?,
-            )?;
-            exprs.push(expr);
+        .ok_or_else(|| SqlError::Parse("Missing column list in GROUP BY".to_string()))?;
+        
+    for p in column_list.into_inner() {
+        if p.as_rule() == Rule::column_expr {
+            // GROUP BY expressions are just expressions, ignore aliases if present
+            let expr_pair = p.into_inner().next().unwrap();
+            exprs.push(super::expr::parse_expression(expr_pair)?);
         }
     }
     Ok(exprs)
@@ -138,33 +157,29 @@ pub fn parse_having(pair: pest::iterators::Pair<Rule>) -> SqlResult<super::super
     let cond_pair = inner
         .find(|p| p.as_rule() == Rule::condition)
         .ok_or_else(|| SqlError::Parse("Missing HAVING condition".to_string()))?;
-    parse_condition(cond_pair)
+    super::expr::parse_condition(cond_pair)
 }
 
 pub fn parse_order_by(pair: pest::iterators::Pair<Rule>) -> SqlResult<Vec<OrderByItem>> {
-    let mut inner = pair.into_inner();
-    let list = inner
-        .find(|p| p.as_rule() == Rule::order_by_list)
-        .ok_or_else(|| SqlError::Parse("Missing ORDER BY list".to_string()))?;
     let mut items = Vec::new();
-    for item in list.into_inner() {
-        if item.as_rule() == Rule::order_by_item {
-            let mut it_inner = item.into_inner();
-            let expr = parse_expression(
-                it_inner
-                    .find(|p| p.as_rule() == Rule::expression)
-                    .ok_or_else(|| SqlError::Parse("Missing ORDER BY expression".to_string()))?,
-            )?;
-            let order = if let Some(op) =
-                it_inner.find(|p| matches!(p.as_rule(), Rule::KW_ASC | Rule::KW_DESC))
-            {
-                if op.as_rule() == Rule::KW_DESC {
-                    Order::Desc
+    let mut inner = pair.into_inner();
+    
+    let order_by_list = inner
+        .find(|p| p.as_rule() == Rule::order_by_list)
+        .ok_or_else(|| SqlError::Parse("Missing order by list".to_string()))?;
+        
+    for p in order_by_list.into_inner() {
+        if p.as_rule() == Rule::order_by_item {
+            let mut item_inner = p.into_inner();
+            let expr = super::expr::parse_expression(item_inner.next().unwrap())?;
+            let order = if let Some(o) = item_inner.next() {
+                if o.as_str().to_uppercase() == "DESC" {
+                    super::super::ast::Order::Desc
                 } else {
-                    Order::Asc
+                    super::super::ast::Order::Asc
                 }
             } else {
-                Order::Asc
+                super::super::ast::Order::Asc
             };
             items.push(OrderByItem { expr, order });
         }
@@ -174,70 +189,24 @@ pub fn parse_order_by(pair: pest::iterators::Pair<Rule>) -> SqlResult<Vec<OrderB
 
 pub fn parse_limit(pair: pest::iterators::Pair<Rule>) -> SqlResult<LimitClause> {
     let mut inner = pair.into_inner();
-    let count: usize = inner
+    let count = inner
         .find(|p| p.as_rule() == Rule::limit_count)
         .ok_or_else(|| SqlError::Parse("Missing LIMIT count".to_string()))?
         .as_str()
         .parse()
-        .map_err(|e| SqlError::Parse(format!("Invalid LIMIT count: {}", e)))?;
-
-    let offset = if let Some(off_pair) = inner.find(|p| p.as_rule() == Rule::offset_clause) {
-        let off: usize = off_pair
-            .into_inner()
-            .find(|p| p.as_rule() == Rule::limit_count)
-            .ok_or_else(|| SqlError::Parse("Missing OFFSET count".to_string()))?
-            .as_str()
-            .parse()
-            .map_err(|e| SqlError::Parse(format!("Invalid OFFSET count: {}", e)))?;
-        Some(off)
+        .map_err(|_| SqlError::Parse("Invalid LIMIT count".to_string()))?;
+        
+    let offset = if let Some(o) = inner.find(|p| p.as_rule() == Rule::offset_clause) {
+        Some(
+            o.into_inner()
+                .find(|p| p.as_rule() == Rule::limit_count)
+                .unwrap()
+                .as_str()
+                .parse()
+                .map_err(|_| SqlError::Parse("Invalid OFFSET".to_string()))?,
+        )
     } else {
         None
     };
-
     Ok(LimitClause { count, offset })
-}
-
-pub fn parse_select_columns(pair: pest::iterators::Pair<Rule>) -> SqlResult<Vec<SelectColumn>> {
-    let mut inner = pair.clone().into_inner();
-    let first = match inner.next() {
-        Some(p) => p,
-        None => {
-            if pair.as_str().trim() == "*" {
-                return Ok(vec![SelectColumn {
-                    expr: Expression::Star,
-                    alias: None,
-                }]);
-            }
-            return Err(SqlError::Parse("Empty select columns".to_string()));
-        }
-    };
-
-    if first.as_rule() == Rule::column_list {
-        let mut cols = Vec::new();
-        for col_expr in first.into_inner() {
-            if col_expr.as_rule() == Rule::column_expr {
-                let mut ce_inner = col_expr.into_inner();
-                let expr = parse_expression(
-                    ce_inner
-                        .find(|p| p.as_rule() == Rule::expression)
-                        .ok_or_else(|| SqlError::Parse("Empty column expression".to_string()))?,
-                )?;
-                let alias = ce_inner.find(|p| p.as_rule() == Rule::alias).and_then(|p| {
-                    p.into_inner()
-                        .find(|p2| p2.as_rule() == Rule::identifier)
-                        .map(|p3| p3.as_str().to_string())
-                });
-                cols.push(SelectColumn { expr, alias });
-            }
-        }
-        Ok(cols)
-    } else if first.as_str().trim() == "*" {
-        Ok(vec![SelectColumn {
-            expr: Expression::Star,
-            alias: None,
-        }])
-    } else {
-        let expr = parse_expression(first)?;
-        Ok(vec![SelectColumn { expr, alias: None }])
-    }
 }

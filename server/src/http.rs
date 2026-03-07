@@ -1,133 +1,119 @@
-use crate::config;
-use crate::sql::{self, Executor};
-use crate::storage;
+use crate::config::Config;
+use crate::sql::executor::{Executor, QueryResult};
+use crate::storage::Value;
 use axum::{
     Json, Router,
     extract::State,
+    http::StatusCode,
+    response::IntoResponse,
     routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tower_http::cors::{Any, CorsLayer};
-
-#[derive(Clone)]
-pub struct AppState {
-    pub _config: config::Config,
-    pub executor: Arc<Executor>,
-}
+use tracing::error;
 
 #[derive(Deserialize)]
-pub struct QueryRequest {
-    pub sql: String,
-    pub transaction_id: Option<String>,
+struct QueryRequest {
+    sql: String,
+    transaction_id: Option<String>,
 }
 
 #[derive(Serialize)]
-pub struct QueryResponse {
-    pub success: bool,
-    #[serde(default)]
-    pub columns: Vec<String>,
-    #[serde(default)]
-    pub data: Vec<serde_json::Value>,
-    #[serde(default)]
-    pub rows_affected: u64,
-    #[serde(default)]
-    pub execution_time_ms: u64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub transaction_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<sql::SqlError>,
+struct QueryResponse {
+    success: bool,
+    columns: Vec<String>,
+    data: Vec<Vec<serde_json::Value>>,
+    rows_affected: u64,
+    transaction_id: Option<String>,
+    error: Option<String>,
 }
 
-pub async fn root() -> &'static str {
-    "thy-squeal SQL server"
+pub struct HttpServer {
+    #[allow(dead_code)]
+    executor: Arc<Executor>,
 }
 
-pub async fn health() -> &'static str {
-    "OK"
-}
+impl HttpServer {
+    #[allow(dead_code)]
+    pub fn new(executor: Arc<Executor>) -> Self {
+        Self { executor }
+    }
 
-pub async fn execute_query(
-    State(state): State<AppState>,
-    Json(req): Json<QueryRequest>,
-) -> Json<QueryResponse> {
-    let start = std::time::Instant::now();
+    #[allow(dead_code)]
+    pub async fn run(&self, port: u16) -> anyhow::Result<()> {
+        let app = create_app(self.executor.clone(), Config::default());
+        let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port)).await?;
+        axum::serve(listener, app).await?;
+        Ok(())
+    }
 
-    match state.executor.execute(&req.sql, req.transaction_id).await {
-        Ok(result) => {
-            let data: Vec<serde_json::Value> = result
-                .rows
-                .iter()
-                .map(|row| {
-                    let mut map = serde_json::Map::new();
-                    for (i, col) in result.columns.iter().enumerate() {
-                        if let Some(val) = row.get(i) {
-                            map.insert(col.clone(), value_to_json(val));
-                        }
-                    }
-                    serde_json::Value::Object(map)
-                })
-                .collect();
+    async fn root() -> &'static str {
+        "thy-squeal SQL Server"
+    }
 
-            Json(QueryResponse {
-                success: true,
-                columns: result.columns,
-                data,
-                rows_affected: result.rows_affected,
-                execution_time_ms: start.elapsed().as_millis() as u64,
-                transaction_id: result.transaction_id,
-                error: None,
-            })
+    async fn health() -> &'static str {
+        "OK"
+    }
+
+    async fn query(
+        State(executor): State<Arc<Executor>>,
+        Json(payload): Json<QueryRequest>,
+    ) -> impl IntoResponse {
+        match executor.execute(&payload.sql, payload.transaction_id).await {
+            Ok(result) => (StatusCode::OK, Json(Self::map_result(result, None))),
+            Err(e) => {
+                error!("Query error: {:?}", e);
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(Self::map_result(
+                        QueryResult {
+                            columns: vec![],
+                            rows: vec![],
+                            rows_affected: 0,
+                            transaction_id: None,
+                        },
+                        Some(format!("{:?}", e)),
+                    )),
+                )
+            }
         }
-        Err(e) => {
-            tracing::error!("Query error: {:?}", e);
-            Json(QueryResponse {
-                success: false,
-                columns: vec![],
-                data: vec![],
-                rows_affected: 0,
-                execution_time_ms: start.elapsed().as_millis() as u64,
-                transaction_id: None,
-                error: Some(e),
-            })
+    }
+
+    fn map_result(result: QueryResult, error: Option<String>) -> QueryResponse {
+        let data = result
+            .rows
+            .into_iter()
+            .map(|row| row.into_iter().map(Self::value_to_json).collect())
+            .collect();
+
+        QueryResponse {
+            success: error.is_none(),
+            columns: result.columns,
+            data,
+            rows_affected: result.rows_affected,
+            transaction_id: result.transaction_id,
+            error,
+        }
+    }
+
+    fn value_to_json(v: Value) -> serde_json::Value {
+        match v {
+            Value::Null => serde_json::Value::Null,
+            Value::Int(i) => serde_json::Value::Number(i.into()),
+            Value::Float(f) => serde_json::Value::Number(
+                serde_json::Number::from_f64(f).unwrap_or_else(|| 0.into()),
+            ),
+            Value::Text(s) => serde_json::Value::String(s),
+            Value::Bool(b) => serde_json::Value::Bool(b),
+            Value::Json(j) => j,
         }
     }
 }
 
-pub fn value_to_json(val: &storage::Value) -> serde_json::Value {
-    match val {
-        storage::Value::Null => serde_json::Value::Null,
-        storage::Value::Int(i) => serde_json::Value::Number((*i).into()),
-        storage::Value::Float(f) => {
-            serde_json::Value::Number(serde_json::Number::from_f64(*f).unwrap())
-        }
-        storage::Value::Bool(b) => serde_json::Value::Bool(*b),
-        storage::Value::Text(s) => serde_json::Value::String(s.clone()),
-        storage::Value::Date(d) => serde_json::Value::String(d.to_string()),
-        storage::Value::DateTime(dt) => serde_json::Value::String(dt.to_string()),
-        storage::Value::Blob(b) => serde_json::Value::String(base64::Engine::encode(
-            &base64::engine::general_purpose::STANDARD,
-            b,
-        )),
-        storage::Value::Json(j) => j.clone(),
-    }
-}
-
-pub fn create_app(executor: Arc<Executor>, config: config::Config) -> Router {
-    let state = AppState {
-        _config: config,
-        executor,
-    };
-
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
-
+pub fn create_app(executor: Arc<Executor>, _config: Config) -> Router {
     Router::new()
-        .route("/", get(root))
-        .route("/health", get(health))
-        .route("/_query", post(execute_query))
-        .layer(cors)
-        .with_state(state)
+        .route("/", get(HttpServer::root))
+        .route("/health", get(HttpServer::health))
+        .route("/_query", post(HttpServer::query))
+        .with_state(executor)
 }

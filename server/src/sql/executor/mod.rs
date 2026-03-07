@@ -5,10 +5,10 @@ pub mod select;
 mod tests;
 
 use super::ast::SqlStmt;
-use super::error::{SqlResult, SqlError};
-use super::parser::parse;
+use super::error::{SqlError, SqlResult};
 use super::eval::Evaluator;
-use crate::storage::{Database, Row, Table, Value, DatabaseState, WalRecord};
+use super::parser::parse;
+use crate::storage::{Database, DatabaseState, Row, Table, Value, WalRecord};
 use dashmap::DashMap;
 use futures::future::BoxFuture;
 
@@ -33,43 +33,62 @@ impl Executor {
         }
     }
 
-    pub async fn execute(&self, sql: &str, transaction_id: Option<String>) -> SqlResult<QueryResult> {
+    pub async fn execute(
+        &self,
+        sql: &str,
+        transaction_id: Option<String>,
+    ) -> SqlResult<QueryResult> {
         let stmt = parse(sql)?;
 
         let mut res = match stmt {
             SqlStmt::Begin => self.exec_begin().await?,
             SqlStmt::Commit => self.exec_commit(transaction_id.as_deref()).await?,
             SqlStmt::Rollback => self.exec_rollback(transaction_id.as_deref()).await?,
-            SqlStmt::CreateTable(ct) => self.exec_create_table(ct, transaction_id.as_deref()).await?,
+            SqlStmt::CreateTable(ct) => {
+                self.exec_create_table(ct, transaction_id.as_deref())
+                    .await?
+            }
             SqlStmt::DropTable(dt) => self.exec_drop_table(dt, transaction_id.as_deref()).await?,
-            SqlStmt::CreateIndex(ci) => self.exec_create_index(ci, transaction_id.as_deref()).await?,
+            SqlStmt::CreateIndex(ci) => {
+                self.exec_create_index(ci, transaction_id.as_deref())
+                    .await?
+            }
             SqlStmt::Select(s) => {
                 if let Some(id) = transaction_id.as_deref() {
-                    let state = self.transactions.get(id).ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
-                    self.exec_select_recursive(s, &[], &*state, Some(id)).await?
+                    let state = self
+                        .transactions
+                        .get(id)
+                        .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+                    self.exec_select_recursive(s, &[], &state, Some(id)).await?
                 } else {
                     let db = self.db.read().await;
                     self.exec_select_recursive(s, &[], db.state(), None).await?
                 }
-            },
+            }
             SqlStmt::Explain(s) => {
                 if let Some(id) = transaction_id.as_deref() {
-                    let state = self.transactions.get(id).ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
-                    self.exec_explain(s, &*state, Some(id)).await?
+                    let state = self
+                        .transactions
+                        .get(id)
+                        .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+                    self.exec_explain(s, &state, Some(id)).await?
                 } else {
                     let db = self.db.read().await;
                     self.exec_explain(s, db.state(), None).await?
                 }
-            },
+            }
             SqlStmt::Search(s) => {
                 if let Some(id) = transaction_id.as_deref() {
-                    let state = self.transactions.get(id).ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
-                    self.exec_search(s, &*state, Some(id)).await?
+                    let state = self
+                        .transactions
+                        .get(id)
+                        .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+                    self.exec_search(s, &state, Some(id)).await?
                 } else {
                     let db = self.db.read().await;
                     self.exec_search(s, db.state(), None).await?
                 }
-            },
+            }
             SqlStmt::Insert(i) => self.exec_insert(i, transaction_id.as_deref()).await?,
             SqlStmt::Update(u) => self.exec_update(u, transaction_id.as_deref()).await?,
             SqlStmt::Delete(d) => self.exec_delete(d, transaction_id.as_deref()).await?,
@@ -96,10 +115,14 @@ impl Evaluator for Executor {
 
 impl Executor {
     pub(crate) async fn mutate_state<F, R>(&self, tx_id: Option<&str>, f: F) -> SqlResult<R>
-    where F: FnOnce(&mut DatabaseState) -> SqlResult<R>
+    where
+        F: FnOnce(&mut DatabaseState) -> SqlResult<R>,
     {
         if let Some(id) = tx_id {
-            let mut state_ref = self.transactions.get_mut(id).ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+            let mut state_ref = self
+                .transactions
+                .get_mut(id)
+                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
             f(state_ref.value_mut())
         } else {
             let mut db = self.db.write().await;
@@ -112,9 +135,12 @@ impl Executor {
     async fn exec_begin(&self) -> SqlResult<QueryResult> {
         let db = self.db.read().await;
         let tx_id = uuid::Uuid::new_v4().to_string();
-        
+
         // Log BEGIN to WAL
-        db.log_operation(&WalRecord::Begin { tx_id: tx_id.clone() }).map_err(|e| SqlError::Storage(e.to_string()))?;
+        db.log_operation(&WalRecord::Begin {
+            tx_id: tx_id.clone(),
+        })
+        .map_err(|e| SqlError::Storage(e.to_string()))?;
 
         let state = db.state().clone();
         self.transactions.insert(tx_id.clone(), state);
@@ -129,16 +155,22 @@ impl Executor {
 
     async fn exec_commit(&self, tx_id: Option<&str>) -> SqlResult<QueryResult> {
         let tx_id = tx_id.ok_or_else(|| SqlError::Runtime("No active transaction".to_string()))?;
-        let state = self.transactions.remove(tx_id)
+        let state = self
+            .transactions
+            .remove(tx_id)
             .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?
             .1;
 
         let mut db = self.db.write().await;
-        
-        // Log COMMIT to WAL
-        db.log_operation(&WalRecord::Commit { tx_id: tx_id.to_string() }).map_err(|e| SqlError::Storage(e.to_string()))?;
 
-        db.set_state(state).map_err(|e| SqlError::Storage(e.to_string()))?;
+        // Log COMMIT to WAL
+        db.log_operation(&WalRecord::Commit {
+            tx_id: tx_id.to_string(),
+        })
+        .map_err(|e| SqlError::Storage(e.to_string()))?;
+
+        db.set_state(state)
+            .map_err(|e| SqlError::Storage(e.to_string()))?;
 
         Ok(QueryResult {
             columns: vec![],
@@ -154,7 +186,10 @@ impl Executor {
 
         let db = self.db.read().await;
         // Log ROLLBACK to WAL
-        db.log_operation(&WalRecord::Rollback { tx_id: tx_id.to_string() }).map_err(|e| SqlError::Storage(e.to_string()))?;
+        db.log_operation(&WalRecord::Rollback {
+            tx_id: tx_id.to_string(),
+        })
+        .map_err(|e| SqlError::Storage(e.to_string()))?;
 
         Ok(QueryResult {
             columns: vec![],

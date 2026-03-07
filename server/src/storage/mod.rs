@@ -1,18 +1,19 @@
 pub mod error;
-pub mod types;
-pub mod value;
-pub mod table;
 pub mod persistence;
 pub mod search;
+pub mod table;
+pub mod types;
+pub mod value;
 
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 pub use error::StorageError;
+pub use persistence::{Persister, WalRecord};
+pub use table::{Column, Row, Table, TableIndex};
 pub use types::DataType;
 pub use value::Value;
-pub use table::{Table, Column, Row, TableIndex};
-pub use persistence::{Persister, WalRecord};
+
 use crate::sql::eval::{Evaluator, RecoveryEvaluator};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -49,7 +50,10 @@ impl Database {
         }
     }
 
-    pub fn with_persister(persister: Box<dyn Persister>, data_dir: String) -> Result<Self, StorageError> {
+    pub fn with_persister(
+        persister: Box<dyn Persister>,
+        data_dir: String,
+    ) -> Result<Self, StorageError> {
         let tables = persister.load_tables().unwrap_or_default();
         let mut db = Self {
             state: DatabaseState { tables },
@@ -63,7 +67,9 @@ impl Database {
         // Initialize search indices for each table (after WAL replay)
         for (name, table) in &mut db.state.tables {
             let search_path = format!("{}/search_{}", data_dir, name);
-            table.setup_search_index(&search_path).map_err(|e| StorageError::PersistenceError(e.to_string()))?;
+            table
+                .setup_search_index(&search_path)
+                .map_err(|e| StorageError::PersistenceError(e.to_string()))?;
         }
 
         Ok(db)
@@ -78,7 +84,7 @@ impl Database {
 
             tracing::info!("Replaying {} WAL records", logs.len());
             let recovery_eval = RecoveryEvaluator;
-            
+
             // Buffer for in-progress transactions
             let mut pending_txs: HashMap<String, Vec<WalRecord>> = HashMap::new();
 
@@ -124,10 +130,16 @@ impl Database {
         Ok(())
     }
 
-    fn apply_record(&mut self, evaluator: &dyn Evaluator, record: WalRecord) -> Result<(), StorageError> {
+    fn apply_record(
+        &mut self,
+        evaluator: &dyn Evaluator,
+        record: WalRecord,
+    ) -> Result<(), StorageError> {
         match record {
             WalRecord::CreateTable { name, columns, .. } => {
-                self.state.tables.insert(name.clone(), Table::new(name, columns));
+                self.state
+                    .tables
+                    .insert(name.clone(), Table::new(name, columns));
             }
             WalRecord::DropTable { name, .. } => {
                 self.state.tables.remove(&name);
@@ -138,7 +150,9 @@ impl Database {
                     t.insert(evaluator, values, &db_state)?;
                 }
             }
-            WalRecord::Update { table, id, values, .. } => {
+            WalRecord::Update {
+                table, id, values, ..
+            } => {
                 let db_state = self.state.clone();
                 if let Some(t) = self.state.get_table_mut(&table) {
                     t.update(evaluator, &id, values, &db_state)?;
@@ -150,10 +164,26 @@ impl Database {
                     t.delete(evaluator, &id, &db_state)?;
                 }
             }
-            WalRecord::CreateIndex { table, name, expressions, unique, use_hash, where_clause, .. } => {
+            WalRecord::CreateIndex {
+                table,
+                name,
+                expressions,
+                unique,
+                use_hash,
+                where_clause,
+                ..
+            } => {
                 let db_state = self.state.clone();
                 if let Some(t) = self.state.get_table_mut(&table) {
-                    t.create_index(evaluator, name, expressions, unique, use_hash, where_clause, &db_state)?;
+                    t.create_index(
+                        evaluator,
+                        name,
+                        expressions,
+                        unique,
+                        use_hash,
+                        where_clause,
+                        &db_state,
+                    )?;
                 }
             }
             _ => {}
@@ -180,16 +210,14 @@ impl Database {
         if self.state.tables.contains_key(&name) {
             return Err(StorageError::DuplicateKey(name));
         }
-        
-        // Executor should have logged this already if called from Executor
-        // But for direct Database calls, we might want to log too.
-        // For now, let's assume all mutations go through Executor for SQL.
 
         let mut table = Table::new(name.clone(), columns);
-        
+
         if let Some(ref data_dir) = self._data_dir {
             let search_path = format!("{}/search_{}", data_dir, name);
-            table.setup_search_index(&search_path).map_err(|e| StorageError::PersistenceError(e.to_string()))?;
+            table
+                .setup_search_index(&search_path)
+                .map_err(|e| StorageError::PersistenceError(e.to_string()))?;
         }
 
         self.state.tables.insert(name, table);
@@ -197,7 +225,8 @@ impl Database {
     }
 
     pub fn drop_table(&mut self, name: &str) -> Result<(), StorageError> {
-        self.state.tables
+        self.state
+            .tables
             .remove(name)
             .map(|_| ())
             .ok_or_else(|| StorageError::TableNotFound(name.to_string()))?;
@@ -231,21 +260,49 @@ impl Database {
     }
 
     // Direct mutation methods (already logged by Executor)
-    pub fn insert(&mut self, evaluator: &dyn Evaluator, table_name: &str, values: Vec<Value>, db_state: &DatabaseState) -> Result<String, StorageError> {
-        let table = self.get_table_mut(table_name).ok_or_else(|| StorageError::TableNotFound(table_name.to_string()))?;
+    #[allow(dead_code)]
+    pub fn insert(
+        &mut self,
+        evaluator: &dyn Evaluator,
+        table_name: &str,
+        values: Vec<Value>,
+        db_state: &DatabaseState,
+    ) -> Result<String, StorageError> {
+        let table = self
+            .get_table_mut(table_name)
+            .ok_or_else(|| StorageError::TableNotFound(table_name.to_string()))?;
         let id = table.insert(evaluator, values, db_state)?;
         self.save()?;
         Ok(id)
     }
 
-    pub fn update(&mut self, evaluator: &dyn Evaluator, table_name: &str, id: &str, values: Vec<Value>, db_state: &DatabaseState) -> Result<(), StorageError> {
-        let table = self.get_table_mut(table_name).ok_or_else(|| StorageError::TableNotFound(table_name.to_string()))?;
+    #[allow(dead_code)]
+    pub fn update(
+        &mut self,
+        evaluator: &dyn Evaluator,
+        table_name: &str,
+        id: &str,
+        values: Vec<Value>,
+        db_state: &DatabaseState,
+    ) -> Result<(), StorageError> {
+        let table = self
+            .get_table_mut(table_name)
+            .ok_or_else(|| StorageError::TableNotFound(table_name.to_string()))?;
         table.update(evaluator, id, values, db_state)?;
         self.save()
     }
 
-    pub fn delete(&mut self, evaluator: &dyn Evaluator, table_name: &str, id: &str, db_state: &DatabaseState) -> Result<(), StorageError> {
-        let table = self.get_table_mut(table_name).ok_or_else(|| StorageError::TableNotFound(table_name.to_string()))?;
+    #[allow(dead_code)]
+    pub fn delete(
+        &mut self,
+        evaluator: &dyn Evaluator,
+        table_name: &str,
+        id: &str,
+        db_state: &DatabaseState,
+    ) -> Result<(), StorageError> {
+        let table = self
+            .get_table_mut(table_name)
+            .ok_or_else(|| StorageError::TableNotFound(table_name.to_string()))?;
         table.delete(evaluator, id, db_state)?;
         self.save()
     }
