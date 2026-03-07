@@ -116,5 +116,11 @@ pub fn evaluate_expression(expr: &Expression, table: &Table, row: &Row) -> SqlRe
                 _ => Err(SqlError::TypeMismatch("Unsupported types for binary operation".to_string())),
             }
         }
+        Expression::FunctionCall(_) => {
+            Err(SqlError::Runtime("Aggregate functions must be evaluated at the top level".to_string()))
+        }
+        Expression::Star => {
+            Err(SqlError::Runtime("Star expression must be evaluated at the top level".to_string()))
+        }
     }
 }

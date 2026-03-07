@@ -16,6 +16,23 @@ pub enum Expression {
     Literal(Value),
     Column(String),
     BinaryOp(Box<Expression>, BinaryOp, Box<Expression>),
+    FunctionCall(FunctionCall),
+    Star,
+}
+
+#[derive(Debug, Clone)]
+pub struct FunctionCall {
+    pub name: AggregateType,
+    pub args: Vec<Expression>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum AggregateType {
+    Count,
+    Sum,
+    Avg,
+    Min,
+    Max,
 }
 
 #[derive(Debug, Clone)]
@@ -96,11 +113,17 @@ pub struct DropTableStmt {
 
 #[derive(Debug, Clone)]
 pub struct SelectStmt {
-    pub columns: Vec<String>,
+    pub columns: Vec<SelectColumn>,
     pub table: String,
     pub where_clause: Option<Condition>,
     pub order_by: Vec<OrderByItem>,
     pub limit: Option<LimitClause>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SelectColumn {
+    pub expr: Expression,
+    pub alias: Option<String>,
 }
 
 #[derive(Debug, Clone)]

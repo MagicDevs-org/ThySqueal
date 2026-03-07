@@ -12,16 +12,16 @@ Pest-based SQL parser for thy-squeal, supporting a MySQL-compatible dialect.
 ## Supported SQL Statements
 
 ### Data Query Language (DQL)
-- `SELECT` with columns, expressions
+- `SELECT` with columns, expressions, aliases
 - `FROM` with table references
 - `WHERE` conditions (basic operators)
 - `ORDER BY`
 - `LIMIT` / `OFFSET`
+- `Aggregations` (COUNT, SUM, AVG, MIN, MAX)
 - [ ] `DISTINCT`
 - [ ] `JOIN` (INNER, LEFT)
 - [ ] `GROUP BY`
 - [ ] `HAVING`
-- [ ] `Aliases` for tables and columns
 
 ### Data Manipulation Language (DML)
 - `INSERT INTO ... VALUES ...`

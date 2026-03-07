@@ -100,10 +100,10 @@ See: [sql-parser.md](./features/sql-parser.md)
 - [x] Add ORDER BY
 - [x] Add LIMIT/OFFSET
 - [ ] Add DISTINCT
-- [ ] Add column aliases
+- [x] Add column aliases
 
 ### Aggregations
-- [ ] Add COUNT, SUM, AVG, MIN, MAX
+- [x] Add COUNT, SUM, AVG, MIN, MAX
 - [ ] Add GROUP BY
 - [ ] Add HAVING
 

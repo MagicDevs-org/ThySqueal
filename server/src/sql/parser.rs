@@ -4,8 +4,9 @@ use pest_derive::Parser;
 use crate::storage::{Column, DataType, Value};
 
 use super::ast::{
-    BinaryOp, ComparisonOp, Condition, CreateTableStmt, DeleteStmt, DropTableStmt, Expression,
-    InsertStmt, LimitClause, LogicalOp, Order, OrderByItem, SelectStmt, SqlStmt, UpdateStmt,
+    AggregateType, BinaryOp, ComparisonOp, Condition, CreateTableStmt, DeleteStmt, DropTableStmt,
+    Expression, FunctionCall, InsertStmt, LimitClause, LogicalOp, Order, OrderByItem, SelectColumn,
+    SelectStmt, SqlStmt, UpdateStmt,
 };
 use super::error::{SqlError, SqlResult};
 
@@ -166,11 +167,7 @@ fn parse_select(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
     };
 
     Ok(SqlStmt::Select(SelectStmt {
-        columns: if columns.is_empty() {
-            vec!["*".to_string()]
-        } else {
-            columns
-        },
+        columns,
         table,
         where_clause,
         order_by,
@@ -338,10 +335,10 @@ fn parse_term(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expression> {
 }
 
 fn parse_factor(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expression> {
-    let mut inner = pair.into_inner();
-    let first = inner.next().ok_or_else(|| SqlError::Parse("Empty factor".to_string()))?;
+    let first = pair.into_inner().next().ok_or_else(|| SqlError::Parse("Empty factor".to_string()))?;
     
     match first.as_rule() {
+        Rule::aggregate_func => parse_aggregate(first),
         Rule::literal => Ok(Expression::Literal(parse_literal(first)?)),
         Rule::column_ref => {
             let mut cr_inner = first.into_inner();
@@ -357,17 +354,43 @@ fn parse_factor(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expression> {
     }
 }
 
-fn parse_select_columns(pair: pest::iterators::Pair<Rule>) -> SqlResult<Vec<String>> {
-    let pair_str = pair.as_str().trim().to_string();
+fn parse_aggregate(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expression> {
     let mut inner = pair.into_inner();
+    let agg_type_pair = inner.next().ok_or_else(|| SqlError::Parse("Missing aggregate type".to_string()))?;
+    let agg_type = parse_aggregate_type(agg_type_pair)?;
+    
+    let mut args = Vec::new();
+    let arg_pair = inner.next().ok_or_else(|| SqlError::Parse("Missing aggregate argument".to_string()))?;
+    match arg_pair.as_rule() {
+        Rule::star => args.push(Expression::Star),
+        Rule::expression => args.push(parse_expression(arg_pair)?),
+        _ => return Err(SqlError::Parse(format!("Unexpected aggregate argument: {:?}", arg_pair.as_rule()))),
+    }
+    
+    Ok(Expression::FunctionCall(FunctionCall { name: agg_type, args }))
+}
+
+fn parse_aggregate_type(pair: pest::iterators::Pair<Rule>) -> SqlResult<AggregateType> {
+    let kw = pair.into_inner().next().ok_or_else(|| SqlError::Parse("Missing aggregate keyword".to_string()))?;
+    match kw.as_rule() {
+        Rule::KW_COUNT => Ok(AggregateType::Count),
+        Rule::KW_SUM => Ok(AggregateType::Sum),
+        Rule::KW_AVG => Ok(AggregateType::Avg),
+        Rule::KW_MIN => Ok(AggregateType::Min),
+        Rule::KW_MAX => Ok(AggregateType::Max),
+        _ => Err(SqlError::Parse(format!("Unknown aggregate type: {:?}", kw.as_rule()))),
+    }
+}
+
+fn parse_select_columns(pair: pest::iterators::Pair<Rule>) -> SqlResult<Vec<SelectColumn>> {
+    let mut inner = pair.clone().into_inner();
     let first = match inner.next() {
         Some(p) => p,
         None => {
-            return if pair_str.contains('*') {
-                Ok(vec!["*".to_string()])
-            } else {
-                Err(SqlError::Parse("Empty select columns".to_string()))
-            };
+            if pair.as_str().trim() == "*" {
+                return Ok(vec![SelectColumn { expr: Expression::Star, alias: None }]);
+            }
+            return Err(SqlError::Parse("Empty select columns".to_string()));
         }
     };
 
@@ -375,17 +398,21 @@ fn parse_select_columns(pair: pest::iterators::Pair<Rule>) -> SqlResult<Vec<Stri
         let mut cols = Vec::new();
         for col_expr in first.into_inner() {
             if col_expr.as_rule() == Rule::column_expr {
-                let ce_inner = col_expr.into_inner();
-                // Find expression inside column_expr
-                let expr = ce_inner.filter(|p| p.as_rule() == Rule::expression).next().ok_or_else(|| SqlError::Parse("Empty column expression".to_string()))?;
-                cols.push(expr.as_str().trim().to_string());
+                let mut ce_inner = col_expr.into_inner();
+                let expr = parse_expression(ce_inner.find(|p| p.as_rule() == Rule::expression).ok_or_else(|| SqlError::Parse("Empty column expression".to_string()))?)?;
+                let alias = ce_inner.find(|p| p.as_rule() == Rule::alias).and_then(|p| {
+                    p.into_inner().find(|p2| p2.as_rule() == Rule::identifier).map(|p3| p3.as_str().to_string())
+                });
+                cols.push(SelectColumn { expr, alias });
             }
         }
         Ok(cols)
     } else if first.as_str().trim() == "*" {
-        Ok(vec!["*".to_string()])
+        Ok(vec![SelectColumn { expr: Expression::Star, alias: None }])
     } else {
-        Ok(vec![first.as_str().trim().to_string()])
+        // Fallback for single column if not in list
+        let expr = parse_expression(first)?;
+        Ok(vec![SelectColumn { expr, alias: None }])
     }
 }
 

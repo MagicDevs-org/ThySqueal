@@ -61,7 +61,11 @@ limit_count = @{ ASCII_DIGIT+ }
 // Expressions
 expression = { term ~ (("+" | "-") ~ term)* }
 term = { factor ~ (("*" | "/" | "%") ~ factor)* }
-factor = { column_ref | literal | "(" ~ expression ~ ")" | KW_NOT ~ factor | "-" ~ factor }
+factor = { aggregate_func | column_ref | literal | "(" ~ expression ~ ")" | KW_NOT ~ factor | "-" ~ factor }
+
+aggregate_func = { agg_type ~ "(" ~ ( star | expression ) ~ ")" }
+agg_type = { KW_COUNT | KW_SUM | KW_AVG | KW_MIN | KW_MAX }
+star = { "*" }
 
 literal = { string_literal | number_literal | boolean_literal | KW_NULL }
 
@@ -78,7 +82,8 @@ table_name = { identifier }
 keyword = {
     KW_SELECT | KW_FROM | KW_WHERE | KW_INSERT | KW_INTO | KW_VALUES | KW_UPDATE | KW_SET | KW_DELETE |
     KW_CREATE | KW_TABLE | KW_DROP | KW_ORDER | KW_BY | KW_LIMIT | KW_OFFSET | KW_ASC | KW_DESC |
-    KW_DISTINCT | KW_AS | KW_AND | KW_OR | KW_NOT | KW_NULL | KW_IS | KW_TRUE | KW_FALSE
+    KW_DISTINCT | KW_AS | KW_AND | KW_OR | KW_NOT | KW_NULL | KW_IS | KW_TRUE | KW_FALSE |
+    KW_COUNT | KW_SUM | KW_AVG | KW_MIN | KW_MAX
 }
 
 // Keywords (reserved)
@@ -109,6 +114,11 @@ KW_NULL     = @{ ^"NULL" ~ !id_char }
 KW_IS       = @{ ^"IS" ~ !id_char }
 KW_TRUE     = @{ ^"TRUE" ~ !id_char }
 KW_FALSE    = @{ ^"FALSE" ~ !id_char }
+KW_COUNT    = @{ ^"COUNT" ~ !id_char }
+KW_SUM      = @{ ^"SUM" ~ !id_char }
+KW_AVG      = @{ ^"AVG" ~ !id_char }
+KW_MIN      = @{ ^"MIN" ~ !id_char }
+KW_MAX      = @{ ^"MAX" ~ !id_char }
 
 id_char = _{ ASCII_ALPHA | ASCII_DIGIT | "_" }
 

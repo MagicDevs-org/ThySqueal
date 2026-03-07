@@ -140,10 +140,24 @@ impl Executor {
             .get_table(&stmt.table)
             .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
 
-        let result_columns = if stmt.columns.iter().any(|c| c == "*") {
+        let is_star = stmt.columns.iter().any(|c| matches!(c.expr, ast::Expression::Star));
+        let has_aggregates = stmt.columns.iter().any(|c| matches!(c.expr, ast::Expression::FunctionCall(_)));
+
+        let result_columns: Vec<String> = if is_star {
             table.columns.iter().map(|c| c.name.clone()).collect()
         } else {
-            stmt.columns.clone()
+            stmt.columns.iter().enumerate().map(|(i, c)| {
+                c.alias.clone().unwrap_or_else(|| {
+                    match &c.expr {
+                        ast::Expression::Column(name) => name.clone(),
+                        ast::Expression::FunctionCall(fc) => {
+                            let name = format!("{:?}", fc.name).to_uppercase();
+                            format!("{}(...)", name)
+                        },
+                        _ => format!("col_{}", i)
+                    }
+                })
+            }).collect()
         };
 
         let mut matched_rows = Vec::new();
@@ -184,6 +198,37 @@ impl Executor {
             if let Some(e) = err { return Err(e); }
         }
 
+        // Handle Aggregates
+        if has_aggregates {
+            // Very simple global aggregation (no GROUP BY yet)
+            let mut row_values = Vec::new();
+            for col in &stmt.columns {
+                match &col.expr {
+                    ast::Expression::FunctionCall(fc) => {
+                        let val = self.eval_aggregate(fc, table, &matched_rows)?;
+                        row_values.push(val);
+                    },
+                    ast::Expression::Column(_) | ast::Expression::Literal(_) | ast::Expression::BinaryOp(_, _, _) => {
+                        // In standard SQL, selecting non-aggregated columns without GROUP BY is usually an error or returns first row.
+                        // For now, let's just evaluate it against the first matched row if it exists.
+                        if let Some(first_row) = matched_rows.first() {
+                            row_values.push(eval::evaluate_expression(&col.expr, table, first_row)?);
+                        } else {
+                            row_values.push(Value::Null);
+                        }
+                    },
+                    ast::Expression::Star => {
+                        return Err(SqlError::Runtime("SELECT * with aggregate is not supported".to_string()));
+                    }
+                }
+            }
+            return Ok(QueryResult {
+                columns: result_columns,
+                rows: vec![row_values],
+                rows_affected: 0,
+            });
+        }
+
         // Apply LIMIT and OFFSET
         let final_rows = if let Some(limit) = stmt.limit {
             let offset = limit.offset.unwrap_or(0);
@@ -193,15 +238,13 @@ impl Executor {
         };
 
         let rows: Vec<Vec<Value>> = final_rows.iter().map(|row| {
-            if stmt.columns.iter().any(|c| c == "*") {
+            if is_star {
                 row.values.clone()
             } else {
                 stmt.columns
                     .iter()
                     .filter_map(|col| {
-                        table
-                            .column_index(col)
-                            .and_then(|idx| row.values.get(idx).cloned())
+                        eval::evaluate_expression(&col.expr, table, row).ok()
                     })
                     .collect()
             }
@@ -212,6 +255,77 @@ impl Executor {
             rows,
             rows_affected: 0,
         })
+    }
+
+    fn eval_aggregate(&self, fc: &ast::FunctionCall, table: &crate::storage::Table, rows: &[&crate::storage::Row]) -> SqlResult<Value> {
+        match fc.name {
+            ast::AggregateType::Count => {
+                if fc.args.len() == 1 && matches!(fc.args[0], ast::Expression::Star) {
+                    Ok(Value::Int(rows.len() as i64))
+                } else {
+                    // COUNT(expr) - counts non-null values
+                    let mut count = 0;
+                    for row in rows {
+                        let val = eval::evaluate_expression(&fc.args[0], table, row)?;
+                        if val != Value::Null {
+                            count += 1;
+                        }
+                    }
+                    Ok(Value::Int(count))
+                }
+            },
+            ast::AggregateType::Sum => {
+                let mut sum_f = 0.0;
+                let mut sum_i = 0;
+                let mut is_float = false;
+                for row in rows {
+                    let val = eval::evaluate_expression(&fc.args[0], table, row)?;
+                    match val {
+                        Value::Int(i) => { sum_i += i; sum_f += i as f64; },
+                        Value::Float(f) => { sum_f += f; is_float = true; },
+                        Value::Null => {},
+                        _ => return Err(SqlError::TypeMismatch("SUM requires numeric values".to_string())),
+                    }
+                }
+                if is_float { Ok(Value::Float(sum_f)) } else { Ok(Value::Int(sum_i)) }
+            },
+            ast::AggregateType::Min => {
+                let mut min_val: Option<Value> = None;
+                for row in rows {
+                    let val = eval::evaluate_expression(&fc.args[0], table, row)?;
+                    if val == Value::Null { continue; }
+                    if min_val.is_none() || val < min_val.clone().unwrap() {
+                        min_val = Some(val);
+                    }
+                }
+                Ok(min_val.unwrap_or(Value::Null))
+            },
+            ast::AggregateType::Max => {
+                let mut max_val: Option<Value> = None;
+                for row in rows {
+                    let val = eval::evaluate_expression(&fc.args[0], table, row)?;
+                    if val == Value::Null { continue; }
+                    if max_val.is_none() || val > max_val.clone().unwrap() {
+                        max_val = Some(val);
+                    }
+                }
+                Ok(max_val.unwrap_or(Value::Null))
+            },
+            ast::AggregateType::Avg => {
+                let mut sum = 0.0;
+                let mut count = 0;
+                for row in rows {
+                    let val = eval::evaluate_expression(&fc.args[0], table, row)?;
+                    match val {
+                        Value::Int(i) => { sum += i as f64; count += 1; },
+                        Value::Float(f) => { sum += f; count += 1; },
+                        Value::Null => {},
+                        _ => return Err(SqlError::TypeMismatch("AVG requires numeric values".to_string())),
+                    }
+                }
+                if count == 0 { Ok(Value::Null) } else { Ok(Value::Float(sum / count as f64)) }
+            }
+        }
     }
 
     async fn exec_insert(&self, stmt: ast::InsertStmt) -> SqlResult<QueryResult> {
@@ -366,6 +480,33 @@ mod tests {
         assert_eq!(r.rows.len(), 3);
         assert_eq!(r.rows[0][0].as_int(), Some(3));
         assert_eq!(r.rows[2][0].as_int(), Some(5));
+    }
+
+    #[tokio::test]
+    async fn test_aggregations_and_aliases() {
+        let exec = Executor::new();
+        exec.execute("CREATE TABLE sales (id INT, amount FLOAT)")
+            .await
+            .unwrap();
+        exec.execute("INSERT INTO sales (id, amount) VALUES (1, 100.0)")
+            .await
+            .unwrap();
+        exec.execute("INSERT INTO sales (id, amount) VALUES (2, 200.0)")
+            .await
+            .unwrap();
+        exec.execute("INSERT INTO sales (id, amount) VALUES (3, 150.0)")
+            .await
+            .unwrap();
+
+        let r = exec.execute("SELECT COUNT(*) AS total_count, SUM(amount) AS total_amount FROM sales").await.unwrap();
+        assert_eq!(r.columns, vec!["total_count", "total_amount"]);
+        assert_eq!(r.rows[0][0].as_int(), Some(3));
+        assert_eq!(r.rows[0][1].as_float(), Some(450.0));
+
+        let r = exec.execute("SELECT MIN(amount), MAX(amount), AVG(amount) FROM sales").await.unwrap();
+        assert_eq!(r.rows[0][0].as_float(), Some(100.0));
+        assert_eq!(r.rows[0][1].as_float(), Some(200.0));
+        assert_eq!(r.rows[0][2].as_float(), Some(150.0));
     }
 
     #[tokio::test]
