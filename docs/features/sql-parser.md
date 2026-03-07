@@ -15,12 +15,12 @@ Pest-based SQL parser for thy-squeal, supporting a MySQL-compatible dialect.
 - `SELECT` with columns, expressions
 - `FROM` with table references
 - `WHERE` conditions (basic operators)
+- `ORDER BY`
+- `LIMIT` / `OFFSET`
 - [ ] `DISTINCT`
 - [ ] `JOIN` (INNER, LEFT)
 - [ ] `GROUP BY`
 - [ ] `HAVING`
-- [ ] `ORDER BY`
-- [ ] `LIMIT` / `OFFSET`
 - [ ] `Aliases` for tables and columns
 
 ### Data Manipulation Language (DML)

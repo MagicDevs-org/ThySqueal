@@ -75,7 +75,7 @@ Client (--http -e "SQL")  →  POST /_query  →  Executor::execute(sql)
 **Definition of done**:
 - [x] Pest parser wired; executor uses AST
 - [x] WHERE works for SELECT, UPDATE, DELETE
-- [ ] ORDER BY, LIMIT work for SELECT
+- [x] ORDER BY, LIMIT work for SELECT
 - [x] REPL executes SQL over HTTP
 - [x] Unit tests for SQL operations
 - [ ] Integration tests

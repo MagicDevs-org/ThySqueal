@@ -53,6 +53,24 @@ pub enum LogicalOp {
 }
 
 #[derive(Debug, Clone)]
+pub struct OrderByItem {
+    pub expr: Expression,
+    pub order: Order,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Order {
+    Asc,
+    Desc,
+}
+
+#[derive(Debug, Clone)]
+pub struct LimitClause {
+    pub count: usize,
+    pub offset: Option<usize>,
+}
+
+#[derive(Debug, Clone)]
 pub struct UpdateStmt {
     pub table: String,
     pub assignments: Vec<(String, Expression)>,
@@ -81,6 +99,8 @@ pub struct SelectStmt {
     pub columns: Vec<String>,
     pub table: String,
     pub where_clause: Option<Condition>,
+    pub order_by: Vec<OrderByItem>,
+    pub limit: Option<LimitClause>,
 }
 
 #[derive(Debug, Clone)]

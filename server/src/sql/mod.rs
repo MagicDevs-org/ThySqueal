@@ -144,7 +144,7 @@ impl Executor {
             stmt.columns.clone()
         };
 
-        let mut rows = Vec::new();
+        let mut matched_rows = Vec::new();
         for row in &table.rows {
             let matches = if let Some(ref cond) = stmt.where_clause {
                 evaluate_condition(cond, table, row)?
@@ -153,21 +153,57 @@ impl Executor {
             };
 
             if matches {
-                let values = if stmt.columns.iter().any(|c| c == "*") {
-                    row.values.clone()
-                } else {
-                    stmt.columns
-                        .iter()
-                        .filter_map(|col| {
-                            table
-                                .column_index(col)
-                                .and_then(|idx| row.values.get(idx).cloned())
-                        })
-                        .collect()
-                };
-                rows.push(values);
+                matched_rows.push(row);
             }
         }
+
+        // Apply ORDER BY
+        if !stmt.order_by.is_empty() {
+            let mut err = None;
+            matched_rows.sort_by(|a, b| {
+                for item in &stmt.order_by {
+                    let val_a = match eval::evaluate_expression(&item.expr, table, a) {
+                        Ok(v) => v,
+                        Err(e) => { err = Some(e); return std::cmp::Ordering::Equal; }
+                    };
+                    let val_b = match eval::evaluate_expression(&item.expr, table, b) {
+                        Ok(v) => v,
+                        Err(e) => { err = Some(e); return std::cmp::Ordering::Equal; }
+                    };
+
+                    if let Some(ord) = val_a.partial_cmp(&val_b) {
+                        if ord != std::cmp::Ordering::Equal {
+                            return if item.order == ast::Order::Desc { ord.reverse() } else { ord };
+                        }
+                    }
+                }
+                std::cmp::Ordering::Equal
+            });
+            if let Some(e) = err { return Err(e); }
+        }
+
+        // Apply LIMIT and OFFSET
+        let final_rows = if let Some(limit) = stmt.limit {
+            let offset = limit.offset.unwrap_or(0);
+            matched_rows.iter().skip(offset).take(limit.count).cloned().collect()
+        } else {
+            matched_rows
+        };
+
+        let rows: Vec<Vec<Value>> = final_rows.iter().map(|row| {
+            if stmt.columns.iter().any(|c| c == "*") {
+                row.values.clone()
+            } else {
+                stmt.columns
+                    .iter()
+                    .filter_map(|col| {
+                        table
+                            .column_index(col)
+                            .and_then(|idx| row.values.get(idx).cloned())
+                    })
+                    .collect()
+            }
+        }).collect();
 
         Ok(QueryResult {
             columns: result_columns,
@@ -284,6 +320,50 @@ mod tests {
         let r = exec.execute("SELECT * FROM t").await.unwrap();
         assert_eq!(r.rows.len(), 1);
         assert_eq!(r.rows[0][0].as_int(), Some(2));
+    }
+
+    #[tokio::test]
+    async fn test_order_by() {
+        let exec = Executor::new();
+        exec.execute("CREATE TABLE t (id INT)").await.unwrap();
+        exec.execute("INSERT INTO t (id) VALUES (3)").await.unwrap();
+        exec.execute("INSERT INTO t (id) VALUES (1)").await.unwrap();
+        exec.execute("INSERT INTO t (id) VALUES (2)").await.unwrap();
+
+        let r = exec.execute("SELECT * FROM t ORDER BY id ASC").await.unwrap();
+        assert_eq!(r.rows[0][0].as_int(), Some(1));
+        assert_eq!(r.rows[1][0].as_int(), Some(2));
+        assert_eq!(r.rows[2][0].as_int(), Some(3));
+
+        let r = exec.execute("SELECT * FROM t ORDER BY id DESC").await.unwrap();
+        assert_eq!(r.rows[0][0].as_int(), Some(3));
+        assert_eq!(r.rows[1][0].as_int(), Some(2));
+        assert_eq!(r.rows[2][0].as_int(), Some(1));
+    }
+
+    #[tokio::test]
+    async fn test_limit_offset() {
+        let exec = Executor::new();
+        exec.execute("CREATE TABLE t (id INT)").await.unwrap();
+        for i in 1..=10 {
+            exec.execute(&format!("INSERT INTO t (id) VALUES ({})", i))
+                .await
+                .unwrap();
+        }
+
+        let r = exec.execute("SELECT * FROM t ORDER BY id ASC LIMIT 3")
+            .await
+            .unwrap();
+        assert_eq!(r.rows.len(), 3);
+        assert_eq!(r.rows[0][0].as_int(), Some(1));
+        assert_eq!(r.rows[2][0].as_int(), Some(3));
+
+        let r = exec.execute("SELECT * FROM t ORDER BY id ASC LIMIT 3 OFFSET 2")
+            .await
+            .unwrap();
+        assert_eq!(r.rows.len(), 3);
+        assert_eq!(r.rows[0][0].as_int(), Some(3));
+        assert_eq!(r.rows[2][0].as_int(), Some(5));
     }
 
     #[tokio::test]

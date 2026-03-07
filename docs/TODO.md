@@ -88,8 +88,8 @@ See: [sql-parser.md](./features/sql-parser.md)
 ### Query Features
 - [ ] Add JOIN support (INNER, LEFT)
 - [x] Add WHERE clause operators (=, !=, >, <, >=, <=, LIKE, IS NULL, IS NOT NULL)
-- [ ] Add ORDER BY
-- [ ] Add LIMIT/OFFSET
+- [x] Add ORDER BY
+- [x] Add LIMIT/OFFSET
 - [ ] Add DISTINCT
 - [ ] Add column aliases
 

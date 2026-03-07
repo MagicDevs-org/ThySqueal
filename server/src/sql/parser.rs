@@ -5,7 +5,7 @@ use crate::storage::{Column, DataType, Value};
 
 use super::ast::{
     BinaryOp, ComparisonOp, Condition, CreateTableStmt, DeleteStmt, DropTableStmt, Expression,
-    InsertStmt, LogicalOp, SelectStmt, SqlStmt, UpdateStmt,
+    InsertStmt, LimitClause, LogicalOp, Order, OrderByItem, SelectStmt, SqlStmt, UpdateStmt,
 };
 
 #[derive(Parser)]
@@ -52,9 +52,9 @@ fn parse_create_table(pair: pest::iterators::Pair<Rule>) -> Result<SqlStmt, Stri
             continue;
         }
         let mut col_inner = col_def.into_inner();
-        let col_name = expect_identifier(col_inner.next(), "column name")?;
+        let col_name = expect_identifier(col_inner.find(|p| p.as_rule() == Rule::identifier), "column name")?;
         let type_str = col_inner
-            .next()
+            .find(|p| p.as_rule() == Rule::data_type)
             .ok_or("Missing column type")?
             .as_str()
             .to_uppercase();
@@ -68,17 +68,19 @@ fn parse_create_table(pair: pest::iterators::Pair<Rule>) -> Result<SqlStmt, Stri
 }
 
 fn parse_drop_table(pair: pest::iterators::Pair<Rule>) -> Result<SqlStmt, String> {
-    let mut inner = pair.into_inner();
+    let inner = pair.into_inner();
     let name = inner
-        .find(|p| p.as_rule() == Rule::table_name)
+        .filter(|p| p.as_rule() == Rule::table_name)
+        .last()
         .map(|p| p.as_str().trim().to_string())
         .ok_or("Missing table name")?;
     Ok(SqlStmt::DropTable(DropTableStmt { name }))
 }
 
 fn parse_update(pair: pest::iterators::Pair<Rule>) -> Result<SqlStmt, String> {
-    let mut inner = pair.into_inner();
+    let inner = pair.into_inner();
     let table = inner
+        .clone()
         .find(|p| p.as_rule() == Rule::table_name)
         .map(|p| p.as_str().trim().to_string())
         .ok_or("Missing table name")?;
@@ -91,13 +93,13 @@ fn parse_update(pair: pest::iterators::Pair<Rule>) -> Result<SqlStmt, String> {
     for item in set_list.into_inner() {
         if item.as_rule() == Rule::set_item {
             let mut set_inner = item.into_inner();
-            let col = expect_identifier(set_inner.next(), "column name")?;
-            let expr = parse_expression(set_inner.next().ok_or("Missing expression")?)?;
+            let col = expect_identifier(set_inner.find(|p| p.as_rule() == Rule::identifier), "column name")?;
+            let expr = parse_expression(set_inner.find(|p| p.as_rule() == Rule::expression).ok_or("Missing expression")?)?;
             assignments.push((col, expr));
         }
     }
 
-    let where_clause = if let Some(p) = inner.find(|p| p.as_rule() == Rule::where_clause) {
+    let where_clause = if let Some(p) = inner.clone().find(|p| p.as_rule() == Rule::where_clause) {
         Some(parse_where_clause(p)?)
     } else {
         None
@@ -111,13 +113,14 @@ fn parse_update(pair: pest::iterators::Pair<Rule>) -> Result<SqlStmt, String> {
 }
 
 fn parse_delete(pair: pest::iterators::Pair<Rule>) -> Result<SqlStmt, String> {
-    let mut inner = pair.into_inner();
+    let inner = pair.into_inner();
     let table = inner
+        .clone()
         .find(|p| p.as_rule() == Rule::table_name)
         .map(|p| p.as_str().trim().to_string())
         .ok_or("Missing table name")?;
 
-    let where_clause = if let Some(p) = inner.find(|p| p.as_rule() == Rule::where_clause) {
+    let where_clause = if let Some(p) = inner.clone().find(|p| p.as_rule() == Rule::where_clause) {
         Some(parse_where_clause(p)?)
     } else {
         None
@@ -130,25 +133,33 @@ fn parse_delete(pair: pest::iterators::Pair<Rule>) -> Result<SqlStmt, String> {
 }
 
 fn parse_select(pair: pest::iterators::Pair<Rule>) -> Result<SqlStmt, String> {
-    let mut inner = pair.into_inner();
+    let inner = pair.into_inner();
 
-    let mut peek = inner.next();
-    if peek.as_ref().map(|p| p.as_rule()) == Some(Rule::distinct) {
-        peek = inner.next();
-    }
+    let _distinct = inner.clone().find(|p| p.as_rule() == Rule::distinct).is_some();
 
-    let select_columns_pair = peek.ok_or("Missing SELECT columns")?;
+    let select_columns_pair = inner.clone().find(|p| p.as_rule() == Rule::select_columns).ok_or("Missing SELECT columns")?;
     let columns = parse_select_columns(select_columns_pair)?;
 
-    // Use clone and find to avoid consuming the iterator prematurely
     let table = inner
         .clone()
         .find(|p| p.as_rule() == Rule::table_name)
         .map(|p| p.as_str().trim().to_string())
         .ok_or("Missing table name")?;
 
-    let where_clause = if let Some(p) = inner.find(|p| p.as_rule() == Rule::where_clause) {
+    let where_clause = if let Some(p) = inner.clone().find(|p| p.as_rule() == Rule::where_clause) {
         Some(parse_where_clause(p)?)
+    } else {
+        None
+    };
+
+    let order_by = if let Some(p) = inner.clone().find(|p| p.as_rule() == Rule::order_by_clause) {
+        parse_order_by(p)?
+    } else {
+        Vec::new()
+    };
+
+    let limit = if let Some(p) = inner.clone().find(|p| p.as_rule() == Rule::limit_clause) {
+        Some(parse_limit(p)?)
     } else {
         None
     };
@@ -161,12 +172,62 @@ fn parse_select(pair: pest::iterators::Pair<Rule>) -> Result<SqlStmt, String> {
         },
         table,
         where_clause,
+        order_by,
+        limit,
     }))
+}
+
+fn parse_order_by(pair: pest::iterators::Pair<Rule>) -> Result<Vec<OrderByItem>, String> {
+    let mut inner = pair.into_inner();
+    let list = inner.find(|p| p.as_rule() == Rule::order_by_list).ok_or("Missing ORDER BY list")?;
+    let mut items = Vec::new();
+    for item in list.into_inner() {
+        if item.as_rule() == Rule::order_by_item {
+            let mut it_inner = item.into_inner();
+            let expr = parse_expression(it_inner.find(|p| p.as_rule() == Rule::expression).ok_or("Missing ORDER BY expression")?)?;
+            let order = if let Some(op) = it_inner.find(|p| matches!(p.as_rule(), Rule::KW_ASC | Rule::KW_DESC)) {
+                if op.as_rule() == Rule::KW_DESC {
+                    Order::Desc
+                } else {
+                    Order::Asc
+                }
+            } else {
+                Order::Asc
+            };
+            items.push(OrderByItem { expr, order });
+        }
+    }
+    Ok(items)
+}
+
+fn parse_limit(pair: pest::iterators::Pair<Rule>) -> Result<LimitClause, String> {
+    let mut inner = pair.into_inner();
+    let count: usize = inner
+        .find(|p| p.as_rule() == Rule::limit_count)
+        .ok_or("Missing LIMIT count")?
+        .as_str()
+        .parse()
+        .map_err(|e| format!("Invalid LIMIT count: {}", e))?;
+
+    let offset = if let Some(off_pair) = inner.find(|p| p.as_rule() == Rule::offset_clause) {
+        let off: usize = off_pair
+            .into_inner()
+            .find(|p| p.as_rule() == Rule::limit_count)
+            .ok_or("Missing OFFSET count")?
+            .as_str()
+            .parse()
+            .map_err(|e| format!("Invalid OFFSET count: {}", e))?;
+        Some(off)
+    } else {
+        None
+    };
+
+    Ok(LimitClause { count, offset })
 }
 
 fn parse_where_clause(pair: pest::iterators::Pair<Rule>) -> Result<Condition, String> {
     let mut inner = pair.into_inner();
-    let cond_pair = inner.next().ok_or("Missing condition in WHERE clause")?;
+    let cond_pair = inner.find(|p| p.as_rule() == Rule::condition).ok_or("Missing condition in WHERE clause")?;
     parse_condition(cond_pair)
 }
 
@@ -191,39 +252,43 @@ fn parse_condition(pair: pest::iterators::Pair<Rule>) -> Result<Condition, Strin
                         "LIKE" => ComparisonOp::Like,
                         _ => return Err(format!("Unsupported comparison operator: {}", op_pair.as_str())),
                     };
-                    let right = parse_expression(inner.next().ok_or("Missing right expression")?)?;
+                    let right = parse_expression(inner.find(|p| p.as_rule() == Rule::expression).ok_or("Missing right expression")?)?;
                     Ok(Condition::Comparison(left, op, right))
                 }
-                _ => {
-                    if op_pair.as_str().to_uppercase() == "IS" {
-                         let next = inner.next().ok_or("Expected NULL or NOT NULL after IS")?;
-                         if next.as_str().to_uppercase() == "NOT" {
-                             let _null = inner.next().ok_or("Expected NULL after IS NOT")?;
-                             Ok(Condition::IsNotNull(left))
-                         } else if next.as_str().to_uppercase() == "NULL" {
-                             Ok(Condition::IsNull(left))
-                         } else {
-                             Err(format!("Unexpected token after IS: {}", next.as_str()))
-                         }
+                Rule::KW_IS => {
+                    let is_not;
+                    if let Some(next) = inner.next() {
+                        if next.as_rule() == Rule::KW_NOT {
+                            is_not = true;
+                            let _null = inner.next().ok_or("Expected NULL after IS NOT")?;
+                        } else if next.as_rule() == Rule::KW_NULL {
+                            is_not = false;
+                        } else {
+                            return Err(format!("Expected NULL or NOT NULL after IS, got {:?}", next.as_rule()));
+                        }
                     } else {
-                        Err(format!("Unexpected token in condition: {}", op_pair.as_str()))
+                        return Err("Missing token after IS".to_string());
+                    }
+                    
+                    if is_not {
+                        Ok(Condition::IsNotNull(left))
+                    } else {
+                        Ok(Condition::IsNull(left))
                     }
                 }
+                _ => Err(format!("Unexpected rule in condition: {:?}", op_pair.as_rule())),
             }
         }
         Rule::condition => {
-            // "(" condition ")" logical_op? condition?
+            // "(" condition ")" (logical_op condition)?
             let left = parse_condition(first)?;
-            if let Some(op_pair) = inner.next() {
-                let op = match op_pair.as_rule() {
-                    Rule::logical_op => match op_pair.as_str().to_uppercase().as_str() {
-                        "AND" => LogicalOp::And,
-                        "OR" => LogicalOp::Or,
-                        _ => return Err(format!("Unsupported logical operator: {}", op_pair.as_str())),
-                    },
-                    _ => return Ok(left),
+            if let Some(op_pair) = inner.find(|p| p.as_rule() == Rule::logical_op) {
+                let op = match op_pair.into_inner().next().ok_or("Empty logical operator")?.as_rule() {
+                    Rule::KW_AND => LogicalOp::And,
+                    Rule::KW_OR => LogicalOp::Or,
+                    r => return Err(format!("Unsupported logical operator: {:?}", r)),
                 };
-                let right = parse_condition(inner.next().ok_or("Missing right condition")?)?;
+                let right = parse_condition(inner.find(|p| p.as_rule() == Rule::condition).ok_or("Missing right condition")?)?;
                 Ok(Condition::Logical(Box::new(left), op, Box::new(right)))
             } else {
                 Ok(left)
@@ -237,7 +302,6 @@ fn parse_expression(pair: pest::iterators::Pair<Rule>) -> Result<Expression, Str
     let mut inner = pair.into_inner();
     let first = inner.next().ok_or("Empty expression")?;
     
-    // Simplistic expression parsing for now (term ((+ | -) term)*)
     let mut left = parse_term(first)?;
     
     while let Some(op_pair) = inner.next() {
@@ -280,10 +344,14 @@ fn parse_factor(pair: pest::iterators::Pair<Rule>) -> Result<Expression, String>
         Rule::literal => Ok(Expression::Literal(parse_literal(first)?)),
         Rule::column_ref => {
             let mut cr_inner = first.into_inner();
-            let name = expect_identifier(cr_inner.next(), "column name")?;
+            let name = expect_identifier(cr_inner.find(|p| p.as_rule() == Rule::identifier), "column name")?;
             Ok(Expression::Column(name))
         }
         Rule::expression => parse_expression(first),
+        Rule::KW_NOT => {
+            // This is actually Condition::Not in our AST, but factor grammar has KW_NOT factor
+            Err("NOT in expression factor not yet implemented".to_string())
+        }
         _ => Err(format!("Unsupported factor rule: {:?}", first.as_rule())),
     }
 }
@@ -306,11 +374,10 @@ fn parse_select_columns(pair: pest::iterators::Pair<Rule>) -> Result<Vec<String>
         let mut cols = Vec::new();
         for col_expr in first.into_inner() {
             if col_expr.as_rule() == Rule::column_expr {
-                let expr_pair = col_expr
-                    .into_inner()
-                    .next()
-                    .ok_or("Empty column expression")?;
-                cols.push(expr_pair.as_str().trim().to_string());
+                let ce_inner = col_expr.into_inner();
+                // Find expression inside column_expr
+                let expr = ce_inner.filter(|p| p.as_rule() == Rule::expression).next().ok_or("Empty column expression")?;
+                cols.push(expr.as_str().trim().to_string());
             }
         }
         Ok(cols)
@@ -322,23 +389,18 @@ fn parse_select_columns(pair: pest::iterators::Pair<Rule>) -> Result<Vec<String>
 }
 
 fn parse_insert(pair: pest::iterators::Pair<Rule>) -> Result<SqlStmt, String> {
-    let mut inner = pair.into_inner();
+    let inner = pair.into_inner();
 
-    // Skip INSERT, INTO - find table_name
     let table = inner
+        .clone()
         .find(|p| p.as_rule() == Rule::table_name)
         .map(|p| p.as_str().trim().to_string())
         .ok_or("Missing table name")?;
 
-    let mut value_list_pair = None;
-    for p in inner {
-        if p.as_rule() == Rule::value_list {
-            value_list_pair = Some(p);
-            break;
-        }
-    }
-
-    let value_list = value_list_pair.ok_or("Missing value list")?;
+    let value_list = inner
+        .clone()
+        .find(|p| p.as_rule() == Rule::value_list)
+        .ok_or("Missing value list")?;
     let values = parse_value_list(value_list)?;
 
     Ok(SqlStmt::Insert(InsertStmt { table, values }))
@@ -352,20 +414,22 @@ fn parse_value_list(pair: pest::iterators::Pair<Rule>) -> Result<Vec<Value>, Str
 }
 
 fn parse_literal(pair: pest::iterators::Pair<Rule>) -> Result<Value, String> {
-    let s = pair.as_str().trim();
-    if s.to_uppercase() == "NULL" {
-        return Ok(Value::Null);
-    }
-
-    let inner = pair.into_inner().next();
-    let (rule, s) = match &inner {
-        Some(p) => (p.as_rule(), p.as_str().trim()),
-        None => return Err(format!("Unknown literal: {}", s)),
+    let mut inner = pair.clone().into_inner();
+    let p = match inner.next() {
+        Some(p) => p,
+        None => {
+            let s = pair.as_str().trim();
+            if s.to_uppercase() == "NULL" {
+                return Ok(Value::Null);
+            }
+            return Err(format!("Empty literal: {}", s));
+        }
     };
 
-    match rule {
-        Rule::string_literal => Ok(Value::Text(s.trim_matches('\'').to_string())),
+    match p.as_rule() {
+        Rule::string_literal => Ok(Value::Text(p.as_str().trim_matches('\'').to_string())),
         Rule::number_literal => {
+            let s = p.as_str().trim();
             if s.contains('.') {
                 s.parse::<f64>()
                     .map(Value::Float)
@@ -376,14 +440,12 @@ fn parse_literal(pair: pest::iterators::Pair<Rule>) -> Result<Value, String> {
                     .map_err(|_| format!("Invalid integer: {}", s))
             }
         }
-        Rule::boolean_literal => Ok(Value::Bool(s.to_lowercase() == "true")),
-        _ => {
-            if s.to_uppercase() == "NULL" {
-                Ok(Value::Null)
-            } else {
-                Err(format!("Unknown literal: {}", s))
-            }
+        Rule::boolean_literal => {
+            let kw = p.into_inner().next().ok_or("Empty boolean literal")?;
+            Ok(Value::Bool(kw.as_rule() == Rule::KW_TRUE))
         }
+        Rule::KW_NULL => Ok(Value::Null),
+        _ => Err(format!("Unknown literal rule: {:?}", p.as_rule())),
     }
 }
 
@@ -393,11 +455,5 @@ fn expect_identifier(
     ctx: &str,
 ) -> Result<String, String> {
     let p = pair.ok_or_else(|| format!("Missing {}", ctx))?;
-    let rule = p.as_rule();
-    let s = p.as_str().trim().to_string();
-    if rule == Rule::identifier || rule == Rule::table_name {
-        Ok(s)
-    } else {
-        Ok(s)
-    }
+    Ok(p.as_str().trim().to_string())
 }
