@@ -43,13 +43,30 @@ pub async fn execute_query(host: &str, port: u16, sql: &str) -> Result<()> {
             println!("Success. Rows affected: {}", result.rows_affected);
         }
     } else if let Some(error) = result.error {
-        if let Some(err_type) = error.get("type").and_then(|v| v.as_str()) {
-            let details = error.get("details").and_then(|v| v.as_str()).unwrap_or("");
-            eprintln!("Error ({}): {}", err_type, details);
-        } else {
-            eprintln!("Error: {}", error);
-        }
+        eprintln!("Error: {}", error);
     }
 
+    Ok(())
+}
+
+pub async fn dump(host: &str, port: u16) -> Result<String> {
+    let url = format!("http://{}:{}/_dump", host, port);
+    let client = reqwest::Client::new();
+    let response = client.get(&url).send().await?;
+    let sql = response.text().await?;
+    Ok(sql)
+}
+
+pub async fn restore(host: &str, port: u16, sql: &str) -> Result<()> {
+    let url = format!("http://{}:{}/_restore", host, port);
+    let client = reqwest::Client::new();
+    let response = client.post(&url).body(sql.to_string()).send().await?;
+    let result: QueryResponse = response.json().await?;
+
+    if result.success {
+        println!("Restore completed successfully. Rows affected: {}", result.rows_affected);
+    } else if let Some(error) = result.error {
+        eprintln!("Restore error: {}", error);
+    }
     Ok(())
 }

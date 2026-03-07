@@ -1,6 +1,7 @@
 pub mod aggregate;
 pub mod ddl;
 pub mod dml;
+pub mod dump;
 pub mod explain;
 pub mod search;
 pub mod select;

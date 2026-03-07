@@ -35,6 +35,27 @@ pub enum Expression {
     Subquery(Box<SelectStmt>),
 }
 
+impl Expression {
+    pub fn to_sql(&self) -> String {
+        match self {
+            Expression::Literal(v) => v.to_sql(),
+            Expression::Column(c) => c.clone(),
+            Expression::BinaryOp(l, op, r) => {
+                format!("({} {} {})", l.to_sql(), op.to_sql(), r.to_sql())
+            }
+            Expression::FunctionCall(fc) => {
+                let args: Vec<String> = fc.args.iter().map(|a| a.to_sql()).collect();
+                format!("{:?}({})", fc.name, args.join(", ")).to_uppercase()
+            }
+            Expression::ScalarFunc(sf) => {
+                format!("{:?}({})", sf.name, sf.arg.to_sql()).to_uppercase()
+            }
+            Expression::Star => "*".to_string(),
+            Expression::Subquery(_) => "(SELECT ...)".to_string(), // Simplified for now
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FunctionCall {
     pub name: AggregateType,
@@ -72,6 +93,17 @@ pub enum BinaryOp {
     Div,
 }
 
+impl BinaryOp {
+    pub fn to_sql(&self) -> &str {
+        match self {
+            BinaryOp::Add => "+",
+            BinaryOp::Sub => "-",
+            BinaryOp::Mul => "*",
+            BinaryOp::Div => "/",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Condition {
     Comparison(Expression, ComparisonOp, Expression),
@@ -80,6 +112,23 @@ pub enum Condition {
     InSubquery(Expression, Box<SelectStmt>),
     Logical(Box<Condition>, LogicalOp, Box<Condition>),
     Not(Box<Condition>),
+}
+
+impl Condition {
+    pub fn to_sql(&self) -> String {
+        match self {
+            Condition::Comparison(l, op, r) => {
+                format!("{} {} {}", l.to_sql(), op.to_sql(), r.to_sql())
+            }
+            Condition::IsNull(e) => format!("{} IS NULL", e.to_sql()),
+            Condition::IsNotNull(e) => format!("{} IS NOT NULL", e.to_sql()),
+            Condition::InSubquery(e, _) => format!("{} IN (SELECT ...)", e.to_sql()),
+            Condition::Logical(l, op, r) => {
+                format!("({} {} {})", l.to_sql(), op.to_sql(), r.to_sql())
+            }
+            Condition::Not(c) => format!("NOT ({})", c.to_sql()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -93,10 +142,33 @@ pub enum ComparisonOp {
     Like,
 }
 
+impl ComparisonOp {
+    pub fn to_sql(&self) -> &str {
+        match self {
+            ComparisonOp::Eq => "=",
+            ComparisonOp::NotEq => "!=",
+            ComparisonOp::Lt => "<",
+            ComparisonOp::Gt => ">",
+            ComparisonOp::LtEq => "<=",
+            ComparisonOp::GtEq => ">=",
+            ComparisonOp::Like => "LIKE",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum LogicalOp {
     And,
     Or,
+}
+
+impl LogicalOp {
+    pub fn to_sql(&self) -> &str {
+        match self {
+            LogicalOp::And => "AND",
+            LogicalOp::Or => "OR",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

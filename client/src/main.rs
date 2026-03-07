@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use tracing::info;
+use std::fs;
 
 mod config;
 mod http;
@@ -53,14 +54,15 @@ async fn main() -> Result<()> {
     }
 
     if let Some(file) = cli.import {
-        println!("Import from: {}", file);
-        println!("(Import not implemented yet)");
+        let sql = fs::read_to_string(file)?;
+        http::restore(&cli.host, cli.port, &sql).await?;
         return Ok(());
     }
 
     if let Some(file) = cli.export {
-        println!("Export to: {}", file);
-        println!("(Export not implemented yet)");
+        let sql = http::dump(&cli.host, cli.port).await?;
+        fs::write(file, sql)?;
+        println!("Database exported successfully.");
         return Ok(());
     }
 

@@ -63,7 +63,7 @@ pub fn evaluate_condition_joined(
                 &combined_outer,
                 db_state,
             ))?;
-            for row in result.rows {
+            for row in &result.rows {
                 if !row.is_empty() && row[0] == val {
                     return Ok(true);
                 }

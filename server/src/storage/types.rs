@@ -27,4 +27,18 @@ impl DataType {
             _ => DataType::Text,
         }
     }
+
+    pub fn to_sql(&self) -> String {
+        match self {
+            DataType::Int => "INT".to_string(),
+            DataType::Float => "FLOAT".to_string(),
+            DataType::Bool => "BOOL".to_string(),
+            DataType::Date => "DATE".to_string(),
+            DataType::DateTime => "DATETIME".to_string(),
+            DataType::VarChar => "VARCHAR".to_string(),
+            DataType::Text => "TEXT".to_string(),
+            DataType::Blob => "BLOB".to_string(),
+            DataType::Json => "JSON".to_string(),
+        }
+    }
 }

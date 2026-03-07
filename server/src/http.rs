@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::sql::executor::{Executor, QueryResult};
-use crate::storage::Value;
+use crate::storage::{Row, Value};
 use axum::{
     Json, Router,
     extract::State,
@@ -79,11 +79,47 @@ impl HttpServer {
         }
     }
 
+    async fn dump(
+        State(executor): State<Arc<Executor>>,
+    ) -> impl IntoResponse {
+        match executor.dump().await {
+            Ok(sql) => (StatusCode::OK, sql),
+            Err(e) => {
+                error!("Dump error: {:?}", e);
+                (StatusCode::INTERNAL_SERVER_ERROR, format!("{:?}", e))
+            }
+        }
+    }
+
+    async fn restore(
+        State(executor): State<Arc<Executor>>,
+        body: String,
+    ) -> impl IntoResponse {
+        match executor.execute_batch(&body).await {
+            Ok(result) => (StatusCode::OK, Json(Self::map_result(result, None))),
+            Err(e) => {
+                error!("Restore error: {:?}", e);
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(Self::map_result(
+                        QueryResult {
+                            columns: vec![],
+                            rows: vec![],
+                            rows_affected: 0,
+                            transaction_id: None,
+                        },
+                        Some(format!("{:?}", e)),
+                    )),
+                )
+            }
+        }
+    }
+
     fn map_result(result: QueryResult, error: Option<String>) -> QueryResponse {
         let data = result
             .rows
             .into_iter()
-            .map(|row| row.into_iter().map(Self::value_to_json).collect())
+            .map(|row: Vec<Value>| row.into_iter().map(Self::value_to_json).collect())
             .collect();
 
         QueryResponse {
@@ -115,5 +151,7 @@ pub fn create_app(executor: Arc<Executor>, _config: Config) -> Router {
         .route("/", get(HttpServer::root))
         .route("/health", get(HttpServer::health))
         .route("/_query", post(HttpServer::query))
+        .route("/_dump", get(HttpServer::dump))
+        .route("/_restore", post(HttpServer::restore))
         .with_state(executor)
 }

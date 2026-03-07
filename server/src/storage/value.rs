@@ -100,6 +100,17 @@ impl Value {
             Value::Json(j) => j.to_string(),
         }
     }
+
+    pub fn to_sql(&self) -> String {
+        match self {
+            Value::Null => "NULL".to_string(),
+            Value::Int(i) => i.to_string(),
+            Value::Float(f) => f.to_string(),
+            Value::Text(s) => format!("'{}'", s.replace('\'', "''")),
+            Value::Bool(b) => if *b { "TRUE".to_string() } else { "FALSE".to_string() },
+            Value::Json(j) => format!("'{}'", j.to_string().replace('\'', "''")),
+        }
+    }
 }
 
 impl Eq for Value {}
