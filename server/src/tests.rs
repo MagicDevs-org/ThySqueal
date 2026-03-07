@@ -22,7 +22,15 @@ mod tests {
     #[tokio::test]
     async fn test_sql_lifecycle() {
         setup();
-        let executor = Arc::new(Executor::new(crate::storage::Database::new()));
+        let temp_dir = std::env::temp_dir().join(format!("thy-squeal-lifecycle-test-{}", uuid::Uuid::new_v4()));
+        let data_dir = temp_dir.to_str().unwrap().to_string();
+        
+        let db = crate::storage::Database::with_persister(
+            Box::new(crate::storage::persistence::SledPersister::new(&data_dir).unwrap()),
+            data_dir.clone()
+        ).unwrap();
+        let executor = Arc::new(Executor::new(db));
+        
         let config = crate::config::Config {
             server: crate::config::ServerConfig {
                 host: "127.0.0.1".to_string(),
@@ -34,7 +42,7 @@ mod tests {
                 default_cache_size: 1000,
                 default_eviction: "LRU".to_string(),
                 snapshot_interval_sec: 300,
-                data_dir: "./data".to_string(),
+                data_dir: data_dir.clone(),
             },
             security: crate::config::SecurityConfig {
                 auth_enabled: false,
@@ -168,6 +176,8 @@ mod tests {
         let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(body["data"][0]["name"], "bob");
+
+        let _ = std::fs::remove_dir_all(temp_dir);
     }
 
     #[tokio::test]
@@ -255,6 +265,12 @@ mod tests {
         let temp_dir = std::env::temp_dir().join(format!("thy-squeal-search-test-{}", uuid::Uuid::new_v4()));
         let data_dir = temp_dir.to_str().unwrap().to_string();
         
+        let db = crate::storage::Database::with_persister(
+            Box::new(crate::storage::persistence::SledPersister::new(&data_dir).unwrap()),
+            data_dir.clone()
+        ).unwrap();
+        let executor = Arc::new(Executor::new(db));
+
         let config = crate::config::Config {
             server: crate::config::ServerConfig {
                 host: "127.0.0.1".to_string(),
@@ -276,10 +292,6 @@ mod tests {
                 level: "info".to_string(),
             },
         };
-
-        let persister = Box::new(crate::storage::persistence::SledPersister::new(&data_dir).unwrap());
-        let db = crate::storage::Database::with_persister(persister, data_dir.clone()).unwrap();
-        let executor = Arc::new(Executor::new(db));
         let app = create_app(executor, config);
 
         app.clone().oneshot(
@@ -334,27 +346,7 @@ mod tests {
     async fn test_error_handling() {
         setup();
         let executor = Arc::new(Executor::new(crate::storage::Database::new()));
-        let config = crate::config::Config {
-            server: crate::config::ServerConfig {
-                host: "127.0.0.1".to_string(),
-                sql_port: 3306,
-                http_port: 9200,
-            },
-            storage: crate::config::StorageConfig {
-                max_memory_mb: 1024,
-                default_cache_size: 1000,
-                default_eviction: "LRU".to_string(),
-                snapshot_interval_sec: 300,
-                data_dir: "./data".to_string(),
-            },
-            security: crate::config::SecurityConfig {
-                auth_enabled: false,
-                tls_enabled: false,
-            },
-            logging: crate::config::LoggingConfig {
-                level: "info".to_string(),
-            },
-        };
+        let config = crate::config::Config::default();
         let app = create_app(executor, config);
 
         // Table not found error
@@ -380,5 +372,142 @@ mod tests {
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert!(!body["success"].as_bool().unwrap());
         assert_eq!(body["error"]["type"], "TableNotFound");
+    }
+
+    #[tokio::test]
+    async fn test_transactions() {
+        setup();
+        let executor = Arc::new(Executor::new(crate::storage::Database::new()));
+        let config = crate::config::Config::default();
+        let app = create_app(executor, config);
+
+        // 1. Create table
+        app.clone().oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/_query")
+                .header("Content-Type", "application/json")
+                .body(Body::from(json!({"sql": "CREATE TABLE accounts (id INT, balance FLOAT)"}).to_string()))
+                .unwrap(),
+        ).await.unwrap();
+
+        // 2. BEGIN
+        let response = app.clone().oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/_query")
+                .header("Content-Type", "application/json")
+                .body(Body::from(json!({"sql": "BEGIN"}).to_string()))
+                .unwrap(),
+        ).await.unwrap();
+        
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        let tx_id = body["transaction_id"].as_str().unwrap().to_string();
+
+        // 3. INSERT in TX
+        app.clone().oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/_query")
+                .header("Content-Type", "application/json")
+                .body(Body::from(json!({"sql": "INSERT INTO accounts VALUES (1, 100.0)", "transaction_id": tx_id}).to_string()))
+                .unwrap(),
+        ).await.unwrap();
+
+        // 4. Verify NOT visible globally
+        let response = app.clone().oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/_query")
+                .header("Content-Type", "application/json")
+                .body(Body::from(json!({"sql": "SELECT * FROM accounts"}).to_string()))
+                .unwrap(),
+        ).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["data"].as_array().unwrap().len(), 0);
+
+        // 5. COMMIT
+        app.clone().oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/_query")
+                .header("Content-Type", "application/json")
+                .body(Body::from(json!({"sql": "COMMIT", "transaction_id": tx_id}).to_string()))
+                .unwrap(),
+        ).await.unwrap();
+
+        // 6. Verify visible globally
+        let response = app.clone().oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/_query")
+                .header("Content-Type", "application/json")
+                .body(Body::from(json!({"sql": "SELECT * FROM accounts"}).to_string()))
+                .unwrap(),
+        ).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["data"].as_array().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_rollback() {
+        setup();
+        let executor = Arc::new(Executor::new(crate::storage::Database::new()));
+        let config = crate::config::Config::default();
+        let app = create_app(executor, config);
+
+        app.clone().oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/_query")
+                .header("Content-Type", "application/json")
+                .body(Body::from(json!({"sql": "CREATE TABLE t (id INT)"}).to_string()))
+                .unwrap(),
+        ).await.unwrap();
+
+        let response = app.clone().oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/_query")
+                .header("Content-Type", "application/json")
+                .body(Body::from(json!({"sql": "BEGIN"}).to_string()))
+                .unwrap(),
+        ).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        let tx_id = body["transaction_id"].as_str().unwrap().to_string();
+
+        app.clone().oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/_query")
+                .header("Content-Type", "application/json")
+                .body(Body::from(json!({"sql": "INSERT INTO t VALUES (1)", "transaction_id": tx_id}).to_string()))
+                .unwrap(),
+        ).await.unwrap();
+
+        app.clone().oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/_query")
+                .header("Content-Type", "application/json")
+                .body(Body::from(json!({"sql": "ROLLBACK", "transaction_id": tx_id}).to_string()))
+                .unwrap(),
+        ).await.unwrap();
+
+        let response = app.clone().oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/_query")
+                .header("Content-Type", "application/json")
+                .body(Body::from(json!({"sql": "SELECT * FROM t"}).to_string()))
+                .unwrap(),
+        ).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["data"].as_array().unwrap().len(), 0);
     }
 }

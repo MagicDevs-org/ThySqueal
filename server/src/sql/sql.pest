@@ -1,11 +1,15 @@
 // thy-squeal SQL Grammar
 
 // Main statement
-statement = { SOI ~ (explain_stmt | search_stmt | select_stmt | insert_stmt | update_stmt | delete_stmt | create_table_stmt | drop_table_stmt | create_index_stmt) ~ ";"? ~ EOI }
+statement = { SOI ~ (explain_stmt | search_stmt | select_stmt | insert_stmt | update_stmt | delete_stmt | create_table_stmt | drop_table_stmt | create_index_stmt | begin_stmt | commit_stmt | rollback_stmt) ~ ";"? ~ EOI }
 
 explain_stmt = { KW_EXPLAIN ~ select_stmt }
 
 search_stmt = { KW_SEARCH ~ table_name ~ string_literal }
+
+begin_stmt = { KW_BEGIN | (KW_START ~ KW_TRANSACTION) }
+commit_stmt = { KW_COMMIT }
+rollback_stmt = { KW_ROLLBACK }
 
 // SELECT statement
 select_stmt = { KW_SELECT ~ distinct? ~ select_columns ~ KW_FROM ~ table_name ~ join_clause* ~ where_clause? ~ group_by_clause? ~ having_clause? ~ order_by_clause? ~ limit_clause? }
@@ -22,7 +26,7 @@ column_expr = { expression ~ alias? }
 alias = { (KW_AS ~ identifier)? }
 
 // INSERT statement
-insert_stmt = { KW_INSERT ~ KW_INTO ~ table_name ~ "(" ~ column_list ~ ")" ~ KW_VALUES ~ "(" ~ value_list ~ ")" }
+insert_stmt = { KW_INSERT ~ KW_INTO ~ table_name ~ ("(" ~ column_list ~ ")")? ~ KW_VALUES ~ "(" ~ value_list ~ ")" }
 
 value_list = { literal ~ ("," ~ literal)* }
 
@@ -111,7 +115,7 @@ keyword = {
     KW_SELECT | KW_FROM | KW_WHERE | KW_INSERT | KW_INTO | KW_INDEX | KW_JOIN | KW_INNER | KW_LEFT | KW_ON | KW_VALUES | KW_UPDATE | KW_SET | KW_DELETE | KW_EXPLAIN | KW_SEARCH |
     KW_CREATE | KW_TABLE | KW_DROP | KW_GROUP | KW_BY | KW_ORDER | KW_HAVING | KW_LIMIT | KW_OFFSET | KW_ASC | KW_DESC |
     KW_DISTINCT | KW_AS | KW_AND | KW_OR | KW_NOT | KW_NULL | KW_IS | KW_TRUE | KW_FALSE |
-    KW_COUNT | KW_SUM | KW_AVG | KW_MIN | KW_MAX | KW_IN
+    KW_COUNT | KW_SUM | KW_AVG | KW_MIN | KW_MAX | KW_IN | KW_BEGIN | KW_COMMIT | KW_ROLLBACK | KW_START | KW_TRANSACTION
 }
 
 // Keywords (reserved)
@@ -157,6 +161,11 @@ KW_AVG      = @{ ^"AVG" ~ !id_char }
 KW_MIN      = @{ ^"MIN" ~ !id_char }
 KW_MAX      = @{ ^"MAX" ~ !id_char }
 KW_IN       = @{ ^"IN" ~ !id_char }
+KW_BEGIN    = @{ ^"BEGIN" ~ !id_char }
+KW_COMMIT   = @{ ^"COMMIT" ~ !id_char }
+KW_ROLLBACK = @{ ^"ROLLBACK" ~ !id_char }
+KW_START    = @{ ^"START" ~ !id_char }
+KW_TRANSACTION = @{ ^"TRANSACTION" ~ !id_char }
 
 id_char = _{ ASCII_ALPHA | ASCII_DIGIT | "_" }
 

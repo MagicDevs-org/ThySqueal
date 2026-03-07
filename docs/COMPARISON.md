@@ -17,7 +17,7 @@ thy-squeal is a **hybrid in-memory database** that combines:
 | **Full-Text Search** | Native (Tantivy) | FTS extension | RediSearch | Basic (MyISAM/Inno) | Advanced (GIN/GiST) | Native / Core |
 | **Protocols** | HTTP + SQL (pl) | C API | RESP | MySQL Binary | Postgres Binary | HTTP JSON |
 | **Joins** | Inner/Left | Full Support | No | Full Support | Full Support | Limited |
-| **ACID** | Planned | Full Support | Limited | Full Support | Full Support | No |
+| **ACID** | Supported (Snapshot) | Full Support | Limited | Full Support | Full Support | No |
 
 ---
 

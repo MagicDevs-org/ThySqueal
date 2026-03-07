@@ -30,7 +30,7 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 #### 3.1.1 SQL Dialect
 - MySQL-compatible syntax (simplified subset)
 - Support for: SELECT, INSERT, UPDATE, DELETE, CREATE TABLE, DROP TABLE
-- Transactions: BEGIN, COMMIT, ROLLBACK (Pending)
+- Transactions: BEGIN, COMMIT, ROLLBACK
 - JOINs: INNER JOIN, LEFT JOIN
 - Aggregations: COUNT, SUM, AVG, MIN, MAX with GROUP BY and HAVING
 - ORDER BY and LIMIT/OFFSET
@@ -43,6 +43,7 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 #### 3.1.2 Performance & Reliability
 - **Indexes**: B-Tree, Hash, Composite, JSON Path, Functional, and Partial indexes
 - **Explain Plan**: Visualizing query execution strategy
+- **Transactions**: ACID compliance with Snapshot Isolation
 - **Write-Ahead Logging (WAL)**: Guaranteed durability for every write
 - **Schema Evolution**: `ALTER TABLE` support for non-destructive schema changes
 
@@ -77,7 +78,7 @@ thy-squeal/                          # Cargo workspace
 └── LICENSE, README.md
 ```
 
-### Current Status (as of v0.3)
+### Current Status (as of v0.4)
 - [x] Workspace setup
 - [x] Server binary with Axum HTTP on port 9200
 - [x] Client binary with REPL
@@ -95,6 +96,7 @@ thy-squeal/                          # Cargo workspace
 - [x] EXPLAIN support (execution plan visualization)
 - [x] Full-Text Search integration (Tantivy)
 - [x] Advanced Indexing (B-Tree, Hash, Composite, JSON Path, Functional, Partial)
+- [x] ACID Transactions (BEGIN, COMMIT, ROLLBACK)
 - [x] Structured Error Handling (SqlError)
 - [x] Integration testing suite
 - [x] REPL SQL execution (wired via HTTP)
@@ -117,7 +119,7 @@ thy-squeal/                          # Cargo workspace
 - [x] HTTP JSON API (basic Axum server running)
 - [x] POST /_query endpoint
 - [x] GET /, GET /health
-- [ ] Transactions support (transaction_id)
+- [x] Transaction ID support in HTTP API
 - [ ] GET /_stats (Storage/cache statistics)
 - [ ] CRUD endpoints for tables (REST)
 
@@ -132,11 +134,11 @@ thy-squeal/                          # Cargo workspace
 - [x] Advanced Indexing (Hash, Composite, JSON, Functional, Partial)
 
 ### Phase 4: ACID & Protocol (v0.4)
-- [ ] **Transactions**: BEGIN, COMMIT, ROLLBACK
-- [ ] **SQL Dump/Restore**: Export/Import SQL scripts
+- [x] **Transactions**: BEGIN, COMMIT, ROLLBACK (Completed)
+- [ ] **Write-Ahead Logging (WAL)**: Durability beyond snapshots
 - [ ] **Information Schema**: Metadata discoverability
 - [x] **Explain Plan**: Query execution transparency (Completed)
-- [ ] **Write-Ahead Logging (WAL)**: Durability beyond snapshots
+- [ ] **SQL Dump/Restore**: Export/Import SQL scripts
 
 ### Phase 5: Ecosystem & Client (v0.5)
 - [ ] **MySQL Protocol Compatibility**: Support standard MySQL clients

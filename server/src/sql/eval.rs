@@ -1,11 +1,11 @@
-use crate::storage::{Row, Table, Value};
+use crate::storage::{Row, Table, Value, DatabaseState};
 use super::ast::{BinaryOp, ComparisonOp, Condition, Expression, LogicalOp, ScalarFuncType};
 use super::error::{SqlError, SqlResult};
 use super::executor::Executor;
 
 #[allow(dead_code)]
-pub fn evaluate_condition(executor: &Executor, cond: &Condition, table: &Table, row: &Row) -> SqlResult<bool> {
-    evaluate_condition_joined(executor, cond, &[(table, row)], &[])
+pub fn evaluate_condition(executor: &Executor, cond: &Condition, table: &Table, row: &Row, db_state: &DatabaseState) -> SqlResult<bool> {
+    evaluate_condition_joined(executor, cond, &[(table, row)], &[], db_state)
 }
 
 pub fn evaluate_condition_joined(
@@ -13,11 +13,12 @@ pub fn evaluate_condition_joined(
     cond: &Condition,
     contexts: &[(&Table, &Row)],
     outer_contexts: &[(&Table, &Row)],
+    db_state: &DatabaseState,
 ) -> SqlResult<bool> {
     match cond {
         Condition::Comparison(left, op, right) => {
-            let left_val = evaluate_expression_joined(executor, left, contexts, outer_contexts)?;
-            let right_val = evaluate_expression_joined(executor, right, contexts, outer_contexts)?;
+            let left_val = evaluate_expression_joined(executor, left, contexts, outer_contexts, db_state)?;
+            let right_val = evaluate_expression_joined(executor, right, contexts, outer_contexts, db_state)?;
             
             match op {
                 ComparisonOp::Eq => Ok(left_val == right_val),
@@ -43,19 +44,19 @@ pub fn evaluate_condition_joined(
             }
         }
         Condition::IsNull(expr) => {
-            let val = evaluate_expression_joined(executor, expr, contexts, outer_contexts)?;
+            let val = evaluate_expression_joined(executor, expr, contexts, outer_contexts, db_state)?;
             Ok(matches!(val, Value::Null))
         }
         Condition::IsNotNull(expr) => {
-            let val = evaluate_expression_joined(executor, expr, contexts, outer_contexts)?;
+            let val = evaluate_expression_joined(executor, expr, contexts, outer_contexts, db_state)?;
             Ok(!matches!(val, Value::Null))
         }
         Condition::InSubquery(expr, subquery) => {
-            let val = evaluate_expression_joined(executor, expr, contexts, outer_contexts)?;
+            let val = evaluate_expression_joined(executor, expr, contexts, outer_contexts, db_state)?;
             let mut combined_outer = outer_contexts.to_vec();
             combined_outer.extend_from_slice(contexts);
             
-            let result = futures::executor::block_on(executor.exec_select_internal((**subquery).clone(), &combined_outer))?;
+            let result = futures::executor::block_on(executor.exec_select_internal((**subquery).clone(), &combined_outer, db_state))?;
             for row in result.rows {
                 if !row.is_empty() && row[0] == val {
                     return Ok(true);
@@ -64,27 +65,27 @@ pub fn evaluate_condition_joined(
             Ok(false)
         }
         Condition::Logical(left, op, right) => {
-            let l = evaluate_condition_joined(executor, left, contexts, outer_contexts)?;
+            let l = evaluate_condition_joined(executor, left, contexts, outer_contexts, db_state)?;
             match op {
                 LogicalOp::And => {
                     if !l { return Ok(false); }
-                    evaluate_condition_joined(executor, right, contexts, outer_contexts)
+                    evaluate_condition_joined(executor, right, contexts, outer_contexts, db_state)
                 }
                 LogicalOp::Or => {
                     if l { return Ok(true); }
-                    evaluate_condition_joined(executor, right, contexts, outer_contexts)
+                    evaluate_condition_joined(executor, right, contexts, outer_contexts, db_state)
                 }
             }
         }
         Condition::Not(cond) => {
-            Ok(!evaluate_condition_joined(executor, cond, contexts, outer_contexts)?)
+            Ok(!evaluate_condition_joined(executor, cond, contexts, outer_contexts, db_state)?)
         }
     }
 }
 
 #[allow(dead_code)]
-pub fn evaluate_expression(executor: &Executor, expr: &Expression, table: &Table, row: &Row) -> SqlResult<Value> {
-    evaluate_expression_joined(executor, expr, &[(table, row)], &[])
+pub fn evaluate_expression(executor: &Executor, expr: &Expression, table: &Table, row: &Row, db_state: &DatabaseState) -> SqlResult<Value> {
+    evaluate_expression_joined(executor, expr, &[(table, row)], &[], db_state)
 }
 
 pub fn evaluate_expression_joined(
@@ -92,6 +93,7 @@ pub fn evaluate_expression_joined(
     expr: &Expression,
     contexts: &[(&Table, &Row)],
     outer_contexts: &[(&Table, &Row)],
+    db_state: &DatabaseState,
 ) -> SqlResult<Value> {
     match expr {
         Expression::Literal(v) => Ok(v.clone()),
@@ -109,7 +111,7 @@ pub fn evaluate_expression_joined(
             let mut combined_outer = outer_contexts.to_vec();
             combined_outer.extend_from_slice(contexts);
 
-            let result = futures::executor::block_on(executor.exec_select_internal((**subquery).clone(), &combined_outer))?;
+            let result = futures::executor::block_on(executor.exec_select_internal((**subquery).clone(), &combined_outer, db_state))?;
             if result.rows.is_empty() {
                 Ok(Value::Null)
             } else if result.rows.len() > 1 {
@@ -121,8 +123,8 @@ pub fn evaluate_expression_joined(
             }
         }
         Expression::BinaryOp(left, op, right) => {
-            let l = evaluate_expression_joined(executor, left, contexts, outer_contexts)?;
-            let r = evaluate_expression_joined(executor, right, contexts, outer_contexts)?;
+            let l = evaluate_expression_joined(executor, left, contexts, outer_contexts, db_state)?;
+            let r = evaluate_expression_joined(executor, right, contexts, outer_contexts, db_state)?;
             
             match (l, r) {
                 (Value::Int(a), Value::Int(b)) => {
@@ -166,7 +168,7 @@ pub fn evaluate_expression_joined(
             }
         }
         Expression::ScalarFunc(sf) => {
-            let val = evaluate_expression_joined(executor, &sf.arg, contexts, outer_contexts)?;
+            let val = evaluate_expression_joined(executor, &sf.arg, contexts, outer_contexts, db_state)?;
             match sf.name {
                 ScalarFuncType::Lower => {
                     let s = val.as_text().ok_or_else(|| SqlError::TypeMismatch("LOWER requires text".to_string()))?;

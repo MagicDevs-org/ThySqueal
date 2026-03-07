@@ -6,6 +6,7 @@ use super::error::StorageError;
 use super::types::DataType;
 use super::value::Value;
 use super::search::SearchIndex;
+use crate::storage::DatabaseState;
 use crate::sql::ast::{Expression, Condition};
 use crate::sql::executor::Executor;
 use crate::sql::eval::{evaluate_expression_joined, evaluate_condition_joined};
@@ -210,7 +211,8 @@ impl Table {
         expressions: Vec<Expression>, 
         unique: bool, 
         use_hash: bool,
-        where_clause: Option<Condition>
+        where_clause: Option<Condition>,
+        db_state: &DatabaseState,
     ) -> Result<(), StorageError> {
         let expr_jsons: Vec<serde_json::Value> = expressions.iter().map(|e| serde_json::to_value(e).unwrap()).collect();
         let where_json = where_clause.as_ref().map(|c| serde_json::to_value(c).unwrap());
@@ -229,12 +231,12 @@ impl Table {
             // Check partial index condition
             if let Some(ref c) = cond {
                 let context = [(table_ref, row)];
-                if !evaluate_condition_joined(executor, c, &context, &[]).map_err(|e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)))? {
+                if !evaluate_condition_joined(executor, c, &context, &[], db_state).map_err(|e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)))? {
                     continue;
                 }
             }
 
-            let key = table_ref.extract_key(executor, row, &exprs)?;
+            let key = table_ref.extract_key(executor, row, &exprs, db_state)?;
             index.insert(key, row.id.clone())?;
         }
 
@@ -242,17 +244,17 @@ impl Table {
         Ok(())
     }
 
-    fn extract_key(&self, executor: &Executor, row: &Row, expressions: &[Expression]) -> Result<Vec<Value>, StorageError> {
-        self.extract_key_from_values(executor, &row.values, expressions)
+    fn extract_key(&self, executor: &Executor, row: &Row, expressions: &[Expression], db_state: &DatabaseState) -> Result<Vec<Value>, StorageError> {
+        self.extract_key_from_values(executor, &row.values, expressions, db_state)
     }
 
-    pub fn extract_key_from_values(&self, executor: &Executor, values: &[Value], expressions: &[Expression]) -> Result<Vec<Value>, StorageError> {
+    pub fn extract_key_from_values(&self, executor: &Executor, values: &[Value], expressions: &[Expression], db_state: &DatabaseState) -> Result<Vec<Value>, StorageError> {
         let mut key = Vec::with_capacity(expressions.len());
         let row = Row { id: "".to_string(), values: values.to_vec() };
         let context = [(self, &row)];
         
         for expr in expressions {
-            let val = evaluate_expression_joined(executor, expr, &context, &[])
+            let val = evaluate_expression_joined(executor, expr, &context, &[], db_state)
                 .map_err(|e| StorageError::PersistenceError(format!("Index expression evaluation error: {:?}", e)))?;
             key.push(val);
         }
@@ -293,7 +295,7 @@ impl Table {
         Ok(())
     }
 
-    pub fn insert(&mut self, executor: &Executor, values: Vec<Value>) -> Result<String, StorageError> {
+    pub fn insert(&mut self, executor: &Executor, values: Vec<Value>, db_state: &DatabaseState) -> Result<String, StorageError> {
         if values.len() != self.columns.len() {
             return Err(StorageError::InvalidType(format!(
                 "Expected {} columns, got {}",
@@ -311,13 +313,13 @@ impl Table {
             // Check partial condition
             if let Some(cond) = index.where_clause() {
                 let context = [(table_ref, &row)];
-                if !evaluate_condition_joined(executor, &cond, &context, &[]).map_err(|e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)))? {
+                if !evaluate_condition_joined(executor, &cond, &context, &[], db_state).map_err(|e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)))? {
                     continue;
                 }
             }
 
             if index.is_unique() {
-                let key = table_ref.extract_key_from_values(executor, &values, &index.expressions())?;
+                let key = table_ref.extract_key_from_values(executor, &values, &index.expressions(), db_state)?;
                 if index.get(&key).map_or(false, |ids| !ids.is_empty()) {
                     return Err(StorageError::DuplicateKey(format!("{:?}", key)));
                 }
@@ -330,13 +332,13 @@ impl Table {
             // Check partial condition
             if let Some(cond) = index.where_clause() {
                 let context = [(table_ref, &row)];
-                if !evaluate_condition_joined(executor, &cond, &context, &[]).map_err(|e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)))? {
+                if !evaluate_condition_joined(executor, &cond, &context, &[], db_state).map_err(|e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)))? {
                     index_keys.push(None);
                     continue;
                 }
             }
 
-            let key = table_ref.extract_key_from_values(executor, &values, &index.expressions())?;
+            let key = table_ref.extract_key_from_values(executor, &values, &index.expressions(), db_state)?;
             index_keys.push(Some(key));
         }
 
@@ -355,7 +357,7 @@ impl Table {
         Ok(id)
     }
 
-    pub fn update(&mut self, executor: &Executor, id: &str, values: Vec<Value>) -> Result<(), StorageError> {
+    pub fn update(&mut self, executor: &Executor, id: &str, values: Vec<Value>, db_state: &DatabaseState) -> Result<(), StorageError> {
         if values.len() != self.columns.len() {
             return Err(StorageError::InvalidType(format!(
                 "Expected {} columns, got {}",
@@ -375,14 +377,14 @@ impl Table {
                 // Check if new row matches partial condition
                 if let Some(cond) = index.where_clause() {
                     let context = [(table_ref, &new_row)];
-                    if !evaluate_condition_joined(executor, &cond, &context, &[]).map_err(|e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)))? {
+                    if !evaluate_condition_joined(executor, &cond, &context, &[], db_state).map_err(|e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)))? {
                         continue;
                     }
                 }
 
                 if index.is_unique() {
-                    let new_key = table_ref.extract_key_from_values(executor, &values, &index.expressions())?;
-                    let old_key = table_ref.extract_key_from_values(executor, &old_values, &index.expressions())?;
+                    let new_key = table_ref.extract_key_from_values(executor, &values, &index.expressions(), db_state)?;
+                    let old_key = table_ref.extract_key_from_values(executor, &old_values, &index.expressions(), db_state)?;
                     
                     if old_key != new_key && index.get(&new_key).is_some() {
                         return Err(StorageError::DuplicateKey(format!("{:?}", new_key)));
@@ -396,19 +398,19 @@ impl Table {
                 let cond = index.where_clause();
                 let old_match = if let Some(ref c) = cond {
                     let context = [(table_ref, &old_row)];
-                    evaluate_condition_joined(executor, c, &context, &[]).map_err(|e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)))?
+                    evaluate_condition_joined(executor, c, &context, &[], db_state).map_err(|e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)))?
                 } else {
                     true
                 };
                 let new_match = if let Some(ref c) = cond {
                     let context = [(table_ref, &new_row)];
-                    evaluate_condition_joined(executor, c, &context, &[]).map_err(|e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)))?
+                    evaluate_condition_joined(executor, c, &context, &[], db_state).map_err(|e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)))?
                 } else {
                     true
                 };
 
-                let old_key = table_ref.extract_key_from_values(executor, &old_values, &index.expressions())?;
-                let new_key = table_ref.extract_key_from_values(executor, &values, &index.expressions())?;
+                let old_key = table_ref.extract_key_from_values(executor, &old_values, &index.expressions(), db_state)?;
+                let new_key = table_ref.extract_key_from_values(executor, &values, &index.expressions(), db_state)?;
                 index_updates.push((old_match, new_match, old_key, new_key));
             }
 
@@ -437,7 +439,7 @@ impl Table {
         }
     }
 
-    pub fn delete(&mut self, executor: &Executor, id: &str) -> Result<(), StorageError> {
+    pub fn delete(&mut self, executor: &Executor, id: &str, db_state: &DatabaseState) -> Result<(), StorageError> {
         if let Some(pos) = self.rows.iter().position(|r| r.id == id) {
             let values = self.rows[pos].values.clone();
             let row = Row { id: id.to_string(), values: values.clone() };
@@ -449,13 +451,13 @@ impl Table {
                 // Check partial condition
                 if let Some(cond) = index.where_clause() {
                     let context = [(table_ref, &row)];
-                    if !evaluate_condition_joined(executor, &cond, &context, &[]).map_err(|e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)))? {
+                    if !evaluate_condition_joined(executor, &cond, &context, &[], db_state).map_err(|e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)))? {
                         index_to_remove.push(None);
                         continue;
                     }
                 }
 
-                let key = table_ref.extract_key_from_values(executor, &values, &index.expressions())?;
+                let key = table_ref.extract_key_from_values(executor, &values, &index.expressions(), db_state)?;
                 index_to_remove.push(Some(key));
             }
 

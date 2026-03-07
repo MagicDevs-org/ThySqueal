@@ -6,7 +6,7 @@ Pest-based SQL parser for thy-squeal, supporting a MySQL-compatible dialect.
 ## Implementation Status
 
 - **Grammar** (`server/src/sql/sql.pest`): ✅ Integrated (SELECT, INSERT, UPDATE, DELETE, CREATE TABLE, DROP TABLE, CREATE INDEX, WHERE, expressions, subqueries, etc.)
-- **Executor**: Uses **Modular Pest-based parser** to produce AST. Supported: CREATE TABLE, DROP TABLE, CREATE INDEX, SELECT, INSERT, UPDATE, DELETE, WHERE, ORDER BY, LIMIT, Aggregations, GROUP BY, HAVING, DISTINCT, INNER/LEFT JOIN, Subqueries, and Advanced Indexing.
+- **Executor**: Uses **Modular Pest-based parser** to produce AST. Supported: CREATE TABLE, DROP TABLE, CREATE INDEX, SELECT, INSERT, UPDATE, DELETE, WHERE, ORDER BY, LIMIT, Aggregations, GROUP BY, HAVING, DISTINCT, INNER/LEFT JOIN, Subqueries, and ACID Transactions.
 - **Explain Plan**: ✅ Supported for `SELECT` statements.
 
 ## Parser Architecture
@@ -37,7 +37,7 @@ The parser is decomposed into submodules for maintainability:
 - `SEARCH` (Full-Text Search)
 
 ### Data Manipulation Language (DML)
-- `INSERT INTO ... VALUES ...`
+- `INSERT INTO table [(col1, col2, ...)] VALUES (val1, val2, ...)`
 - `UPDATE ... SET ... WHERE ...`
 - `DELETE FROM ... WHERE ...`
 
@@ -45,6 +45,11 @@ The parser is decomposed into submodules for maintainability:
 - `CREATE TABLE ... (columns, types)`
 - `DROP TABLE`
 - `CREATE [UNIQUE] INDEX [name] ON [table] (expr1, expr2, ...) [USING BTREE|HASH] [WHERE condition]`
+
+### Transaction Control
+- `BEGIN` / `START TRANSACTION`
+- `COMMIT`
+- `ROLLBACK`
 
 ## Advanced Indexing
 

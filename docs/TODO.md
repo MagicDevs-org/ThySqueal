@@ -34,8 +34,8 @@
 - [x] Unique Constraints / Indexes
 
 ## Phase 4: ACID & Protocol (v0.4) - 🏗 IN PROGRESS
-- [ ] Transactions (BEGIN, COMMIT, ROLLBACK) - **CURRENT FOCUS**
-- [ ] Write-Ahead Logging (WAL) for durability
+- [x] Transactions (BEGIN, COMMIT, ROLLBACK)
+- [ ] Write-Ahead Logging (WAL) for durability - **CURRENT FOCUS**
 - [ ] Information Schema (tables, columns metadata)
 - [ ] SQL Dump/Restore (.sql script export)
 - [ ] MySQL Protocol Compatibility (TCP 3306)

@@ -3,51 +3,65 @@
 ## Overview
 Support for ACID transactions in thy-squeal, allowing multiple SQL statements to be executed as a single atomic unit.
 
-## Implementation Plan
+**Status**: ✅ Implemented (Snapshot Isolation via CoW)
 
-### 1. SQL Grammar & AST
-Add the following statements to the grammar and AST:
-- `BEGIN` or `START TRANSACTION`: Initiates a new transaction.
-- `COMMIT`: Persists all changes made during the transaction.
-- `ROLLBACK`: Discards all changes made during the transaction.
+## Implementation Details
 
-### 2. Session Management (HTTP API)
-Since HTTP is stateless, multi-request transactions require a session or transaction ID:
-- **`POST /_query`**: If a transaction is started, the response will include a `transaction_id`.
-- **`QueryRequest`**: Will be updated to include an optional `transaction_id`.
-- **Server State**: The server will maintain a map of active `transaction_id -> TransactionState`.
-- **Timeout**: Active transactions will have a configurable timeout (default: 30s) after which they are automatically rolled back.
+### Copy-on-Write (CoW) State
+When a transaction is started with `BEGIN`, thy-squeal creates a lightweight clone of the entire `DatabaseState`. This state is stored in a session-specific map indexed by a `transaction_id`.
 
-### 3. Execution Strategy (In-Memory)
-For the initial implementation, we will use a **Copy-on-Write (CoW)** approach:
-- **`BEGIN`**: Clones the current `DatabaseState` into a new `TransactionState` associated with a `transaction_id`.
-- **DML Operations**: If a `transaction_id` is provided, the `Executor` applies changes to the cloned `DatabaseState` instead of the global one.
-- **`COMMIT`**: 
-    1. Acquire a write lock on the global `Database`.
-    2. Replace the global `DatabaseState` with the `TransactionState`.
-    3. Trigger a persistence snapshot (`db.save()`).
-    4. Release the lock and remove the transaction session.
-- **`ROLLBACK`**: Simply remove the transaction session.
+- **Isolation**: Each transaction operates on its own private snapshot. Changes are not visible to other transactions or the global state until committed.
+- **Atomicity**: Either all changes in the transaction are applied (via `COMMIT`) or none are (via `ROLLBACK`).
+- **Consistency**: Unique constraints and data types are validated against the private state before being merged back to the global state.
 
-### 4. Isolation Levels
-- **Initial Support**: `Serializable` (via global locking on COMMIT) or `Read Committed` (depending on how we handle the initial clone).
-- **Concurrency**: Since we are in-memory, we can start with a simple model where one transaction can be active at a time per session, but multiple read-only queries can still hit the global state.
+### Multi-Request HTTP Sessions
+Since HTTP is stateless, thy-squeal uses a `transaction_id` to link multiple requests into a single transaction.
 
-## Example Workflow
+1.  **BEGIN**: Returns a unique `transaction_id`.
+2.  **Operations**: All subsequent queries must include this `transaction_id`.
+3.  **COMMIT/ROLLBACK**: Finalizes the transaction and cleans up the session state.
 
-1. **Start Transaction**
-   ```bash
-   POST /_query { "sql": "BEGIN" }
-   # Response: { "success": true, "transaction_id": "tx_123" }
-   ```
+---
 
-2. **Execute Statements**
-   ```bash
-   POST /_query { "sql": "INSERT INTO users...", "transaction_id": "tx_123" }
-   POST /_query { "sql": "UPDATE account...", "transaction_id": "tx_123" }
-   ```
+## HTTP API Usage
 
-3. **Commit**
-   ```bash
-   POST /_query { "sql": "COMMIT", "transaction_id": "tx_123" }
-   ```
+### 1. Start Transaction
+```bash
+POST /_query
+{ "sql": "BEGIN" }
+```
+**Response**:
+```json
+{
+  "success": true,
+  "transaction_id": "tx_abc_123",
+  "data": []
+}
+```
+
+### 2. Execute Operations
+```bash
+POST /_query
+{ 
+  "sql": "INSERT INTO users VALUES (1, 'Alice')", 
+  "transaction_id": "tx_abc_123" 
+}
+```
+
+### 3. Commit
+```bash
+POST /_query
+{ 
+  "sql": "COMMIT", 
+  "transaction_id": "tx_abc_123" 
+}
+```
+
+### 4. Rollback (Alternative)
+```bash
+POST /_query
+{ 
+  "sql": "ROLLBACK", 
+  "transaction_id": "tx_abc_123" 
+}
+```

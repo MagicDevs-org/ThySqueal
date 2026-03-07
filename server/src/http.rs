@@ -19,9 +19,7 @@ pub struct AppState {
 #[derive(Deserialize)]
 pub struct QueryRequest {
     pub sql: String,
-    #[allow(dead_code)]
-    #[serde(rename = "params", default)]
-    pub _params: Vec<serde_json::Value>,
+    pub transaction_id: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -35,6 +33,8 @@ pub struct QueryResponse {
     pub rows_affected: u64,
     #[serde(default)]
     pub execution_time_ms: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transaction_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<sql::SqlError>,
 }
@@ -53,7 +53,7 @@ pub async fn execute_query(
 ) -> Json<QueryResponse> {
     let start = std::time::Instant::now();
 
-    match state.executor.execute(&req.sql).await {
+    match state.executor.execute(&req.sql, req.transaction_id).await {
         Ok(result) => {
             let data: Vec<serde_json::Value> = result
                 .rows
@@ -75,6 +75,7 @@ pub async fn execute_query(
                 data,
                 rows_affected: result.rows_affected,
                 execution_time_ms: start.elapsed().as_millis() as u64,
+                transaction_id: result.transaction_id,
                 error: None,
             })
         }
@@ -86,6 +87,7 @@ pub async fn execute_query(
                 data: vec![],
                 rows_affected: 0,
                 execution_time_ms: start.elapsed().as_millis() as u64,
+                transaction_id: None,
                 error: Some(e),
             })
         }

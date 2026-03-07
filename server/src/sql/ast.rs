@@ -13,6 +13,9 @@ pub enum SqlStmt {
     Delete(DeleteStmt),
     Explain(SelectStmt),
     Search(SearchStmt),
+    Begin,
+    Commit,
+    Rollback,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
