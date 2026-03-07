@@ -1,5 +1,5 @@
 use crate::storage::{Column, DataType};
-use super::super::ast::{CreateIndexStmt, CreateTableStmt, DropTableStmt, SqlStmt};
+use super::super::ast::{CreateIndexStmt, CreateTableStmt, DropTableStmt, SqlStmt, IndexType};
 use super::super::error::{SqlError, SqlResult};
 use super::super::parser::Rule;
 use super::utils::expect_identifier;
@@ -47,13 +47,65 @@ pub fn parse_drop_table(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt>
 }
 
 pub fn parse_create_index(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
-    let mut inner = pair.into_inner();
-    let _name = expect_identifier(inner.find(|p| p.as_rule() == Rule::identifier), "index name")?;
-    let table = inner
-        .find(|p| p.as_rule() == Rule::table_name)
+    let mut inner = pair.into_inner().peekable();
+    
+    // Pest rule: create_index_stmt = { KW_CREATE ~ unique? ~ KW_INDEX ~ identifier ~ ... }
+    
+    // Skip KW_CREATE
+    let _ = inner.next();
+
+    // Check for optional UNIQUE
+    let mut unique = false;
+    if let Some(next) = inner.peek() {
+        if next.as_rule() == Rule::unique {
+            unique = true;
+            inner.next(); // consume unique
+        }
+    }
+
+    // Skip KW_INDEX
+    let _ = inner.next();
+
+    // Index name
+    let index_name = inner.find(|p| p.as_rule() == Rule::identifier)
+        .map(|p| p.as_str().trim().to_string())
+        .ok_or_else(|| SqlError::Parse("Missing index name".to_string()))?;
+    
+    // Table name
+    let table = inner.find(|p| p.as_rule() == Rule::table_name)
         .map(|p| p.as_str().trim().to_string())
         .ok_or_else(|| SqlError::Parse("Missing table name".to_string()))?;
-    let column = expect_identifier(inner.find(|p| p.as_rule() == Rule::identifier), "column name")?;
+    
+    // Columns list
+    let id_list = inner.find(|p| p.as_rule() == Rule::identifier_list)
+        .ok_or_else(|| SqlError::Parse("Missing column list for index".to_string()))?;
+    
+    let columns: Vec<String> = id_list.into_inner()
+        .filter(|p| p.as_rule() == Rule::identifier)
+        .map(|p| p.as_str().trim().to_string())
+        .collect();
 
-    Ok(SqlStmt::CreateIndex(CreateIndexStmt { name: _name, table, column }))
+    if columns.is_empty() {
+        return Err(SqlError::Parse("Index must have at least one column".to_string()));
+    }
+
+    // Optional USING clause
+    let mut index_type = IndexType::BTree;
+    if let Some(type_clause) = inner.find(|p| p.as_rule() == Rule::index_type_clause) {
+        let type_inner = type_clause.into_inner().find(|p| p.as_rule() == Rule::index_type)
+            .ok_or_else(|| SqlError::Parse("Missing index type".to_string()))?;
+        
+        let type_str = type_inner.as_str().to_uppercase();
+        if type_str == "HASH" {
+            index_type = IndexType::Hash;
+        }
+    }
+
+    Ok(SqlStmt::CreateIndex(CreateIndexStmt { 
+        name: index_name, 
+        table, 
+        columns, 
+        unique, 
+        index_type 
+    }))
 }

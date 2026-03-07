@@ -122,7 +122,15 @@ pub struct CreateTableStmt {
 pub struct CreateIndexStmt {
     pub name: String,
     pub table: String,
-    pub column: String,
+    pub columns: Vec<String>,
+    pub unique: bool,
+    pub index_type: IndexType,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum IndexType {
+    BTree,
+    Hash,
 }
 
 #[derive(Debug, Clone)]

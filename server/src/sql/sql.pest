@@ -47,7 +47,11 @@ data_type = { "INTEGER" | "BIGINT" | "SMALLINT" | "INT" | "DOUBLE" | "REAL" | "F
 drop_table_stmt = { KW_DROP ~ KW_TABLE ~ table_name }
 
 // CREATE INDEX statement
-create_index_stmt = { KW_CREATE ~ KW_INDEX ~ identifier ~ KW_ON ~ table_name ~ "(" ~ identifier ~ ")" }
+create_index_stmt = { KW_CREATE ~ unique? ~ KW_INDEX ~ identifier ~ KW_ON ~ table_name ~ "(" ~ identifier_list ~ ")" ~ index_type_clause? }
+unique = { ^"UNIQUE" }
+identifier_list = { identifier ~ ("," ~ identifier)* }
+index_type_clause = { ^"USING" ~ index_type }
+index_type = { ^"BTREE" | ^"HASH" }
 
 // WHERE clause
 where_clause = { KW_WHERE ~ condition }

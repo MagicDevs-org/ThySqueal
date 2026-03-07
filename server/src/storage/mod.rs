@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 pub use error::StorageError;
 pub use types::DataType;
 pub use value::Value;
-pub use table::{Table, Column, Row};
+pub use table::{Table, Column, Row, TableIndex};
 use persistence::Persister;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

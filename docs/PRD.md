@@ -41,7 +41,7 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 - **Information Schema**: Metadata querying (tables, columns, statistics)
 
 #### 3.1.2 Performance & Reliability
-- **Indexes**: B-Tree or Hash indexes for fast lookups
+- **Indexes**: B-Tree, Hash, Composite, JSON Path, and Bitmap indexes
 - **Explain Plan**: Visualizing query execution strategy
 - **Write-Ahead Logging (WAL)**: Guaranteed durability for every write
 - **Schema Evolution**: `ALTER TABLE` support for non-destructive schema changes
@@ -93,6 +93,7 @@ thy-squeal/                          # Cargo workspace
 - [x] INNER and LEFT JOIN support
 - [x] Subquery support (correlated and IN)
 - [x] EXPLAIN support (execution plan visualization)
+- [x] Full-Text Search integration (Tantivy)
 - [x] Structured Error Handling (SqlError)
 - [x] Integration testing suite
 - [x] REPL SQL execution (wired via HTTP)
@@ -111,7 +112,7 @@ thy-squeal/                          # Cargo workspace
 - [x] Integration tests
 - [x] Persistence (Sled snapshots)
 
-### Phase 2: HTTP API (v0.2)
+### Phase 2: HTTP API (v0.2) - ✅ COMPLETE
 - [x] HTTP JSON API (basic Axum server running)
 - [x] POST /_query endpoint
 - [x] GET /, GET /health
@@ -127,7 +128,8 @@ thy-squeal/                          # Cargo workspace
 - [x] ORDER BY, LIMIT/OFFSET
 - [x] Subqueries (correlated and IN)
 - [ ] Multi-table JOINs (optimized)
-- [x] Indexes (B-Tree for range scans)
+- [x] B-Tree Indexes
+- [ ] Hash, Composite, JSON, and Bitmap Indexes
 
 ### Phase 4: Reliability & Tooling (v0.4)
 - [ ] **SQL Dump/Restore**: Export/Import SQL scripts

@@ -1,4 +1,4 @@
-use super::super::ast::{CreateIndexStmt, CreateTableStmt, DropTableStmt};
+use super::super::ast::{CreateIndexStmt, CreateTableStmt, DropTableStmt, IndexType};
 use super::super::error::{SqlError, SqlResult};
 use super::{Executor, QueryResult};
 
@@ -31,7 +31,9 @@ impl Executor {
             .get_table_mut(&stmt.table)
             .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
 
-        table.create_index(&stmt.column)?;
+        let use_hash = stmt.index_type == IndexType::Hash;
+        tracing::info!("Creating index {} on {} (unique={})", stmt.name, stmt.table, stmt.unique);
+        table.create_index(stmt.name, stmt.columns, stmt.unique, use_hash)?;
         db.save().map_err(|e| SqlError::Storage(e.to_string()))?;
 
         Ok(QueryResult {

@@ -1,4 +1,4 @@
-use crate::storage::{Value, Table, Row};
+use crate::storage::{Value, Table, Row, TableIndex};
 use super::super::ast::{self, SelectStmt};
 use super::super::error::{SqlError, SqlResult};
 use super::super::eval::{evaluate_condition_joined, evaluate_expression_joined};
@@ -48,19 +48,25 @@ impl Executor {
         let mut plan = Vec::new();
 
         // 1. Scan Type
-        let mut scan_type = "Full Table Scan";
-        let mut index_name = "None";
+        let mut scan_type = "Full Table Scan".to_string();
+        let mut index_name = "None".to_string();
         if stmt.joins.is_empty() {
             if let Some(ref cond) = stmt.where_clause {
                 if let ast::Condition::Comparison(ast::Expression::Column(col), ast::ComparisonOp::Eq, ast::Expression::Literal(_)) = cond {
-                    if table.indexes.contains_key(col) {
-                        scan_type = "Index Lookup";
-                        index_name = col;
+                    for (name, index) in &table.indexes {
+                        if index.columns().contains(col) && index.columns().len() == 1 {
+                            scan_type = match index {
+                                TableIndex::BTree { .. } => "Index Lookup (BTree)".to_string(),
+                                TableIndex::Hash { .. } => "Index Lookup (Hash)".to_string(),
+                            };
+                            index_name = name.clone();
+                            break;
+                        }
                     }
                 }
             }
         }
-        plan.push(vec![Value::Text("SCAN".to_string()), Value::Text(scan_type.to_string()), Value::Text(format!("table: {}, index: {}", stmt.table, index_name))]);
+        plan.push(vec![Value::Text("SCAN".to_string()), Value::Text(scan_type), Value::Text(format!("table: {}, index: {}", stmt.table, index_name))]);
 
         // 2. Joins
         for join in &stmt.joins {
@@ -110,23 +116,23 @@ impl Executor {
 
         // 2. Identify candidate rows (Optimization: use index if possible)
         let initial_rows: Vec<&Row> = if stmt.joins.is_empty() {
+            let mut result_rows = None;
             if let Some(ref cond) = stmt.where_clause {
                 if let ast::Condition::Comparison(ast::Expression::Column(col), ast::ComparisonOp::Eq, ast::Expression::Literal(val)) = cond {
-                    if let Some(index) = base_table.indexes.get(col) {
-                        if let Some(row_ids) = index.get(val) {
-                            base_table.rows.iter().filter(|r| row_ids.contains(&r.id)).collect()
-                        } else {
-                            vec![] // Value not in index
+                    for index in base_table.indexes.values() {
+                        if index.columns().len() == 1 && &index.columns()[0] == col {
+                            let key = vec![val.clone()];
+                            if let Some(row_ids) = index.get(&key) {
+                                result_rows = Some(base_table.rows.iter().filter(|r| row_ids.contains(&r.id)).collect());
+                            } else {
+                                result_rows = Some(vec![]); // Value not in index
+                            }
+                            break;
                         }
-                    } else {
-                        base_table.rows.iter().collect()
                     }
-                } else {
-                    base_table.rows.iter().collect()
                 }
-            } else {
-                base_table.rows.iter().collect()
             }
+            result_rows.unwrap_or_else(|| base_table.rows.iter().collect())
         } else {
             base_table.rows.iter().collect()
         };

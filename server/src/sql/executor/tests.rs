@@ -301,10 +301,44 @@ mod tests {
 
         let r = exec.execute("EXPLAIN SELECT * FROM users WHERE id = 1").await.unwrap();
         assert_eq!(r.columns, vec!["stage", "operation", "details"]);
-        assert!(r.rows[0][1].as_text().unwrap().contains("Index Lookup"));
+        assert!(r.rows[0][1].as_text().unwrap().contains("Index Lookup (BTree)"));
 
         let r = exec.execute("EXPLAIN SELECT * FROM users WHERE name = 'alice'").await.unwrap();
         assert!(r.rows[0][1].as_text().unwrap().contains("Full Table Scan"));
+    }
+
+    #[tokio::test]
+    async fn test_hash_index() {
+        let exec = Executor::new(crate::storage::Database::new());
+        exec.execute("CREATE TABLE users (id INT, name TEXT)").await.unwrap();
+        exec.execute("CREATE INDEX idx_id_hash ON users (id) USING HASH").await.unwrap();
+
+        let r = exec.execute("EXPLAIN SELECT * FROM users WHERE id = 1").await.unwrap();
+        assert!(r.rows[0][1].as_text().unwrap().contains("Index Lookup (Hash)"));
+    }
+
+    #[tokio::test]
+    async fn test_unique_index() {
+        let exec = Executor::new(crate::storage::Database::new());
+        exec.execute("CREATE TABLE users (id INT, email TEXT)").await.unwrap();
+        exec.execute("CREATE UNIQUE INDEX idx_email ON users (email)").await.unwrap();
+
+        exec.execute("INSERT INTO users (id, email) VALUES (1, 'alice@example.com')").await.unwrap();
+        
+        // This should fail
+        let r = exec.execute("INSERT INTO users (id, email) VALUES (2, 'alice@example.com')").await;
+        assert!(r.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_composite_index() {
+        let exec = Executor::new(crate::storage::Database::new());
+        exec.execute("CREATE TABLE users (id INT, first_name TEXT, last_name TEXT)").await.unwrap();
+        // Composite index
+        exec.execute("CREATE INDEX idx_name ON users (last_name, first_name)").await.unwrap();
+
+        exec.execute("INSERT INTO users (id, first_name, last_name) VALUES (1, 'Alice', 'Smith')").await.unwrap();
+        exec.execute("SELECT * FROM users WHERE last_name = 'Smith'").await.unwrap();
     }
 
     #[tokio::test]
