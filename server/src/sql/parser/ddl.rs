@@ -47,65 +47,57 @@ pub fn parse_drop_table(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt>
 }
 
 pub fn parse_create_index(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
-    let mut inner = pair.into_inner().peekable();
+    let inner = pair.into_inner();
     
-    // Skip KW_CREATE
-    let _ = inner.next();
-
-    // Check for optional UNIQUE
     let mut unique = false;
-    if let Some(next) = inner.peek() {
-        if next.as_rule() == Rule::unique {
-            unique = true;
-            inner.next(); // consume unique
-        }
-    }
-
-    // Skip KW_INDEX
-    let _ = inner.next();
-
-    // Index name
-    let index_name = inner.find(|p| p.as_rule() == Rule::identifier)
-        .map(|p| p.as_str().trim().to_string())
-        .ok_or_else(|| SqlError::Parse("Missing index name".to_string()))?;
-    
-    // Table name
-    let table = inner.find(|p| p.as_rule() == Rule::table_name)
-        .map(|p| p.as_str().trim().to_string())
-        .ok_or_else(|| SqlError::Parse("Missing table name".to_string()))?;
-    
-    // Expressions list
-    let id_list = inner.find(|p| p.as_rule() == Rule::index_expression_list)
-        .ok_or_else(|| SqlError::Parse("Missing expression list for index".to_string()))?;
-    
+    let mut index_name = None;
+    let mut table = None;
     let mut expressions = Vec::new();
-    for expr_pair in id_list.into_inner() {
-        if expr_pair.as_rule() == Rule::expression {
-            expressions.push(super::expr::parse_expression(expr_pair)?);
+    let mut index_type = IndexType::BTree;
+    let mut where_clause = None;
+
+    for p in inner {
+        match p.as_rule() {
+            Rule::unique => unique = true,
+            Rule::identifier => {
+                if index_name.is_none() {
+                    index_name = Some(p.as_str().trim().to_string());
+                }
+            }
+            Rule::table_name => table = Some(p.as_str().trim().to_string()),
+            Rule::index_expression_list => {
+                for expr_pair in p.into_inner() {
+                    if expr_pair.as_rule() == Rule::expression {
+                        expressions.push(super::expr::parse_expression(expr_pair)?);
+                    }
+                }
+            }
+            Rule::index_type_clause => {
+                let type_inner = p.into_inner().find(|it| it.as_rule() == Rule::index_type)
+                    .ok_or_else(|| SqlError::Parse("Missing index type".to_string()))?;
+                if type_inner.as_str().to_uppercase() == "HASH" {
+                    index_type = IndexType::Hash;
+                }
+            }
+            Rule::where_clause => {
+                where_clause = Some(super::expr::parse_where_clause(p)?);
+            }
+            _ => {}
         }
     }
 
+    let name = index_name.ok_or_else(|| SqlError::Parse("Missing index name".to_string()))?;
+    let table = table.ok_or_else(|| SqlError::Parse("Missing table name".to_string()))?;
     if expressions.is_empty() {
         return Err(SqlError::Parse("Index must have at least one expression".to_string()));
     }
 
-    // Optional USING clause
-    let mut index_type = IndexType::BTree;
-    if let Some(type_clause) = inner.find(|p| p.as_rule() == Rule::index_type_clause) {
-        let type_inner = type_clause.into_inner().find(|p| p.as_rule() == Rule::index_type)
-            .ok_or_else(|| SqlError::Parse("Missing index type".to_string()))?;
-        
-        let type_str = type_inner.as_str().to_uppercase();
-        if type_str == "HASH" {
-            index_type = IndexType::Hash;
-        }
-    }
-
     Ok(SqlStmt::CreateIndex(CreateIndexStmt { 
-        name: index_name, 
+        name, 
         table, 
         expressions, 
         unique, 
-        index_type 
+        index_type,
+        where_clause
     }))
 }

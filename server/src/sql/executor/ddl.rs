@@ -33,7 +33,7 @@ impl Executor {
 
         let use_hash = stmt.index_type == IndexType::Hash;
         tracing::info!("Creating index {} on {} (unique={})", stmt.name, stmt.table, stmt.unique);
-        table.create_index(self, stmt.name, stmt.expressions, stmt.unique, use_hash)?;
+        table.create_index(self, stmt.name, stmt.expressions, stmt.unique, use_hash, stmt.where_clause)?;
         db.save().map_err(|e| SqlError::Storage(e.to_string()))?;
 
         Ok(QueryResult {

@@ -76,7 +76,6 @@ pub enum Condition {
     IsNotNull(Expression),
     InSubquery(Expression, Box<SelectStmt>),
     Logical(Box<Condition>, LogicalOp, Box<Condition>),
-    #[allow(dead_code)]
     Not(Box<Condition>),
 }
 
@@ -141,6 +140,7 @@ pub struct CreateIndexStmt {
     pub expressions: Vec<Expression>,
     pub unique: bool,
     pub index_type: IndexType,
+    pub where_clause: Option<Condition>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

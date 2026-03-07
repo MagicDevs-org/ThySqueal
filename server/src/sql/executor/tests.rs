@@ -371,6 +371,21 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_partial_index() {
+        let exec = Executor::new(crate::storage::Database::new());
+        exec.execute("CREATE TABLE orders (id INT, status TEXT)").await.unwrap();
+        // Index only pending orders, enforce uniqueness on id for them
+        exec.execute("CREATE UNIQUE INDEX idx_pending_id ON orders (id) WHERE status = 'pending'").await.unwrap();
+
+        exec.execute("INSERT INTO orders (id, status) VALUES (1, 'pending')").await.unwrap();
+        exec.execute("INSERT INTO orders (id, status) VALUES (1, 'completed')").await.unwrap(); // OK, not pending
+        
+        // This should fail
+        let r = exec.execute("INSERT INTO orders (id, status) VALUES (1, 'pending')").await;
+        assert!(r.is_err());
+    }
+
+    #[tokio::test]
     async fn test_drop_table() {
         let exec = Executor::new(crate::storage::Database::new());
         exec.execute("CREATE TABLE x (id INT)").await.unwrap();

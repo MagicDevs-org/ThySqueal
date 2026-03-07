@@ -6,9 +6,9 @@ use super::error::StorageError;
 use super::types::DataType;
 use super::value::Value;
 use super::search::SearchIndex;
-use crate::sql::ast::Expression;
+use crate::sql::ast::{Expression, Condition};
 use crate::sql::executor::Executor;
-use crate::sql::eval::evaluate_expression_joined;
+use crate::sql::eval::{evaluate_expression_joined, evaluate_condition_joined};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Column {
@@ -30,11 +30,13 @@ pub enum TableIndex {
     BTree {
         unique: bool,
         expressions: Vec<serde_json::Value>, // Serialized Expressions
+        where_clause: Option<serde_json::Value>, // Serialized Condition
         data: BTreeMap<Vec<Value>, Vec<String>>,
     },
     Hash {
         unique: bool,
         expressions: Vec<serde_json::Value>,
+        where_clause: Option<serde_json::Value>,
         data: HashMap<Vec<Value>, Vec<String>>,
     },
 }
@@ -46,6 +48,14 @@ impl TableIndex {
             TableIndex::Hash { expressions, .. } => expressions,
         };
         expr_jsons.iter().map(|j| serde_json::from_value(j.clone()).unwrap()).collect()
+    }
+
+    pub fn where_clause(&self) -> Option<Condition> {
+        let where_json = match self {
+            TableIndex::BTree { where_clause, .. } => where_clause,
+            TableIndex::Hash { where_clause, .. } => where_clause,
+        };
+        where_json.as_ref().and_then(|j| serde_json::from_value(j.clone()).ok())
     }
 
     pub fn is_unique(&self) -> bool {
@@ -193,19 +203,38 @@ impl Table {
         }
     }
 
-    pub fn create_index(&mut self, executor: &Executor, name: String, expressions: Vec<Expression>, unique: bool, use_hash: bool) -> Result<(), StorageError> {
+    pub fn create_index(
+        &mut self, 
+        executor: &Executor, 
+        name: String, 
+        expressions: Vec<Expression>, 
+        unique: bool, 
+        use_hash: bool,
+        where_clause: Option<Condition>
+    ) -> Result<(), StorageError> {
         let expr_jsons: Vec<serde_json::Value> = expressions.iter().map(|e| serde_json::to_value(e).unwrap()).collect();
+        let where_json = where_clause.as_ref().map(|c| serde_json::to_value(c).unwrap());
         
         let mut index = if use_hash {
-            TableIndex::Hash { unique, expressions: expr_jsons, data: HashMap::new() }
+            TableIndex::Hash { unique, expressions: expr_jsons, where_clause: where_json, data: HashMap::new() }
         } else {
-            TableIndex::BTree { unique, expressions: expr_jsons, data: BTreeMap::new() }
+            TableIndex::BTree { unique, expressions: expr_jsons, where_clause: where_json, data: BTreeMap::new() }
         };
 
         // Populate existing data
         let exprs = index.expressions();
+        let cond = index.where_clause();
+        let table_ref: &Table = self;
         for row in &self.rows {
-            let key = self.extract_key(executor, row, &exprs)?;
+            // Check partial index condition
+            if let Some(ref c) = cond {
+                let context = [(table_ref, row)];
+                if !evaluate_condition_joined(executor, c, &context, &[]).map_err(|e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)))? {
+                    continue;
+                }
+            }
+
+            let key = table_ref.extract_key(executor, row, &exprs)?;
             index.insert(key, row.id.clone())?;
         }
 
@@ -273,32 +302,49 @@ impl Table {
             )));
         }
 
+        let id = Uuid::new_v4().to_string();
+        let row = Row { id: id.clone(), values: values.to_vec() };
+        let table_ref: &Table = self;
+
         // 1. Check unique constraints/indexes before inserting
         for index in self.indexes.values() {
+            // Check partial condition
+            if let Some(cond) = index.where_clause() {
+                let context = [(table_ref, &row)];
+                if !evaluate_condition_joined(executor, &cond, &context, &[]).map_err(|e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)))? {
+                    continue;
+                }
+            }
+
             if index.is_unique() {
-                let key = self.extract_key_from_values(executor, &values, &index.expressions())?;
+                let key = table_ref.extract_key_from_values(executor, &values, &index.expressions())?;
                 if index.get(&key).map_or(false, |ids| !ids.is_empty()) {
                     return Err(StorageError::DuplicateKey(format!("{:?}", key)));
                 }
             }
         }
 
-        let id = Uuid::new_v4().to_string();
-        
         // 2. Update all indexes
-        let mut index_data = Vec::new();
+        let mut index_keys = Vec::new();
         for index in self.indexes.values() {
-            index_data.push(self.extract_key_from_values(executor, &values, &index.expressions())?);
+            // Check partial condition
+            if let Some(cond) = index.where_clause() {
+                let context = [(table_ref, &row)];
+                if !evaluate_condition_joined(executor, &cond, &context, &[]).map_err(|e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)))? {
+                    index_keys.push(None);
+                    continue;
+                }
+            }
+
+            let key = table_ref.extract_key_from_values(executor, &values, &index.expressions())?;
+            index_keys.push(Some(key));
         }
 
-        for (index, key) in self.indexes.values_mut().zip(index_data) {
-            index.insert(key, id.clone())?;
+        for (index, key_opt) in self.indexes.values_mut().zip(index_keys) {
+            if let Some(key) = key_opt {
+                index.insert(key, id.clone())?;
+            }
         }
-
-        let row = Row {
-            id: id.clone(),
-            values,
-        };
         
         // 3. Update Search Index
         if let Err(e) = self.index_row(&row) {
@@ -320,12 +366,23 @@ impl Table {
 
         if let Some(pos) = self.rows.iter().position(|r| r.id == id) {
             let old_values = self.rows[pos].values.clone();
+            let old_row = Row { id: id.to_string(), values: old_values.clone() };
+            let new_row = Row { id: id.to_string(), values: values.to_vec() };
+            let table_ref: &Table = self;
             
             // 1. Check unique constraints
             for index in self.indexes.values() {
+                // Check if new row matches partial condition
+                if let Some(cond) = index.where_clause() {
+                    let context = [(table_ref, &new_row)];
+                    if !evaluate_condition_joined(executor, &cond, &context, &[]).map_err(|e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)))? {
+                        continue;
+                    }
+                }
+
                 if index.is_unique() {
-                    let old_key = self.extract_key_from_values(executor, &old_values, &index.expressions())?;
-                    let new_key = self.extract_key_from_values(executor, &values, &index.expressions())?;
+                    let new_key = table_ref.extract_key_from_values(executor, &values, &index.expressions())?;
+                    let old_key = table_ref.extract_key_from_values(executor, &old_values, &index.expressions())?;
                     
                     if old_key != new_key && index.get(&new_key).is_some() {
                         return Err(StorageError::DuplicateKey(format!("{:?}", new_key)));
@@ -334,15 +391,33 @@ impl Table {
             }
 
             // 2. Update all indexes
-            let mut keys = Vec::new();
+            let mut index_updates = Vec::new();
             for index in self.indexes.values() {
-                let old_key = self.extract_key_from_values(executor, &old_values, &index.expressions())?;
-                let new_key = self.extract_key_from_values(executor, &values, &index.expressions())?;
-                keys.push((old_key, new_key));
+                let cond = index.where_clause();
+                let old_match = if let Some(ref c) = cond {
+                    let context = [(table_ref, &old_row)];
+                    evaluate_condition_joined(executor, c, &context, &[]).map_err(|e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)))?
+                } else {
+                    true
+                };
+                let new_match = if let Some(ref c) = cond {
+                    let context = [(table_ref, &new_row)];
+                    evaluate_condition_joined(executor, c, &context, &[]).map_err(|e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)))?
+                } else {
+                    true
+                };
+
+                let old_key = table_ref.extract_key_from_values(executor, &old_values, &index.expressions())?;
+                let new_key = table_ref.extract_key_from_values(executor, &values, &index.expressions())?;
+                index_updates.push((old_match, new_match, old_key, new_key));
             }
 
-            for (index, (old_key, new_key)) in self.indexes.values_mut().zip(keys) {
-                if old_key != new_key {
+            for (index, (old_match, new_match, old_key, new_key)) in self.indexes.values_mut().zip(index_updates) {
+                if old_match && !new_match {
+                    index.remove(&old_key, id);
+                } else if !old_match && new_match {
+                    index.insert(new_key, id.to_string())?;
+                } else if old_match && new_match && old_key != new_key {
                     index.remove(&old_key, id);
                     index.insert(new_key, id.to_string())?;
                 }
@@ -365,15 +440,29 @@ impl Table {
     pub fn delete(&mut self, executor: &Executor, id: &str) -> Result<(), StorageError> {
         if let Some(pos) = self.rows.iter().position(|r| r.id == id) {
             let values = self.rows[pos].values.clone();
+            let row = Row { id: id.to_string(), values: values.clone() };
+            let table_ref: &Table = self;
 
             // 1. Update all indexes
-            let mut keys = Vec::new();
+            let mut index_to_remove = Vec::new();
             for index in self.indexes.values() {
-                keys.push(self.extract_key_from_values(executor, &values, &index.expressions())?);
+                // Check partial condition
+                if let Some(cond) = index.where_clause() {
+                    let context = [(table_ref, &row)];
+                    if !evaluate_condition_joined(executor, &cond, &context, &[]).map_err(|e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)))? {
+                        index_to_remove.push(None);
+                        continue;
+                    }
+                }
+
+                let key = table_ref.extract_key_from_values(executor, &values, &index.expressions())?;
+                index_to_remove.push(Some(key));
             }
 
-            for (index, key) in self.indexes.values_mut().zip(keys) {
-                index.remove(&key, id);
+            for (index, key_opt) in self.indexes.values_mut().zip(index_to_remove) {
+                if let Some(key) = key_opt {
+                    index.remove(&key, id);
+                }
             }
 
             // 2. Remove from Search Index
