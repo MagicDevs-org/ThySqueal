@@ -32,11 +32,9 @@ pub fn evaluate_condition_joined(
                     if r.starts_with('%') && r.ends_with('%') {
                         let pat = &r[1..r.len()-1];
                         Ok(l.contains(pat))
-                    } else if r.starts_with('%') {
-                        let pat = &r[1..];
+                    } else if let Some(pat) = r.strip_prefix('%') {
                         Ok(l.ends_with(pat))
-                    } else if r.ends_with('%') {
-                        let pat = &r[..r.len()-1];
+                    } else if let Some(pat) = r.strip_suffix('%') {
                         Ok(l.starts_with(pat))
                     } else {
                         Ok(l == r)
@@ -54,7 +52,6 @@ pub fn evaluate_condition_joined(
         }
         Condition::InSubquery(expr, subquery) => {
             let val = evaluate_expression_joined(executor, expr, contexts, outer_contexts)?;
-            // Correctly pass current contexts as outer_contexts to subquery
             let mut combined_outer = outer_contexts.to_vec();
             combined_outer.extend_from_slice(contexts);
             
@@ -99,11 +96,9 @@ pub fn evaluate_expression_joined(
     match expr {
         Expression::Literal(v) => Ok(v.clone()),
         Expression::Column(name) => {
-            // 1. Search in local contexts
             if let Ok(val) = resolve_column(name, contexts) {
                 return Ok(val);
             }
-            // 2. Search in outer contexts (correlated subquery)
             if let Ok(val) = resolve_column(name, outer_contexts) {
                 return Ok(val);
             }
@@ -119,12 +114,10 @@ pub fn evaluate_expression_joined(
                 Ok(Value::Null)
             } else if result.rows.len() > 1 {
                 Err(SqlError::Runtime("Subquery returned more than one row".to_string()))
+            } else if result.rows[0].is_empty() {
+                Ok(Value::Null)
             } else {
-                if result.rows[0].is_empty() {
-                    Ok(Value::Null)
-                } else {
-                    Ok(result.rows[0][0].clone())
-                }
+                Ok(result.rows[0][0].clone())
             }
         }
         Expression::BinaryOp(left, op, right) => {
@@ -190,8 +183,8 @@ fn resolve_column(name: &str, contexts: &[(&Table, &Row)]) -> SqlResult<Value> {
             for (table, row) in contexts {
                 if table.name == table_name {
                     if let Some(idx) = table.column_index(col_name) {
-                        return Ok(row.values.get(idx).cloned()
-                            .ok_or_else(|| SqlError::Runtime(format!("Value not found for column index: {}", idx)))?);
+                        return row.values.get(idx).cloned()
+                            .ok_or_else(|| SqlError::Runtime(format!("Value not found for column index: {}", idx)));
                     }
                 }
             }
@@ -199,8 +192,8 @@ fn resolve_column(name: &str, contexts: &[(&Table, &Row)]) -> SqlResult<Value> {
     } else {
         for (table, row) in contexts {
             if let Some(idx) = table.column_index(name) {
-                return Ok(row.values.get(idx).cloned()
-                    .ok_or_else(|| SqlError::Runtime(format!("Value not found for column index: {}", idx)))?);
+                return row.values.get(idx).cloned()
+                    .ok_or_else(|| SqlError::Runtime(format!("Value not found for column index: {}", idx)));
             }
         }
     }

@@ -6,7 +6,7 @@ mod tests {
         http::{Request, StatusCode},
         response::Response,
     };
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
     use std::sync::Arc;
     use tower::ServiceExt; // for `oneshot`
 
@@ -56,7 +56,9 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert!(body["success"].as_bool().unwrap());
 
@@ -80,7 +82,9 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert!(body["success"].as_bool().unwrap());
         assert_eq!(body["rows_affected"].as_u64().unwrap(), 1);
@@ -105,7 +109,9 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert!(body["success"].as_bool().unwrap());
         assert_eq!(body["data"].as_array().unwrap().len(), 1);
@@ -131,7 +137,9 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert!(body["success"].as_bool().unwrap());
         assert_eq!(body["rows_affected"].as_u64().unwrap(), 1);
@@ -155,16 +163,19 @@ mod tests {
             .await
             .unwrap();
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(body["data"][0]["name"], "bob");
     }
 
     #[tokio::test]
     async fn test_persistence() {
-        let temp_dir = std::env::temp_dir().join(format!("thy-squeal-test-{}", uuid::Uuid::new_v4()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("thy-squeal-test-{}", uuid::Uuid::new_v4()));
         let data_dir = temp_dir.to_str().unwrap().to_string();
-        
+
         let config = crate::config::Config {
             server: crate::config::ServerConfig {
                 host: "127.0.0.1".to_string(),
@@ -189,47 +200,67 @@ mod tests {
 
         // 1. Create table and insert data in first instance
         {
-            let persister = Box::new(crate::storage::persistence::SledPersister::new(&data_dir).unwrap());
+            let persister =
+                Box::new(crate::storage::persistence::SledPersister::new(&data_dir).unwrap());
             let db = crate::storage::Database::with_persister(persister).unwrap();
             let executor = Arc::new(Executor::new(db));
             let app = create_app(executor, config.clone());
 
-            app.clone().oneshot(
-                Request::builder()
-                    .method("POST")
-                    .uri("/_query")
-                    .header("Content-Type", "application/json")
-                    .body(Body::from(json!({"sql": "CREATE TABLE p (id INT, v TEXT)"}).to_string()))
-                    .unwrap(),
-            ).await.unwrap();
+            app.clone()
+                .oneshot(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/_query")
+                        .header("Content-Type", "application/json")
+                        .body(Body::from(
+                            json!({"sql": "CREATE TABLE p (id INT, v TEXT)"}).to_string(),
+                        ))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
 
-            app.clone().oneshot(
-                Request::builder()
-                    .method("POST")
-                    .uri("/_query")
-                    .header("Content-Type", "application/json")
-                    .body(Body::from(json!({"sql": "INSERT INTO p (id, v) VALUES (1, 'persisted')"}).to_string()))
-                    .unwrap(),
-            ).await.unwrap();
+            app.clone()
+                .oneshot(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/_query")
+                        .header("Content-Type", "application/json")
+                        .body(Body::from(
+                            json!({"sql": "INSERT INTO p (id, v) VALUES (1, 'persisted')"})
+                                .to_string(),
+                        ))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
         }
 
         // 2. Start a second instance and verify data exists
         {
-            let persister = Box::new(crate::storage::persistence::SledPersister::new(&data_dir).unwrap());
+            let persister =
+                Box::new(crate::storage::persistence::SledPersister::new(&data_dir).unwrap());
             let db = crate::storage::Database::with_persister(persister).unwrap();
             let executor = Arc::new(Executor::new(db));
             let app = create_app(executor, config);
 
-            let response = app.oneshot(
-                Request::builder()
-                    .method("POST")
-                    .uri("/_query")
-                    .header("Content-Type", "application/json")
-                    .body(Body::from(json!({"sql": "SELECT v FROM p WHERE id = 1"}).to_string()))
-                    .unwrap(),
-            ).await.unwrap();
+            let response = app
+                .oneshot(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/_query")
+                        .header("Content-Type", "application/json")
+                        .body(Body::from(
+                            json!({"sql": "SELECT v FROM p WHERE id = 1"}).to_string(),
+                        ))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
 
-            let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+            let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap();
             let body: Value = serde_json::from_slice(&body).unwrap();
             assert_eq!(body["data"][0]["v"], "persisted");
         }
@@ -283,7 +314,9 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert!(!body["success"].as_bool().unwrap());
         assert_eq!(body["error"]["type"], "TableNotFound");

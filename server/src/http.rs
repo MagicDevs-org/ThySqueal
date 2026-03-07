@@ -1,15 +1,14 @@
-use std::sync::Arc;
+use crate::config;
+use crate::sql::{self, Executor};
+use crate::storage;
 use axum::{
-    Router,
-    routing::{get, post},
+    Json, Router,
     extract::State,
-    Json,
+    routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
-use crate::sql::{self, Executor};
-use crate::config;
-use crate::storage;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -53,18 +52,22 @@ pub async fn execute_query(
     Json(req): Json<QueryRequest>,
 ) -> Json<QueryResponse> {
     let start = std::time::Instant::now();
-    
+
     match state.executor.execute(&req.sql).await {
         Ok(result) => {
-            let data: Vec<serde_json::Value> = result.rows.iter().map(|row| {
-                let mut map = serde_json::Map::new();
-                for (i, col) in result.columns.iter().enumerate() {
-                    if let Some(val) = row.get(i) {
-                        map.insert(col.clone(), value_to_json(val));
+            let data: Vec<serde_json::Value> = result
+                .rows
+                .iter()
+                .map(|row| {
+                    let mut map = serde_json::Map::new();
+                    for (i, col) in result.columns.iter().enumerate() {
+                        if let Some(val) = row.get(i) {
+                            map.insert(col.clone(), value_to_json(val));
+                        }
                     }
-                }
-                serde_json::Value::Object(map)
-            }).collect();
+                    serde_json::Value::Object(map)
+                })
+                .collect();
 
             Json(QueryResponse {
                 success: true,
@@ -93,18 +96,23 @@ pub fn value_to_json(val: &storage::Value) -> serde_json::Value {
     match val {
         storage::Value::Null => serde_json::Value::Null,
         storage::Value::Int(i) => serde_json::Value::Number((*i).into()),
-        storage::Value::Float(f) => serde_json::Value::Number(serde_json::Number::from_f64(*f).unwrap()),
+        storage::Value::Float(f) => {
+            serde_json::Value::Number(serde_json::Number::from_f64(*f).unwrap())
+        }
         storage::Value::Bool(b) => serde_json::Value::Bool(*b),
         storage::Value::Text(s) => serde_json::Value::String(s.clone()),
         storage::Value::Date(d) => serde_json::Value::String(d.to_string()),
         storage::Value::DateTime(dt) => serde_json::Value::String(dt.to_string()),
-        storage::Value::Blob(b) => serde_json::Value::String(base64::Engine::encode(&base64::engine::general_purpose::STANDARD, b)),
+        storage::Value::Blob(b) => serde_json::Value::String(base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD,
+            b,
+        )),
         storage::Value::Json(j) => j.clone(),
     }
 }
 
 pub fn create_app(executor: Arc<Executor>, config: config::Config) -> Router {
-    let state = AppState { 
+    let state = AppState {
         _config: config,
         executor,
     };

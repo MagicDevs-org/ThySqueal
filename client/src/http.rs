@@ -23,7 +23,7 @@ pub struct QueryResponse {
 
 pub async fn execute_query(host: &str, port: u16, sql: &str) -> Result<()> {
     let url = format!("http://{}:{}/_query", host, port);
-    
+
     let client = reqwest::Client::new();
     let response = client
         .post(&url)
@@ -35,7 +35,7 @@ pub async fn execute_query(host: &str, port: u16, sql: &str) -> Result<()> {
         .await?;
 
     let result: QueryResponse = response.json().await?;
-    
+
     if result.success {
         if !result.data.is_empty() {
             println!("{}", serde_json::to_string_pretty(&result.data)?);

@@ -1,6 +1,6 @@
+use crate::storage::StorageError;
 use serde::Serialize;
 use thiserror::Error;
-use crate::storage::StorageError;
 
 #[derive(Error, Debug, Serialize)]
 #[serde(tag = "type", content = "details")]

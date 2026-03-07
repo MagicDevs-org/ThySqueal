@@ -4,6 +4,8 @@ use super::super::error::{SqlError, SqlResult};
 use super::super::eval::{evaluate_condition_joined, evaluate_expression_joined};
 use super::{QueryResult, Executor};
 
+type JoinedContext<'a> = Vec<(&'a Table, Row)>;
+
 impl Executor {
     pub(crate) async fn exec_select_recursive(&self, stmt: SelectStmt, outer_contexts: &[(&Table, &Row)]) -> SqlResult<QueryResult> {
         let db = self.db.read().await;
@@ -14,7 +16,7 @@ impl Executor {
             .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
 
         // Context is now Vec<(&Table, Row)> where Row is owned to support Null rows in LEFT JOIN
-        let mut joined_rows: Vec<Vec<(&Table, Row)>> = base_table.rows.iter()
+        let mut joined_rows: Vec<JoinedContext> = base_table.rows.iter()
             .map(|r| vec![(base_table, r.clone())])
             .collect();
 
@@ -169,7 +171,7 @@ impl Executor {
         names
     }
 
-    async fn exec_select_with_grouping_owned(&self, stmt: SelectStmt, matched_rows: Vec<Vec<(&Table, Row)>>, outer_contexts: &[(&Table, &Row)]) -> SqlResult<QueryResult> {
+    async fn exec_select_with_grouping_owned(&self, stmt: SelectStmt, matched_rows: Vec<JoinedContext<'_>>, outer_contexts: &[(&Table, &Row)]) -> SqlResult<QueryResult> {
         let mut result_rows = Vec::new();
         let db = self.db.read().await;
         let base_table = db.get_table(&stmt.table).unwrap();
@@ -177,7 +179,7 @@ impl Executor {
         if stmt.group_by.is_empty() {
             // Global aggregation
             let eval_contexts: Vec<Vec<(&Table, &Row)>> = matched_rows.iter()
-                .map(|ctx| ctx.iter().map(|(t, r)| (*t, r)).collect())
+                .map(|ctx: &JoinedContext<'_>| ctx.iter().map(|(t, r)| (*t, r)).collect())
                 .collect();
 
             let mut row_values = Vec::new();
@@ -207,7 +209,7 @@ impl Executor {
             }
         } else {
             // GROUP BY
-            let mut groups: std::collections::HashMap<Vec<Value>, Vec<Vec<(&Table, Row)>>> = std::collections::HashMap::new();
+            let mut groups: std::collections::HashMap<Vec<Value>, Vec<JoinedContext<'_>>> = std::collections::HashMap::new();
             for ctx in matched_rows {
                 let eval_ctx: Vec<(&Table, &Row)> = ctx.iter().map(|(t, r)| (*t, r)).collect();
                 let mut group_key = Vec::new();
@@ -219,7 +221,7 @@ impl Executor {
 
             for (_key, group_owned_contexts) in groups {
                 let group_eval_contexts: Vec<Vec<(&Table, &Row)>> = group_owned_contexts.iter()
-                    .map(|ctx| ctx.iter().map(|(t, r)| (*t, r)).collect())
+                    .map(|ctx: &JoinedContext<'_>| ctx.iter().map(|(t, r)| (*t, r)).collect())
                     .collect();
 
                 let include_group = if let Some(ref having_cond) = stmt.having {
@@ -294,7 +296,6 @@ impl Executor {
             ast::Condition::InSubquery(expr, subquery) => {
                 let val = self.evaluate_having_expression_joined(expr, contexts, outer_contexts)?;
                 let mut combined_outer = outer_contexts.to_vec();
-                // Pick first row of each group context as representative for outer scope if available
                 if let Some(first_ctx) = contexts.first() {
                     combined_outer.extend_from_slice(first_ctx);
                 }
@@ -323,12 +324,10 @@ impl Executor {
                     Ok(Value::Null)
                 } else if result.rows.len() > 1 {
                     Err(SqlError::Runtime("Subquery returned more than one row".to_string()))
+                } else if result.rows[0].is_empty() {
+                    Ok(Value::Null)
                 } else {
-                    if result.rows[0].is_empty() {
-                        Ok(Value::Null)
-                    } else {
-                        Ok(result.rows[0][0].clone())
-                    }
+                    Ok(result.rows[0][0].clone())
                 }
             },
             ast::Expression::Column(_) | ast::Expression::BinaryOp(_, _, _) => {
@@ -378,7 +377,7 @@ impl Executor {
                 for ctx in contexts {
                     let val = evaluate_expression_joined(self, &fc.args[0], ctx, outer_contexts)?;
                     if val == Value::Null { continue; }
-                    if min_val.is_none() || val < min_val.clone().unwrap() {
+                    if min_val.as_ref().map_or(true, |mv| &val < mv) {
                         min_val = Some(val);
                     }
                 }
@@ -389,7 +388,7 @@ impl Executor {
                 for ctx in contexts {
                     let val = evaluate_expression_joined(self, &fc.args[0], ctx, outer_contexts)?;
                     if val == Value::Null { continue; }
-                    if max_val.is_none() || val > max_val.clone().unwrap() {
+                    if max_val.as_ref().map_or(true, |mv| &val > mv) {
                         max_val = Some(val);
                     }
                 }

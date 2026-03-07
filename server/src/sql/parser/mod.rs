@@ -1,7 +1,7 @@
+pub mod ddl;
+pub mod dml;
 pub mod expr;
 pub mod select;
-pub mod dml;
-pub mod ddl;
 pub mod utils;
 
 use pest::Parser;
@@ -15,7 +15,8 @@ use super::error::{SqlError, SqlResult};
 pub struct SqlParser;
 
 pub fn parse(input: &str) -> SqlResult<SqlStmt> {
-    let mut pairs = SqlParser::parse(Rule::statement, input.trim()).map_err(|e| SqlError::Parse(e.to_string()))?;
+    let mut pairs = SqlParser::parse(Rule::statement, input.trim())
+        .map_err(|e| SqlError::Parse(e.to_string()))?;
 
     let stmt_pair = pairs
         .next()

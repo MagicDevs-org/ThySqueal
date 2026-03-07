@@ -1,16 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use thiserror::Error;
+use std::path::Path;
 
-#[derive(Error, Debug)]
-pub enum ConfigError {
-    #[error("Failed to read config file: {0}")]
-    ReadError(#[from] std::io::Error),
-    #[error("Failed to parse YAML: {0}")]
-    ParseError(#[from] serde_yaml::Error),
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Config {
     #[serde(default)]
     pub server: ServerConfig,
@@ -22,7 +14,7 @@ pub struct Config {
     pub logging: LoggingConfig,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ServerConfig {
     #[serde(default = "default_host")]
     pub host: String,
@@ -30,6 +22,16 @@ pub struct ServerConfig {
     pub sql_port: u16,
     #[serde(default = "default_http_port")]
     pub http_port: u16,
+}
+
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self {
+            host: default_host(),
+            sql_port: default_sql_port(),
+            http_port: default_http_port(),
+        }
+    }
 }
 
 fn default_host() -> String {
@@ -44,22 +46,12 @@ fn default_http_port() -> u16 {
     9200
 }
 
-impl Default for ServerConfig {
-    fn default() -> Self {
-        Self {
-            host: default_host(),
-            sql_port: default_sql_port(),
-            http_port: default_http_port(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct StorageConfig {
-    #[serde(default = "default_max_memory_mb")]
-    pub max_memory_mb: usize,
+    #[serde(default = "default_max_memory")]
+    pub max_memory_mb: u64,
     #[serde(default = "default_cache_size")]
-    pub default_cache_size: usize,
+    pub default_cache_size: u64,
     #[serde(default = "default_eviction")]
     pub default_eviction: String,
     #[serde(default = "default_snapshot_interval")]
@@ -68,12 +60,24 @@ pub struct StorageConfig {
     pub data_dir: String,
 }
 
-fn default_max_memory_mb() -> usize {
-    4096
+impl Default for StorageConfig {
+    fn default() -> Self {
+        Self {
+            max_memory_mb: default_max_memory(),
+            default_cache_size: default_cache_size(),
+            default_eviction: default_eviction(),
+            snapshot_interval_sec: default_snapshot_interval(),
+            data_dir: default_data_dir(),
+        }
+    }
 }
 
-fn default_cache_size() -> usize {
-    10000
+fn default_max_memory() -> u64 {
+    1024
+}
+
+fn default_cache_size() -> u64 {
+    1000
 }
 
 fn default_eviction() -> String {
@@ -88,43 +92,16 @@ fn default_data_dir() -> String {
     "./data".to_string()
 }
 
-impl Default for StorageConfig {
-    fn default() -> Self {
-        Self {
-            max_memory_mb: default_max_memory_mb(),
-            default_cache_size: default_cache_size(),
-            default_eviction: default_eviction(),
-            snapshot_interval_sec: default_snapshot_interval(),
-            data_dir: default_data_dir(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct SecurityConfig {
-    #[serde(default)]
     pub auth_enabled: bool,
-    #[serde(default)]
     pub tls_enabled: bool,
 }
 
-impl Default for SecurityConfig {
-    fn default() -> Self {
-        Self {
-            auth_enabled: false,
-            tls_enabled: false,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct LoggingConfig {
     #[serde(default = "default_log_level")]
     pub level: String,
-}
-
-fn default_log_level() -> String {
-    "info".to_string()
 }
 
 impl Default for LoggingConfig {
@@ -135,19 +112,16 @@ impl Default for LoggingConfig {
     }
 }
 
-pub fn load_config() -> Result<Config, ConfigError> {
-    let config_paths = [
-        "thy-squeal.yaml",
-        "thy-squeal.yml",
-        "config.yaml",
-        "config.yml",
-    ];
+fn default_log_level() -> String {
+    "info".to_string()
+}
 
-    for path in &config_paths {
-        if let Ok(contents) = fs::read_to_string(path) {
-            tracing::info!("Loading config from {}", path);
-            return Ok(serde_yaml::from_str(&contents)?);
-        }
+pub fn load_config() -> anyhow::Result<Config> {
+    let config_path = Path::new("thy-squeal.yaml");
+    if config_path.exists() {
+        let content = fs::read_to_string(config_path)?;
+        let config: Config = serde_yaml::from_str(&content)?;
+        return Ok(config);
     }
 
     tracing::info!("No config file found, using defaults");

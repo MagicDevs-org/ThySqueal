@@ -1,10 +1,10 @@
+use crate::http;
 use anyhow::Result;
 use rustyline::{Editor, history::DefaultHistory};
-use crate::http;
 
 pub async fn start(host: String, port: u16) -> Result<()> {
     let mut rl: Editor<(), DefaultHistory> = Editor::new()?;
-    
+
     // Check if we can find a history file
     let history_path = "history.txt";
     if rl.load_history(history_path).is_err() {

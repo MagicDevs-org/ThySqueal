@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[allow(dead_code)]
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Config {
     #[serde(default)]
     pub connection: ConnectionConfig,
@@ -66,15 +66,6 @@ fn default_history_size() -> usize {
 #[allow(dead_code)]
 fn default_prompt() -> String {
     "thy> ".to_string()
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            connection: ConnectionConfig::default(),
-            repl: ReplConfig::default(),
-        }
-    }
 }
 
 #[allow(dead_code)]

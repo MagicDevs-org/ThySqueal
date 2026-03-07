@@ -1,7 +1,7 @@
-use super::super::ast::{InsertStmt, UpdateStmt, DeleteStmt};
+use super::super::ast::{DeleteStmt, InsertStmt, UpdateStmt};
 use super::super::error::{SqlError, SqlResult};
 use super::super::eval::{evaluate_condition_joined, evaluate_expression_joined};
-use super::{QueryResult, Executor};
+use super::{Executor, QueryResult};
 
 impl Executor {
     pub(crate) async fn exec_insert(&self, stmt: InsertStmt) -> SqlResult<QueryResult> {
@@ -41,7 +41,8 @@ impl Executor {
                     let col_idx = table_cloned
                         .column_index(col_name)
                         .ok_or_else(|| SqlError::ColumnNotFound(col_name.clone()))?;
-                    let new_val = evaluate_expression_joined(self, expr, &[(&table_cloned, row)], &[])?;
+                    let new_val =
+                        evaluate_expression_joined(self, expr, &[(&table_cloned, row)], &[])?;
                     row.values[col_idx] = new_val;
                 }
                 rows_affected += 1;

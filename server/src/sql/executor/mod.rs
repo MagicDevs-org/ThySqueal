@@ -1,13 +1,13 @@
-pub mod select;
-pub mod dml;
 pub mod ddl;
+pub mod dml;
+pub mod select;
 #[cfg(test)]
 mod tests;
 
-use crate::storage::{Database, Value, Table, Row};
-use super::error::{SqlResult};
 use super::ast::SqlStmt;
+use super::error::SqlResult;
 use super::parser::parse;
+use crate::storage::{Database, Row, Table, Value};
 
 #[derive(Debug)]
 pub struct QueryResult {
@@ -44,7 +44,11 @@ impl Executor {
         }
     }
 
-    pub(crate) async fn exec_select_internal(&self, stmt: super::ast::SelectStmt, outer_contexts: &[(&Table, &Row)]) -> SqlResult<QueryResult> {
+    pub(crate) async fn exec_select_internal(
+        &self,
+        stmt: super::ast::SelectStmt,
+        outer_contexts: &[(&Table, &Row)],
+    ) -> SqlResult<QueryResult> {
         self.exec_select_recursive(stmt, outer_contexts).await
     }
 }

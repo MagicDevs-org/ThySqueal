@@ -1,6 +1,6 @@
 use super::super::ast::{CreateTableStmt, DropTableStmt};
 use super::super::error::SqlResult;
-use super::{QueryResult, Executor};
+use super::{Executor, QueryResult};
 
 impl Executor {
     pub(crate) async fn exec_create_table(&self, stmt: CreateTableStmt) -> SqlResult<QueryResult> {

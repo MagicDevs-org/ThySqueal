@@ -1,9 +1,9 @@
-use crate::storage::Value;
 use super::super::ast::{DeleteStmt, InsertStmt, SqlStmt, UpdateStmt};
 use super::super::error::{SqlError, SqlResult};
 use super::super::parser::Rule;
+use super::expr::{parse_expression, parse_literal, parse_where_clause};
 use super::utils::expect_identifier;
-use super::expr::{parse_expression, parse_where_clause, parse_literal};
+use crate::storage::Value;
 
 pub fn parse_insert(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
     let inner = pair.into_inner();
@@ -39,8 +39,15 @@ pub fn parse_update(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
     for item in set_list.into_inner() {
         if item.as_rule() == Rule::set_item {
             let mut set_inner = item.into_inner();
-            let col = expect_identifier(set_inner.find(|p| p.as_rule() == Rule::identifier), "column name")?;
-            let expr = parse_expression(set_inner.find(|p| p.as_rule() == Rule::expression).ok_or_else(|| SqlError::Parse("Missing expression".to_string()))?)?;
+            let col = expect_identifier(
+                set_inner.find(|p| p.as_rule() == Rule::identifier),
+                "column name",
+            )?;
+            let expr = parse_expression(
+                set_inner
+                    .find(|p| p.as_rule() == Rule::expression)
+                    .ok_or_else(|| SqlError::Parse("Missing expression".to_string()))?,
+            )?;
             assignments.push((col, expr));
         }
     }

@@ -1,5 +1,5 @@
-use clap::{Parser, Subcommand};
 use anyhow::Result;
+use clap::{Parser, Subcommand};
 use tracing::info;
 
 mod config;
@@ -12,22 +12,22 @@ mod repl;
 struct Cli {
     #[arg(short, long, default_value = "localhost")]
     host: String,
-    
+
     #[arg(short, long, default_value_t = 9200)]
     port: u16,
-    
+
     #[arg(long, default_value_t = true)]
     http: bool,
-    
+
     #[arg(short, long)]
     execute: Option<String>,
-    
+
     #[arg(long)]
     import: Option<String>,
-    
+
     #[arg(long)]
     export: Option<String>,
-    
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
