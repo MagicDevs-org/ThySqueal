@@ -1,10 +1,12 @@
 // thy-squeal SQL Grammar
 
 // Main statement
-statement = { SOI ~ (select_stmt | insert_stmt | update_stmt | delete_stmt | create_table_stmt | drop_table_stmt) ~ EOI }
+statement = { SOI ~ (select_stmt | insert_stmt | update_stmt | delete_stmt | create_table_stmt | drop_table_stmt) ~ ";"? ~ EOI }
 
 // SELECT statement
-select_stmt = { KW_SELECT ~ distinct? ~ select_columns ~ KW_FROM ~ table_name ~ where_clause? ~ group_by_clause? ~ having_clause? ~ order_by_clause? ~ limit_clause? ~ ";"? }
+select_stmt = { KW_SELECT ~ distinct? ~ select_columns ~ KW_FROM ~ table_name ~ join_clause* ~ where_clause? ~ group_by_clause? ~ having_clause? ~ order_by_clause? ~ limit_clause? }
+
+join_clause = { (KW_INNER? ~ KW_JOIN) ~ table_name ~ KW_ON ~ condition }
 
 distinct = { KW_DISTINCT }
 
@@ -16,21 +18,21 @@ column_expr = { expression ~ alias? }
 alias = { (KW_AS ~ identifier)? }
 
 // INSERT statement
-insert_stmt = { KW_INSERT ~ KW_INTO ~ table_name ~ "(" ~ column_list ~ ")" ~ KW_VALUES ~ "(" ~ value_list ~ ")" ~ ";"? }
+insert_stmt = { KW_INSERT ~ KW_INTO ~ table_name ~ "(" ~ column_list ~ ")" ~ KW_VALUES ~ "(" ~ value_list ~ ")" }
 
 value_list = { literal ~ ("," ~ literal)* }
 
 // UPDATE statement
-update_stmt = { KW_UPDATE ~ table_name ~ KW_SET ~ set_list ~ where_clause? ~ ";"? }
+update_stmt = { KW_UPDATE ~ table_name ~ KW_SET ~ set_list ~ where_clause? }
 
 set_list = { set_item ~ ("," ~ set_item)* }
 set_item = { identifier ~ "=" ~ expression }
 
 // DELETE statement
-delete_stmt = { KW_DELETE ~ KW_FROM ~ table_name ~ where_clause? ~ ";"? }
+delete_stmt = { KW_DELETE ~ KW_FROM ~ table_name ~ where_clause? }
 
 // CREATE TABLE statement
-create_table_stmt = { KW_CREATE ~ KW_TABLE ~ table_name ~ "(" ~ column_defs ~ ")" ~ ";"? }
+create_table_stmt = { KW_CREATE ~ KW_TABLE ~ table_name ~ "(" ~ column_defs ~ ")" }
 
 column_defs = { column_def ~ ("," ~ column_def)* }
 column_def = { identifier ~ data_type }
@@ -38,7 +40,7 @@ column_def = { identifier ~ data_type }
 data_type = { "INTEGER" | "BIGINT" | "SMALLINT" | "INT" | "DOUBLE" | "REAL" | "FLOAT" | "BOOLEAN" | "BOOL" | "DATETIME" | "DATE" | "VARCHAR" | "TEXT" | "BLOB" | "JSON" }
 
 // DROP TABLE statement
-drop_table_stmt = { KW_DROP ~ KW_TABLE ~ table_name ~ ";"? }
+drop_table_stmt = { KW_DROP ~ KW_TABLE ~ table_name }
 
 // WHERE clause
 where_clause = { KW_WHERE ~ condition }
@@ -79,14 +81,14 @@ string_literal = { "'" ~ (!"'" ~ ANY)* ~ "'" }
 number_literal = { ("-" | "+")? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? }
 boolean_literal = { KW_TRUE | KW_FALSE }
 
-column_ref = { identifier ~ ("." ~ identifier)? }
+column_ref = { (identifier ~ ".")? ~ identifier }
 
 // Identifiers
 identifier = @{ !keyword ~ (ASCII_ALPHA | "_") ~ (ASCII_ALPHA | ASCII_DIGIT | "_")* }
 table_name = { identifier }
 
 keyword = {
-    KW_SELECT | KW_FROM | KW_WHERE | KW_INSERT | KW_INTO | KW_VALUES | KW_UPDATE | KW_SET | KW_DELETE |
+    KW_SELECT | KW_FROM | KW_WHERE | KW_INSERT | KW_INTO | KW_JOIN | KW_INNER | KW_ON | KW_VALUES | KW_UPDATE | KW_SET | KW_DELETE |
     KW_CREATE | KW_TABLE | KW_DROP | KW_GROUP | KW_BY | KW_ORDER | KW_HAVING | KW_LIMIT | KW_OFFSET | KW_ASC | KW_DESC |
     KW_DISTINCT | KW_AS | KW_AND | KW_OR | KW_NOT | KW_NULL | KW_IS | KW_TRUE | KW_FALSE |
     KW_COUNT | KW_SUM | KW_AVG | KW_MIN | KW_MAX
@@ -98,6 +100,9 @@ KW_FROM     = @{ ^"FROM" ~ !id_char }
 KW_WHERE    = @{ ^"WHERE" ~ !id_char }
 KW_INSERT   = @{ ^"INSERT" ~ !id_char }
 KW_INTO     = @{ ^"INTO" ~ !id_char }
+KW_JOIN     = @{ ^"JOIN" ~ !id_char }
+KW_INNER    = @{ ^"INNER" ~ !id_char }
+KW_ON       = @{ ^"ON" ~ !id_char }
 KW_VALUES   = @{ ^"VALUES" ~ !id_char }
 KW_UPDATE   = @{ ^"UPDATE" ~ !id_char }
 KW_SET      = @{ ^"SET" ~ !id_char }

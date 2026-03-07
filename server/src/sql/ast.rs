@@ -116,11 +116,24 @@ pub struct DropTableStmt {
 pub struct SelectStmt {
     pub columns: Vec<SelectColumn>,
     pub table: String,
+    pub joins: Vec<Join>,
     pub where_clause: Option<Condition>,
     pub group_by: Vec<Expression>,
     pub having: Option<Condition>,
     pub order_by: Vec<OrderByItem>,
     pub limit: Option<LimitClause>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Join {
+    pub table: String,
+    pub join_type: JoinType,
+    pub on: Condition,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum JoinType {
+    Inner,
 }
 
 #[derive(Debug, Clone)]

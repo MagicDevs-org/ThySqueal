@@ -11,7 +11,7 @@ use super::ast::SqlStmt;
 use super::error::{SqlError, SqlResult};
 
 #[derive(Parser)]
-#[grammar = "sql.pest"]
+#[grammar = "sql/sql.pest"]
 pub struct SqlParser;
 
 pub fn parse(input: &str) -> SqlResult<SqlStmt> {

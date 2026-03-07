@@ -27,6 +27,7 @@ struct AppState {
 struct QueryRequest {
     sql: String,
     #[allow(dead_code)]
+    #[serde(rename = "params", default)]
     _params: Vec<serde_json::Value>,
 }
 
@@ -81,6 +82,7 @@ async fn execute_query(
             })
         }
         Err(e) => {
+            tracing::error!("Query error: {:?}", e);
             Json(QueryResponse {
                 success: false,
                 columns: vec![],

@@ -200,6 +200,30 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_inner_join() {
+        let exec = Executor::new();
+        exec.execute("CREATE TABLE users (id INT, name TEXT)").await.unwrap();
+        exec.execute("CREATE TABLE posts (id INT, user_id INT, title TEXT)").await.unwrap();
+        
+        exec.execute("INSERT INTO users (id, name) VALUES (1, 'alice')").await.unwrap();
+        exec.execute("INSERT INTO users (id, name) VALUES (2, 'bob')").await.unwrap();
+        
+        exec.execute("INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'p1')").await.unwrap();
+        exec.execute("INSERT INTO posts (id, user_id, title) VALUES (11, 1, 'p2')").await.unwrap();
+        exec.execute("INSERT INTO posts (id, user_id, title) VALUES (12, 2, 'p3')").await.unwrap();
+
+        let r = exec.execute("SELECT users.name, posts.title FROM users JOIN posts ON users.id = posts.user_id ORDER BY posts.id ASC")
+            .await
+            .unwrap();
+        
+        assert_eq!(r.rows.len(), 3);
+        assert_eq!(r.rows[0][0].as_text(), Some("alice"));
+        assert_eq!(r.rows[0][1].as_text(), Some("p1"));
+        assert_eq!(r.rows[2][0].as_text(), Some("bob"));
+        assert_eq!(r.rows[2][1].as_text(), Some("p3"));
+    }
+
+    #[tokio::test]
     async fn test_drop_table() {
         let exec = Executor::new();
         exec.execute("CREATE TABLE x (id INT)").await.unwrap();

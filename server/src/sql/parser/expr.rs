@@ -2,7 +2,6 @@ use crate::storage::Value;
 use super::super::ast::{AggregateType, BinaryOp, ComparisonOp, Condition, Expression, FunctionCall, LogicalOp};
 use super::super::error::{SqlError, SqlResult};
 use super::super::parser::Rule;
-use super::utils::expect_identifier;
 
 pub fn parse_expression(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expression> {
     let mut inner = pair.into_inner();
@@ -49,9 +48,11 @@ pub fn parse_factor(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expression> 
         Rule::aggregate_func => parse_aggregate(first),
         Rule::literal => Ok(Expression::Literal(parse_literal(first)?)),
         Rule::column_ref => {
-            let mut cr_inner = first.into_inner();
-            let name = expect_identifier(cr_inner.find(|p| p.as_rule() == Rule::identifier), "column name")?;
-            Ok(Expression::Column(name))
+            let parts: Vec<String> = first.into_inner()
+                .filter(|p| p.as_rule() == Rule::identifier)
+                .map(|p| p.as_str().trim().to_string())
+                .collect();
+            Ok(Expression::Column(parts.join(".")))
         }
         Rule::expression => parse_expression(first),
         Rule::KW_NOT => {

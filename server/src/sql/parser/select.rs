@@ -1,5 +1,5 @@
 use super::super::ast::{
-    Expression, LimitClause, Order, OrderByItem, SelectColumn, SelectStmt, SqlStmt,
+    Expression, Join, JoinType, LimitClause, Order, OrderByItem, SelectColumn, SelectStmt, SqlStmt,
 };
 use super::super::error::{SqlError, SqlResult};
 use super::super::parser::Rule;
@@ -18,6 +18,12 @@ pub fn parse_select(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
         .find(|p| p.as_rule() == Rule::table_name)
         .map(|p| p.as_str().trim().to_string())
         .ok_or_else(|| SqlError::Parse("Missing table name".to_string()))?;
+
+    let joins = inner
+        .clone()
+        .filter(|p| p.as_rule() == Rule::join_clause)
+        .map(parse_join)
+        .collect::<SqlResult<Vec<Join>>>()?;
 
     let where_clause = if let Some(p) = inner.clone().find(|p| p.as_rule() == Rule::where_clause) {
         Some(parse_where_clause(p)?)
@@ -52,12 +58,39 @@ pub fn parse_select(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
     Ok(SqlStmt::Select(SelectStmt {
         columns,
         table,
+        joins,
         where_clause,
         group_by,
         having,
         order_by,
         limit,
     }))
+}
+
+pub fn parse_join(pair: pest::iterators::Pair<Rule>) -> SqlResult<Join> {
+    let mut inner = pair.into_inner();
+    
+    // KW_JOIN might be preceded by KW_INNER
+    let first = inner.next().ok_or_else(|| SqlError::Parse("Empty join clause".to_string()))?;
+    if first.as_rule() == Rule::KW_INNER {
+        inner.next().ok_or_else(|| SqlError::Parse("Missing JOIN keyword after INNER".to_string()))?;
+    }
+    
+    let table = inner
+        .find(|p| p.as_rule() == Rule::table_name)
+        .map(|p| p.as_str().trim().to_string())
+        .ok_or_else(|| SqlError::Parse("Missing join table name".to_string()))?;
+
+    let on_cond = inner
+        .find(|p| p.as_rule() == Rule::condition)
+        .ok_or_else(|| SqlError::Parse("Missing JOIN ON condition".to_string()))?;
+    let on = parse_condition(on_cond)?;
+
+    Ok(Join {
+        table,
+        join_type: JoinType::Inner,
+        on,
+    })
 }
 
 pub fn parse_group_by(pair: pest::iterators::Pair<Rule>) -> SqlResult<Vec<Expression>> {

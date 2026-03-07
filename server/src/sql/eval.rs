@@ -2,11 +2,16 @@ use crate::storage::{Row, Table, Value};
 use super::ast::{BinaryOp, ComparisonOp, Condition, Expression, LogicalOp};
 use super::error::{SqlError, SqlResult};
 
+#[allow(dead_code)]
 pub fn evaluate_condition(cond: &Condition, table: &Table, row: &Row) -> SqlResult<bool> {
+    evaluate_condition_joined(cond, &[(table, row)])
+}
+
+pub fn evaluate_condition_joined(cond: &Condition, contexts: &[(&Table, &Row)]) -> SqlResult<bool> {
     match cond {
         Condition::Comparison(left, op, right) => {
-            let left_val = evaluate_expression(left, table, row)?;
-            let right_val = evaluate_expression(right, table, row)?;
+            let left_val = evaluate_expression_joined(left, contexts)?;
+            let right_val = evaluate_expression_joined(right, contexts)?;
             
             match op {
                 ComparisonOp::Eq => Ok(left_val == right_val),
@@ -18,7 +23,6 @@ pub fn evaluate_condition(cond: &Condition, table: &Table, row: &Row) -> SqlResu
                 ComparisonOp::Like => {
                     let l = left_val.as_text().ok_or_else(|| SqlError::TypeMismatch("LIKE requires text on the left".to_string()))?;
                     let r = right_val.as_text().ok_or_else(|| SqlError::TypeMismatch("LIKE requires text on the right".to_string()))?;
-                    // Very simple LIKE: only handles % as prefix/suffix or exact match
                     if r.starts_with('%') && r.ends_with('%') {
                         let pat = &r[1..r.len()-1];
                         Ok(l.contains(pat))
@@ -35,44 +39,70 @@ pub fn evaluate_condition(cond: &Condition, table: &Table, row: &Row) -> SqlResu
             }
         }
         Condition::IsNull(expr) => {
-            let val = evaluate_expression(expr, table, row)?;
+            let val = evaluate_expression_joined(expr, contexts)?;
             Ok(matches!(val, Value::Null))
         }
         Condition::IsNotNull(expr) => {
-            let val = evaluate_expression(expr, table, row)?;
+            let val = evaluate_expression_joined(expr, contexts)?;
             Ok(!matches!(val, Value::Null))
         }
         Condition::Logical(left, op, right) => {
-            let l = evaluate_condition(left, table, row)?;
+            let l = evaluate_condition_joined(left, contexts)?;
             match op {
                 LogicalOp::And => {
                     if !l { return Ok(false); }
-                    evaluate_condition(right, table, row)
+                    evaluate_condition_joined(right, contexts)
                 }
                 LogicalOp::Or => {
                     if l { return Ok(true); }
-                    evaluate_condition(right, table, row)
+                    evaluate_condition_joined(right, contexts)
                 }
             }
         }
         Condition::Not(cond) => {
-            Ok(!evaluate_condition(cond, table, row)?)
+            Ok(!evaluate_condition_joined(cond, contexts)?)
         }
     }
 }
 
+#[allow(dead_code)]
 pub fn evaluate_expression(expr: &Expression, table: &Table, row: &Row) -> SqlResult<Value> {
+    evaluate_expression_joined(expr, &[(table, row)])
+}
+
+pub fn evaluate_expression_joined(expr: &Expression, contexts: &[(&Table, &Row)]) -> SqlResult<Value> {
     match expr {
         Expression::Literal(v) => Ok(v.clone()),
         Expression::Column(name) => {
-            let idx = table.column_index(name)
-                .ok_or_else(|| SqlError::ColumnNotFound(name.clone()))?;
-            row.values.get(idx).cloned()
-                .ok_or_else(|| SqlError::Runtime(format!("Value not found for column index: {}", idx)))
+            // Handle qualified name table.column
+            if name.contains('.') {
+                let parts: Vec<&str> = name.split('.').collect();
+                if parts.len() == 2 {
+                    let table_name = parts[0];
+                    let col_name = parts[1];
+                    for (table, row) in contexts {
+                        if table.name == table_name {
+                            let idx = table.column_index(col_name)
+                                .ok_or_else(|| SqlError::ColumnNotFound(name.clone()))?;
+                            return row.values.get(idx).cloned()
+                                .ok_or_else(|| SqlError::Runtime(format!("Value not found for column index: {}", idx)));
+                        }
+                    }
+                }
+            }
+
+            // Unqualified name: find first table that has it
+            for (table, row) in contexts {
+                if let Some(idx) = table.column_index(name) {
+                    return row.values.get(idx).cloned()
+                        .ok_or_else(|| SqlError::Runtime(format!("Value not found for column index: {}", idx)));
+                }
+            }
+            Err(SqlError::ColumnNotFound(name.clone()))
         }
         Expression::BinaryOp(left, op, right) => {
-            let l = evaluate_expression(left, table, row)?;
-            let r = evaluate_expression(right, table, row)?;
+            let l = evaluate_expression_joined(left, contexts)?;
+            let r = evaluate_expression_joined(right, contexts)?;
             
             match (l, r) {
                 (Value::Int(a), Value::Int(b)) => {
@@ -94,7 +124,6 @@ pub fn evaluate_expression(expr: &Expression, table: &Table, row: &Row) -> SqlRe
                         BinaryOp::Div => Ok(Value::Float(a / b)),
                     }
                 }
-                // Mix of Int and Float -> promote to Float
                 (Value::Int(a), Value::Float(b)) => {
                     let a = a as f64;
                     match op {

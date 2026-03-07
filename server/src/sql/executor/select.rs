@@ -1,59 +1,74 @@
-use crate::storage::{Value};
+use crate::storage::{Value, Table, Row};
 use super::super::ast::{self, SelectStmt};
 use super::super::error::{SqlError, SqlResult};
-use super::super::eval::{self, evaluate_condition};
+use super::super::eval::{evaluate_condition_joined, evaluate_expression_joined};
 use super::{QueryResult, Executor};
 
 impl Executor {
     pub(crate) async fn exec_select(&self, stmt: SelectStmt) -> SqlResult<QueryResult> {
         let db = self.db.read().await;
-        let table = db
+        
+        // 1. Get base table
+        let base_table = db
             .get_table(&stmt.table)
             .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
 
-        let is_star = stmt.columns.iter().any(|c| matches!(c.expr, ast::Expression::Star));
-        let has_aggregates = stmt.columns.iter().any(|c| matches!(c.expr, ast::Expression::FunctionCall(_)));
+        // A "joined row" is a list of (Table, Row) references
+        let mut joined_rows: Vec<Vec<(&Table, &Row)>> = base_table.rows.iter()
+            .map(|r| vec![(base_table, r)])
+            .collect();
 
-        let result_columns: Vec<String> = if is_star {
-            table.columns.iter().map(|c| c.name.clone()).collect()
-        } else {
-            stmt.columns.iter().enumerate().map(|(i, c)| {
-                c.alias.clone().unwrap_or_else(|| {
-                    match &c.expr {
-                        ast::Expression::Column(name) => name.clone(),
-                        ast::Expression::FunctionCall(fc) => {
-                            let name = format!("{:?}", fc.name).to_uppercase();
-                            format!("{}(...)", name)
-                        },
-                        _ => format!("col_{}", i)
+        // 2. Process JOINS
+        for join in &stmt.joins {
+            let join_table = db.get_table(&join.table)
+                .ok_or_else(|| SqlError::TableNotFound(join.table.clone()))?;
+            
+            let mut next_joined_rows = Vec::new();
+            
+            for existing_row in joined_rows {
+                for new_row in &join_table.rows {
+                    // Create a potential combined context
+                    let mut combined_context = existing_row.clone();
+                    combined_context.push((join_table, new_row));
+                    
+                    // Evaluate ON condition
+                    if evaluate_condition_joined(&join.on, &combined_context)? {
+                        next_joined_rows.push(combined_context);
                     }
-                })
-            }).collect()
-        };
-
-        let mut matched_rows = Vec::new();
-        for row in &table.rows {
-            let matches = if let Some(ref cond) = stmt.where_clause {
-                evaluate_condition(cond, table, row)?
-            } else {
-                true
-            };
-
-            if matches {
-                matched_rows.push(row);
+                }
             }
+            joined_rows = next_joined_rows;
         }
 
-        // Apply ORDER BY
+        // 3. Apply WHERE
+        let mut matched_rows = Vec::new();
+        if let Some(ref where_cond) = stmt.where_clause {
+            for row in joined_rows {
+                if evaluate_condition_joined(where_cond, &row)? {
+                    matched_rows.push(row);
+                }
+            }
+        } else {
+            matched_rows = joined_rows;
+        }
+
+        // 4. Handle Aggregates and Grouping
+        let has_aggregates = stmt.columns.iter().any(|c| matches!(c.expr, ast::Expression::FunctionCall(_)));
+        
+        if has_aggregates || !stmt.group_by.is_empty() {
+             return self.exec_select_with_grouping(stmt, matched_rows).await;
+        }
+
+        // 5. Apply ORDER BY
         if !stmt.order_by.is_empty() {
             let mut err = None;
             matched_rows.sort_by(|a, b| {
                 for item in &stmt.order_by {
-                    let val_a = match eval::evaluate_expression(&item.expr, table, a) {
+                    let val_a = match evaluate_expression_joined(&item.expr, a) {
                         Ok(v) => v,
                         Err(e) => { err = Some(e); return std::cmp::Ordering::Equal; }
                     };
-                    let val_b = match eval::evaluate_expression(&item.expr, table, b) {
+                    let val_b = match evaluate_expression_joined(&item.expr, b) {
                         Ok(v) => v,
                         Err(e) => { err = Some(e); return std::cmp::Ordering::Equal; }
                     };
@@ -69,118 +84,153 @@ impl Executor {
             if let Some(e) = err { return Err(e); }
         }
 
-        // Handle Aggregates and Grouping
-        if has_aggregates || !stmt.group_by.is_empty() {
-            let mut result_rows = Vec::new();
-
-            if stmt.group_by.is_empty() {
-                // Global aggregation (single row result)
-                let mut row_values = Vec::new();
-                for col in &stmt.columns {
-                    match &col.expr {
-                        ast::Expression::FunctionCall(fc) => {
-                            row_values.push(self.eval_aggregate(fc, table, &matched_rows)?);
-                        },
-                        ast::Expression::Column(_) | ast::Expression::Literal(_) | ast::Expression::BinaryOp(_, _, _) => {
-                            if let Some(first_row) = matched_rows.first() {
-                                row_values.push(eval::evaluate_expression(&col.expr, table, first_row)?);
-                            } else {
-                                row_values.push(Value::Null);
-                            }
-                        },
-                        ast::Expression::Star => {
-                            return Err(SqlError::Runtime("SELECT * with aggregate is not supported".to_string()));
-                        }
-                    }
-                }
-                
-                let mut include_row = true;
-                if let Some(ref having_cond) = stmt.having {
-                    include_row = self.evaluate_having(having_cond, table, &matched_rows)?;
-                }
-
-                if include_row {
-                    result_rows.push(row_values);
-                }
-            } else {
-                // GROUP BY
-                let mut groups: std::collections::HashMap<Vec<Value>, Vec<&crate::storage::Row>> = std::collections::HashMap::new();
-                for row in &matched_rows {
-                    let mut group_key = Vec::new();
-                    for gb_expr in &stmt.group_by {
-                        group_key.push(eval::evaluate_expression(gb_expr, table, row)?);
-                    }
-                    groups.entry(group_key).or_default().push(row);
-                }
-
-                for (_key, group_rows) in groups {
-                    let include_group = if let Some(ref having_cond) = stmt.having {
-                        self.evaluate_having(having_cond, table, &group_rows)?
-                    } else {
-                        true
-                    };
-
-                    if include_group {
-                        let mut row_values = Vec::new();
-                        for col in &stmt.columns {
-                            match &col.expr {
-                                ast::Expression::FunctionCall(fc) => {
-                                    row_values.push(self.eval_aggregate(fc, table, &group_rows)?);
-                                },
-                                _ => {
-                                    if let Some(first_row) = group_rows.first() {
-                                        row_values.push(eval::evaluate_expression(&col.expr, table, first_row)?);
-                                    } else {
-                                        row_values.push(Value::Null);
-                                    }
-                                }
-                            }
-                        }
-                        result_rows.push(row_values);
-                    }
-                }
-            }
-
-            return Ok(QueryResult {
-                columns: result_columns,
-                rows: result_rows,
-                rows_affected: 0,
-            });
-        }
-
-        // Apply LIMIT and OFFSET
-        let final_rows = if let Some(limit) = stmt.limit {
+        // 6. Apply LIMIT and OFFSET
+        let final_rows = if let Some(ref limit) = stmt.limit {
             let offset = limit.offset.unwrap_or(0);
             matched_rows.iter().skip(offset).take(limit.count).cloned().collect()
         } else {
             matched_rows
         };
 
-        let rows: Vec<Vec<Value>> = final_rows.iter().map(|row| {
-            if is_star {
-                row.values.clone()
-            } else {
-                stmt.columns
-                    .iter()
-                    .filter_map(|col| {
-                        eval::evaluate_expression(&col.expr, table, row).ok()
-                    })
-                    .collect()
+        // 7. Project Columns
+        let result_columns: Vec<String> = self.get_result_column_names(&stmt, base_table, &stmt.joins, &db);
+
+        let mut projected_rows = Vec::new();
+        for context in final_rows {
+            let mut row_values = Vec::new();
+            for col in &stmt.columns {
+                match &col.expr {
+                    ast::Expression::Star => {
+                        for (_table, row) in &context {
+                            row_values.extend(row.values.clone());
+                        }
+                    }
+                    _ => {
+                        row_values.push(evaluate_expression_joined(&col.expr, &context)?);
+                    }
+                }
             }
-        }).collect();
+            projected_rows.push(row_values);
+        }
 
         Ok(QueryResult {
             columns: result_columns,
-            rows,
+            rows: projected_rows,
             rows_affected: 0,
         })
     }
 
-    fn evaluate_having(&self, cond: &ast::Condition, table: &crate::storage::Table, rows: &[&crate::storage::Row]) -> SqlResult<bool> {
+    fn get_result_column_names(&self, stmt: &SelectStmt, base_table: &Table, joins: &[ast::Join], db: &crate::storage::Database) -> Vec<String> {
+        let mut names = Vec::new();
+        for col in &stmt.columns {
+            if let Some(alias) = &col.alias {
+                names.push(alias.clone());
+                continue;
+            }
+            
+            match &col.expr {
+                ast::Expression::Star => {
+                    names.extend(base_table.columns.iter().map(|c| c.name.clone()));
+                    for join in joins {
+                        if let Some(t) = db.get_table(&join.table) {
+                            names.extend(t.columns.iter().map(|c| c.name.clone()));
+                        }
+                    }
+                }
+                ast::Expression::Column(name) => names.push(name.clone()),
+                ast::Expression::FunctionCall(fc) => {
+                    let name = format!("{:?}", fc.name).to_uppercase();
+                    names.push(format!("{}(...)", name));
+                }
+                _ => names.push(format!("col_{}", names.len())),
+            }
+        }
+        names
+    }
+
+    async fn exec_select_with_grouping(&self, stmt: SelectStmt, matched_rows: Vec<Vec<(&Table, &Row)>>) -> SqlResult<QueryResult> {
+        let mut result_rows = Vec::new();
+        let db = self.db.read().await;
+        let base_table = db.get_table(&stmt.table).unwrap();
+
+        if stmt.group_by.is_empty() {
+            // Global aggregation
+            let mut row_values = Vec::new();
+            for col in &stmt.columns {
+                match &col.expr {
+                    ast::Expression::FunctionCall(fc) => {
+                        row_values.push(self.eval_aggregate_joined(fc, &matched_rows)?);
+                    },
+                    _ => {
+                        if let Some(first_row_ctx) = matched_rows.first() {
+                            row_values.push(evaluate_expression_joined(&col.expr, first_row_ctx)?);
+                        } else {
+                            row_values.push(Value::Null);
+                        }
+                    }
+                }
+            }
+            
+            let include_row = if let Some(ref having_cond) = stmt.having {
+                self.evaluate_having_joined(having_cond, &matched_rows)?
+            } else {
+                true
+            };
+
+            if include_row {
+                result_rows.push(row_values);
+            }
+        } else {
+            // GROUP BY
+            let mut groups: std::collections::HashMap<Vec<Value>, Vec<Vec<(&Table, &Row)>>> = std::collections::HashMap::new();
+            for ctx in matched_rows {
+                let mut group_key = Vec::new();
+                for gb_expr in &stmt.group_by {
+                    group_key.push(evaluate_expression_joined(gb_expr, &ctx)?);
+                }
+                groups.entry(group_key).or_default().push(ctx);
+            }
+
+            for (_key, group_contexts) in groups {
+                let include_group = if let Some(ref having_cond) = stmt.having {
+                    self.evaluate_having_joined(having_cond, &group_contexts)?
+                } else {
+                    true
+                };
+
+                if include_group {
+                    let mut row_values = Vec::new();
+                    for col in &stmt.columns {
+                        match &col.expr {
+                            ast::Expression::FunctionCall(fc) => {
+                                row_values.push(self.eval_aggregate_joined(fc, &group_contexts)?);
+                            },
+                            _ => {
+                                if let Some(first_ctx) = group_contexts.first() {
+                                    row_values.push(evaluate_expression_joined(&col.expr, first_ctx)?);
+                                } else {
+                                    row_values.push(Value::Null);
+                                }
+                            }
+                        }
+                    }
+                    result_rows.push(row_values);
+                }
+            }
+        }
+
+        Ok(QueryResult {
+            columns: self.get_result_column_names(&stmt, base_table, &stmt.joins, &db),
+            rows: result_rows,
+            rows_affected: 0,
+        })
+    }
+
+    fn evaluate_having_joined(&self, cond: &ast::Condition, contexts: &[Vec<(&Table, &Row)>]) -> SqlResult<bool> {
         match cond {
             ast::Condition::Comparison(left, op, right) => {
-                let left_val = self.evaluate_having_expression(left, table, rows)?;
-                let right_val = self.evaluate_having_expression(right, table, rows)?;
+                let left_val = self.evaluate_having_expression_joined(left, contexts)?;
+                let right_val = self.evaluate_having_expression_joined(right, contexts)?;
                 
                 match op {
                     ast::ComparisonOp::Eq => Ok(left_val == right_val),
@@ -197,42 +247,41 @@ impl Executor {
                 }
             },
             ast::Condition::Logical(left, op, right) => {
-                let l = self.evaluate_having(left, table, rows)?;
+                let l = self.evaluate_having_joined(left, contexts)?;
                 match op {
-                    ast::LogicalOp::And => Ok(l && self.evaluate_having(right, table, rows)?),
-                    ast::LogicalOp::Or => Ok(l || self.evaluate_having(right, table, rows)?),
+                    ast::LogicalOp::And => Ok(l && self.evaluate_having_joined(right, contexts)?),
+                    ast::LogicalOp::Or => Ok(l || self.evaluate_having_joined(right, contexts)?),
                 }
             },
-            ast::Condition::Not(c) => Ok(!self.evaluate_having(c, table, rows)?),
-            ast::Condition::IsNull(e) => Ok(self.evaluate_having_expression(e, table, rows)? == Value::Null),
-            ast::Condition::IsNotNull(e) => Ok(self.evaluate_having_expression(e, table, rows)? != Value::Null),
+            ast::Condition::Not(c) => Ok(!self.evaluate_having_joined(c, contexts)?),
+            ast::Condition::IsNull(e) => Ok(self.evaluate_having_expression_joined(e, contexts)? == Value::Null),
+            ast::Condition::IsNotNull(e) => Ok(self.evaluate_having_expression_joined(e, contexts)? != Value::Null),
         }
     }
 
-    fn evaluate_having_expression(&self, expr: &ast::Expression, table: &crate::storage::Table, rows: &[&crate::storage::Row]) -> SqlResult<Value> {
+    fn evaluate_having_expression_joined(&self, expr: &ast::Expression, contexts: &[Vec<(&Table, &Row)>]) -> SqlResult<Value> {
         match expr {
-            ast::Expression::FunctionCall(fc) => self.eval_aggregate(fc, table, rows),
+            ast::Expression::FunctionCall(fc) => self.eval_aggregate_joined(fc, contexts),
             ast::Expression::Literal(v) => Ok(v.clone()),
-            ast::Expression::Column(_) | ast::Expression::BinaryOp(_, _, _) => {
-                if let Some(first_row) = rows.first() {
-                    eval::evaluate_expression(expr, table, first_row)
+            _ => {
+                if let Some(first_ctx) = contexts.first() {
+                    evaluate_expression_joined(expr, first_ctx)
                 } else {
                     Ok(Value::Null)
                 }
-            },
-            ast::Expression::Star => Err(SqlError::Runtime("Star not allowed in HAVING".to_string())),
+            }
         }
     }
 
-    fn eval_aggregate(&self, fc: &ast::FunctionCall, table: &crate::storage::Table, rows: &[&crate::storage::Row]) -> SqlResult<Value> {
+    fn eval_aggregate_joined(&self, fc: &ast::FunctionCall, contexts: &[Vec<(&Table, &Row)>]) -> SqlResult<Value> {
         match fc.name {
             ast::AggregateType::Count => {
                 if fc.args.len() == 1 && matches!(fc.args[0], ast::Expression::Star) {
-                    Ok(Value::Int(rows.len() as i64))
+                    Ok(Value::Int(contexts.len() as i64))
                 } else {
                     let mut count = 0;
-                    for row in rows {
-                        let val = eval::evaluate_expression(&fc.args[0], table, row)?;
+                    for ctx in contexts {
+                        let val = evaluate_expression_joined(&fc.args[0], ctx)?;
                         if val != Value::Null {
                             count += 1;
                         }
@@ -244,8 +293,8 @@ impl Executor {
                 let mut sum_f = 0.0;
                 let mut sum_i = 0;
                 let mut is_float = false;
-                for row in rows {
-                    let val = eval::evaluate_expression(&fc.args[0], table, row)?;
+                for ctx in contexts {
+                    let val = evaluate_expression_joined(&fc.args[0], ctx)?;
                     match val {
                         Value::Int(i) => { sum_i += i; sum_f += i as f64; },
                         Value::Float(f) => { sum_f += f; is_float = true; },
@@ -257,8 +306,8 @@ impl Executor {
             },
             ast::AggregateType::Min => {
                 let mut min_val: Option<Value> = None;
-                for row in rows {
-                    let val = eval::evaluate_expression(&fc.args[0], table, row)?;
+                for ctx in contexts {
+                    let val = evaluate_expression_joined(&fc.args[0], ctx)?;
                     if val == Value::Null { continue; }
                     if min_val.is_none() || val < min_val.clone().unwrap() {
                         min_val = Some(val);
@@ -268,8 +317,8 @@ impl Executor {
             },
             ast::AggregateType::Max => {
                 let mut max_val: Option<Value> = None;
-                for row in rows {
-                    let val = eval::evaluate_expression(&fc.args[0], table, row)?;
+                for ctx in contexts {
+                    let val = evaluate_expression_joined(&fc.args[0], ctx)?;
                     if val == Value::Null { continue; }
                     if max_val.is_none() || val > max_val.clone().unwrap() {
                         max_val = Some(val);
@@ -280,8 +329,8 @@ impl Executor {
             ast::AggregateType::Avg => {
                 let mut sum = 0.0;
                 let mut count = 0;
-                for row in rows {
-                    let val = eval::evaluate_expression(&fc.args[0], table, row)?;
+                for ctx in contexts {
+                    let val = evaluate_expression_joined(&fc.args[0], ctx)?;
                     match val {
                         Value::Int(i) => { sum += i as f64; count += 1; },
                         Value::Float(f) => { sum += f; count += 1; },
