@@ -13,21 +13,21 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
-use tower_http::cors::{CorsLayer, Any};
+use tower_http::cors::{Any, CorsLayer};
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 #[derive(Clone)]
 struct AppState {
-    config: config::Config,
+    _config: config::Config,
     executor: Arc<sql::Executor>,
 }
 
 #[derive(Deserialize)]
 struct QueryRequest {
     sql: String,
-    #[serde(default)]
-    params: Vec<serde_json::Value>,
+    #[allow(dead_code)]
+    _params: Vec<serde_json::Value>,
 }
 
 #[derive(Serialize)]
@@ -93,26 +93,23 @@ async fn execute_query(
     }
 }
 
-fn value_to_json(value: &storage::Value) -> serde_json::Value {
-    use storage::Value;
-    match value {
-        Value::Null => serde_json::Value::Null,
-        Value::Int(i) => serde_json::Value::Number((*i).into()),
-        Value::Float(f) => serde_json::Number::from_f64(*f)
-            .map(serde_json::Value::Number)
-            .unwrap_or(serde_json::Value::Null),
-        Value::Bool(b) => serde_json::Value::Bool(*b),
-        Value::Date(d) => serde_json::Value::String(d.to_string()),
-        Value::DateTime(dt) => serde_json::Value::String(dt.to_string()),
-        Value::Text(s) => serde_json::Value::String(s.clone()),
-        Value::Blob(b) => serde_json::Value::String(base64::Engine::encode(&base64::engine::general_purpose::STANDARD, b)),
-        Value::Json(j) => j.clone(),
+fn value_to_json(val: &storage::Value) -> serde_json::Value {
+    match val {
+        storage::Value::Null => serde_json::Value::Null,
+        storage::Value::Int(i) => serde_json::Value::Number((*i).into()),
+        storage::Value::Float(f) => serde_json::Value::Number(serde_json::Number::from_f64(*f).unwrap()),
+        storage::Value::Bool(b) => serde_json::Value::Bool(*b),
+        storage::Value::Text(s) => serde_json::Value::String(s.clone()),
+        storage::Value::Date(d) => serde_json::Value::String(d.to_string()),
+        storage::Value::DateTime(dt) => serde_json::Value::String(dt.to_string()),
+        storage::Value::Blob(b) => serde_json::Value::String(base64::Engine::encode(&base64::engine::general_purpose::STANDARD, b)),
+        storage::Value::Json(j) => j.clone(),
     }
 }
 
 pub fn create_app(executor: Arc<sql::Executor>, config: config::Config) -> Router {
     let state = AppState { 
-        config,
+        _config: config,
         executor,
     };
 

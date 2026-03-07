@@ -49,6 +49,7 @@ pub enum Condition {
     IsNull(Expression),
     IsNotNull(Expression),
     Logical(Box<Condition>, LogicalOp, Box<Condition>),
+    #[allow(dead_code)]
     Not(Box<Condition>),
 }
 

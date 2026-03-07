@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+#[allow(dead_code)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
     #[serde(default)]
     pub connection: ConnectionConfig,
@@ -8,20 +9,13 @@ pub struct Config {
     pub repl: ReplConfig,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[allow(dead_code)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ConnectionConfig {
     #[serde(default = "default_host")]
     pub default_host: String,
     #[serde(default = "default_port")]
     pub default_port: u16,
-}
-
-fn default_host() -> String {
-    "localhost".to_string()
-}
-
-fn default_port() -> u16 {
-    3306
 }
 
 impl Default for ConnectionConfig {
@@ -33,7 +27,18 @@ impl Default for ConnectionConfig {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[allow(dead_code)]
+fn default_host() -> String {
+    "localhost".to_string()
+}
+
+#[allow(dead_code)]
+fn default_port() -> u16 {
+    9200
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ReplConfig {
     #[serde(default = "default_history_size")]
     pub history_size: usize,
@@ -41,14 +46,6 @@ pub struct ReplConfig {
     pub auto_indent: bool,
     #[serde(default = "default_prompt")]
     pub prompt: String,
-}
-
-fn default_history_size() -> usize {
-    1000
-}
-
-fn default_prompt() -> String {
-    "thy> ".to_string()
 }
 
 impl Default for ReplConfig {
@@ -61,17 +58,27 @@ impl Default for ReplConfig {
     }
 }
 
-pub fn load_config() -> Config {
-    let config_paths = ["~/.thy-squeal/config.yaml", "~/.thy-squeal/config.yml"];
+#[allow(dead_code)]
+fn default_history_size() -> usize {
+    1000
+}
 
-    for path in &config_paths {
-        let expanded = shellexpand::tilde(path);
-        if let Ok(contents) = std::fs::read_to_string(expanded.as_ref()) {
-            if let Ok(config) = serde_yaml::from_str::<Config>(&contents) {
-                return config;
-            }
+#[allow(dead_code)]
+fn default_prompt() -> String {
+    "thy> ".to_string()
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            connection: ConnectionConfig::default(),
+            repl: ReplConfig::default(),
         }
     }
+}
 
+#[allow(dead_code)]
+pub fn load_config() -> Config {
+    // For now just return default
     Config::default()
 }

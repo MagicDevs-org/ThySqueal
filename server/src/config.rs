@@ -154,6 +154,7 @@ pub fn load_config() -> Result<Config, ConfigError> {
     Ok(Config::default())
 }
 
+#[allow(dead_code)]
 pub fn default_config() -> Config {
     Config::default()
 }
