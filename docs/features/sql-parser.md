@@ -14,7 +14,10 @@ Pest-based SQL parser for thy-squeal, supporting a MySQL-compatible dialect.
 
 The parser is decomposed into submodules for maintainability:
 - `parser/mod.rs`: Main entry and top-level statement dispatch.
-- `parser/expr.rs`: Expression, Condition, and Literal parsing (including aggregates, scalar functions, and subqueries).
+- `parser/expr/`: Modular expression parsing.
+    - `literal.rs`: String, Number, Boolean, and Null literals.
+    - `functions.rs`: Aggregate and Scalar function calls.
+    - `condition.rs`: WHERE/HAVING logic, comparisons, and subqueries.
 - `parser/select.rs`: SELECT specific clauses (JOIN, GROUP BY, HAVING, ORDER BY, LIMIT).
 - `parser/dml.rs`: INSERT, UPDATE, DELETE parsing.
 - `parser/ddl.rs`: CREATE TABLE, DROP TABLE, CREATE INDEX parsing.

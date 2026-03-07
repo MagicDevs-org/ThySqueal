@@ -7,8 +7,49 @@ thy-squeal is a SQL server with HTTP JSON API, built with Rust. It's a Cargo wor
 - `client/` - CLI client with REPL; `--http -e "SQL"` for one-off queries
 
 ### Current Implementation Notes
-- **SQL parsing**: Uses Pest grammar (`server/src/sql.pest`). CREATE TABLE, DROP TABLE, SELECT, INSERT are implemented; UPDATE, DELETE are partially implemented in the parser but not yet in the executor. WHERE, ORDER BY, LIMIT are defined in the grammar but not yet implemented in the parser/executor.
-- **Storage**: `server/src/storage/mod.rs` — `Database`, `Table`, `Row`, `Value`, `DataType`. `Table` has `update`/`delete`/`select_where` but `select_where` is a stub (returns all rows).
+- **SQL parsing**: Uses Pest grammar (`server/src/sql/sql.pest`). Supports SELECT, INSERT, UPDATE, DELETE, CREATE TABLE, DROP TABLE, CREATE INDEX, EXPLAIN, SEARCH, BEGIN, COMMIT, ROLLBACK.
+- **SQL Execution**: Highly modularized executor supporting JOINs, Subqueries, Aggregations, GROUP BY, HAVING, ORDER BY, and LIMIT/OFFSET.
+- **Storage**: Hybrid in-memory storage with Sled-based Write-Ahead Logging (WAL) and snapshotting. Supports B-Tree, Hash, JSON Path, Functional, and Partial indexes.
+- **Information Schema**: Provides metadata via virtual `information_schema` tables (tables, columns, indexes).
+
+## Project Structure (Server)
+
+```
+server/src/
+├── main.rs          # Entry point
+├── config.rs        # Configuration
+├── http.rs          # Axum HTTP handlers
+├── sql/             # SQL Engine
+│   ├── ast.rs       # Abstract Syntax Tree
+│   ├── error.rs     # SQL Errors
+│   ├── sql.pest     # Pest Grammar
+│   ├── eval/        # Expression Evaluation
+│   │   ├── column.rs     # Scoped Column Resolution
+│   │   ├── condition.rs  # WHERE/HAVING filters
+│   │   └── expression.rs # Math/Functions/Subqueries
+│   ├── executor/    # Statement Execution
+│   │   ├── aggregate/    # Grouping and Aggregates
+│   │   ├── dml/          # Insert/Update/Delete
+│   │   ├── ddl.rs        # Table/Index creation
+│   │   ├── select.rs     # SELECT orchestration
+│   │   ├── explain.rs    # EXPLAIN plan
+│   │   └── search.rs     # Full-text search
+│   └── parser/      # Pest-based parsing
+│       ├── expr/         # Expression parsing
+│       ├── select.rs     # SELECT parsing
+│       ├── dml.rs        # INSERT/UPDATE/DELETE parsing
+│       └── ddl.rs        # CREATE/DROP parsing
+├── storage/         # Storage Engine
+│   ├── mod.rs       # Database entry point
+│   ├── table.rs     # Table metadata and search index
+│   ├── row.rs       # Row and Column definitions
+│   ├── index.rs     # BTree/Hash index implementations
+│   ├── mutation.rs  # Table mutation logic
+│   ├── wal.rs       # WAL recovery and log application
+│   ├── persistence.rs # Sled storage backend
+│   └── info_schema.rs # Information Schema virtual tables
+└── tests/           # Integration tests
+```
 
 ## Build, Test, and Development Commands
 
@@ -26,110 +67,30 @@ cargo run -p thy-squeal
 
 # Run client
 cargo run -p thy-squeal-client
-
-# Run in release mode
-cargo run --release -p thy-squeal
-
-# Build documentation
-cargo doc
 ```
 
 ### Testing
 ```bash
-# Run all tests
+# Run all tests (29+ integration and unit tests)
 cargo test
-
-# Run a single test by name
-cargo test <test_name>
 
 # Run tests with output
 cargo test -- --nocapture
-
-# Run tests and rebuild on changes (watch mode)
-cargo watch -x test
 ```
 
 ### Linting and Formatting
 ```bash
-# Run clippy for linting
-cargo clippy
-
-# Run clippy with all warnings (including deny)
+# Run clippy for linting (Workspace is kept -D warnings clean)
 cargo clippy -- -D warnings
 
 # Format code
 cargo fmt
-
-# Check formatting without making changes
-cargo fmt -- --check
-
-# Run both clippy and fmt
-cargo fmt && cargo clippy
-```
-
-### Other Useful Commands
-```bash
-# Check for errors without building
-cargo check
-
-# Show dependencies
-cargo tree
-
-# Update dependencies
-cargo update
 ```
 
 ## Code Style Guidelines
 
-### General Principles
-- Keep code simple and readable
-- Use meaningful variable and function names
-- Follow Rust idioms and best practices
-- Prefer explicit over implicit
-
-### Imports
-- Use absolute paths with `use` for external crates (e.g., `use pest::Parser`)
-- Group std imports together, then external crate imports
-- Sort imports alphabetically within groups
-
-### Formatting
-- Use `cargo fmt` for automatic formatting
-- 4 spaces for indentation (Rust default)
-- Maximum line length: 100 characters (Rust default)
-- Use trailing commas in multi-line expressions
-
-### Types
-- Use explicit type annotations for function signatures
-- Prefer `&str` over `String` for function parameters when possible
-- Use `Result<T, E>` for error handling, avoid `unwrap()` in production code
-- Prefer enums over magic numbers or strings
-
-### Naming Conventions
-- Variables and functions: `snake_case` (e.g., `parse_sql`, `sql_file`)
-- Types and structs: `PascalCase` (e.g., `SqlParser`, `ParseResult`)
-- Constants: `SCREAMING_SNAKE_CASE` (e.g., `MAX_BUFFER_SIZE`)
-- Files: `snake_case.rs` (e.g., `sql_parser.rs`)
-
-### Error Handling
-- Use `Result<T, E>` for functions that can fail
-- Use descriptive error messages with `expect()` or `unwrap_or_else()`
-- Propagate errors with `?` operator when appropriate
-- Match on `Result` types explicitly rather than using `unwrap()`
-
-### Pest Grammar (sql.pest)
-- Keep the grammar file in `server/src/sql.pest`
-- Define rules following Pest syntax
-- Use `_` prefix for silent rules (whitespace, etc.)
-- Document complex rules with comments
-
-### Working with Pest
-- Grammar file: `server/src/sql.pest`
-- **Status**: Integrated. `server/src/sql/parser.rs` uses Pest to generate the AST.
-- Run `cargo build` after grammar changes.
-- Use `cargo test` for regression testing.
-
-### Testing Strategy
-- Add unit tests in the same file as the code they test (using `#[cfg(test)]`)
-- Create integration tests in `tests/` directory if needed
-- Test both success and error cases
-- Use `#[test]` attribute for individual tests
+- **Simplicity**: Keep logic focused and modular.
+- **Ownership**: Be careful with `DatabaseState` clones during mutation blocks to satisfy the borrow checker.
+- **Documentation**: Update relevant Markdown files when changing architecture.
+- **Error Handling**: Use `SqlError` and `StorageError` for structured error reporting.
+- **Testing**: Add unit tests in `executor/tests/` and integration tests in `tests/`.

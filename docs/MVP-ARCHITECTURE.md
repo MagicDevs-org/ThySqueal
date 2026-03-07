@@ -1,122 +1,84 @@
 # MVP Architecture Suggestions
 
-This document suggests architecture changes to reach a viable **MVP** — a minimal but usable SQL server over HTTP.
+This document reflects the current architecture of **thy-squeal**, reaching beyond the initial MVP goals into a highly modular and robust SQL server.
 
 ---
 
 ## Current Architecture (Summary)
 
 ```
-Client (--http -e "SQL")  →  POST /_query  →  Executor::execute(sql)
-                                                    ↓
-                                    Pest-based SQL Parser (sql.pest)
-                                                    ↓
-                                    Database (in-memory HashMap<Table>)
+Client (CLI/REPL)  →  POST /_query  →  Executor::execute(sql)
+                                              ↓
+                              Pest-based SQL Parser (sql/parser/)
+                                              ↓
+                              SQL Executor (sql/executor/)
+                                              ↓
+                              Storage Engine (storage/)
 ```
 
 ---
 
-## Recommended Architecture Changes for MVP
+## Architectural Pillars
 
-### 1. Wire Pest Parser into the Executor (Completed)
-
-**Outcome**: Clean separation of parsing and execution; Pest grammar is used for all operations.
-
----
-
-### 2. Add Expression Evaluator and WHERE Filtering (Completed)
-
-**Outcome**: `SELECT * FROM users WHERE age > 18` works with basic operators.
+### 1. Modular SQL Engine
+**Outcome**: Clean separation of parsing, evaluation, and execution.
+- **Parser**: Split into statement-specific modules (`ddl`, `dml`, `select`) and expression parsing (`expr/`).
+- **Evaluator**: Dedicated modules for column resolution, condition filtering, and expression evaluation.
+- **Executor**: Highly decomposed into command-specific handlers, including specialized logic for aggregation, joins, and search.
 
 ---
 
-### 3. Add UPDATE and DELETE to the Executor (Completed)
-
-**Outcome**: Full CRUD at SQL level.
-
----
-
-### 4. Structured Error Handling (Completed)
-
-**Outcome**: Better diagnostics for users and tests via `SqlError` enum.
+### 2. Robust Storage & Indexing
+**Outcome**: High-performance in-memory storage with durable persistence.
+- **Indexes**: Supports B-Tree and Hash indexes, including advanced features like JSON path, functional, and partial indexing.
+- **Durability**: Synchronous Write-Ahead Logging (WAL) ensures data integrity across restarts.
+- **Information Schema**: System metadata exposed via standard SQL queries.
 
 ---
 
-### 5. Wire REPL to Execute SQL (Completed)
-
-**Outcome**: Interactive SQL sessions via REPL.
-
----
-
-### 6. Add Tests (Partially Completed)
-
-**Why**: No tests initially. Added unit tests for Executor in `server/src/sql/mod.rs`.
-
-**Steps**:
-1. [x] Add `server/src/sql/mod.rs` unit tests for CREATE TABLE, INSERT, SELECT, SELECT with WHERE, UPDATE, DELETE.
-2. [ ] Add `tests/integration.rs`: Spawn server in background (or use `axum::test`), POST to `/_query`, assert response JSON.
-
-**Outcome**: Confidence when refactoring.
+### 3. ACID Transactions
+**Outcome**: Atomicity and Isolation for complex operations.
+- Uses `DatabaseState` snapshotting for transactional isolation.
+- WAL logging for atomic `COMMIT` / `ROLLBACK` support.
 
 ---
 
-## What to Defer for MVP
-
-| Feature | Rationale |
-|---------|-----------|
-| Storage trait / pluggable backends | Concrete `Database` is fine for MVP; add abstraction when you add persistence |
-| TCP SQL protocol | HTTP JSON API is enough for MVP |
-| REST CRUD endpoints | `POST /_query` covers CRUD via SQL |
-| KV store, full-text search | Out of scope for SQL MVP |
-| Parameterized queries (?) | Nice for security; can add after MVP if needed |
-| GET /_stats | Low priority; add when you have cache/stats to expose |
-
----
-
-## Suggested MVP Milestone
-
-**Definition of done**:
-- [x] Pest parser wired; executor uses AST
-- [x] WHERE works for SELECT, UPDATE, DELETE
-- [x] ORDER BY, LIMIT work for SELECT
-- [x] REPL executes SQL over HTTP
-- [x] Unit tests for SQL operations
-- [x] Integration tests
-- [x] Structured errors surfaced in JSON response
-
-**Estimated scope**: Low. Remaining tasks are integration tests and finishing Phase 2/3 features.
-
----
-
-## File Layout After MVP
+## File Layout (Current)
 
 ```
 server/src/
-├── main.rs
-├── config.rs
-├── storage/
-│   ├── mod.rs       # Database struct
-│   ├── table.rs     # Table, Column, Row
-│   ├── value.rs     # Value enum & impls
-│   ├── types.rs     # DataType enum
-│   └── error.rs     # StorageError
-├── sql/
-│   ├── mod.rs       # SQL module entry
+├── main.rs          # Server Entry Point
+├── config.rs        # Configuration Management
+├── http.rs          # Axum HTTP API Handlers
+├── sql/             # SQL Engine
 │   ├── ast.rs       # Abstract Syntax Tree
-│   ├── eval.rs      # Expression/Condition evaluator
-│   ├── error.rs     # SqlError enum
-│   ├── parser/      # Pest-based parser (modular)
-│   │   ├── mod.rs
-│   │   ├── expr.rs
-│   │   ├── select.rs
-│   │   ├── dml.rs
-│   │   ├── ddl.rs
-│   │   └── utils.rs
-│   └── executor/    # SQL statement execution
-│       ├── mod.rs
-│       ├── select.rs
-│       ├── dml.rs
-│       ├── ddl.rs
-│       └── tests.rs # SQL execution tests
-└── sql.pest
+│   ├── eval/        # Runtime Evaluation (Modular)
+│   │   ├── column.rs
+│   │   ├── condition.rs
+│   │   └── expression.rs
+│   ├── executor/    # Statement Execution (Modular)
+│   │   ├── aggregate/    # Grouping/Aggregates
+│   │   ├── dml/          # Insert/Update/Delete
+│   │   ├── select.rs     # SELECT logic
+│   │   └── tests/        # Unit tests by feature
+│   └── parser/      # Pest Parser (Modular)
+└── storage/         # Storage Engine
+    ├── mod.rs       # Database Entry Point
+    ├── table.rs     # Table Metadata
+    ├── row.rs       # Data Structures
+    ├── index.rs     # Indexing Logic
+    ├── mutation.rs  # Update/Delete logic
+    ├── wal.rs       # WAL Management
+    └── info_schema.rs # Metadata Tables
 ```
+
+---
+
+## Next Steps
+
+| Feature | Description |
+|---------|-------------|
+| SQL Dump/Restore | Export/Import database state as .sql scripts |
+| MySQL Protocol | Support standard MySQL clients over TCP port 3306 |
+| Parameterized Queries | Prevention of SQL injection and query reuse |
+| Query Optimization | Cost-based optimizer for join ordering |
