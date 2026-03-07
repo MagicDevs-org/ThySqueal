@@ -52,9 +52,10 @@ impl Executor {
         let mut index_name = "None".to_string();
         if stmt.joins.is_empty() {
             if let Some(ref cond) = stmt.where_clause {
-                if let ast::Condition::Comparison(ast::Expression::Column(col), ast::ComparisonOp::Eq, ast::Expression::Literal(_)) = cond {
+                if let ast::Condition::Comparison(left_expr, ast::ComparisonOp::Eq, ast::Expression::Literal(_)) = cond {
                     for (name, index) in &table.indexes {
-                        if index.columns().len() == 1 && &index.columns()[0] == col {
+                        let exprs = index.expressions();
+                        if exprs.len() == 1 && &exprs[0] == left_expr {
                             scan_type = match index {
                                 TableIndex::BTree { .. } => "Index Lookup (BTree)".to_string(),
                                 TableIndex::Hash { .. } => "Index Lookup (Hash)".to_string(),
@@ -118,9 +119,10 @@ impl Executor {
         let initial_rows: Vec<&Row> = if stmt.joins.is_empty() {
             let mut result_rows = None;
             if let Some(ref cond) = stmt.where_clause {
-                if let ast::Condition::Comparison(ast::Expression::Column(col), ast::ComparisonOp::Eq, ast::Expression::Literal(val)) = cond {
+                if let ast::Condition::Comparison(left_expr, ast::ComparisonOp::Eq, ast::Expression::Literal(val)) = cond {
                     for index in base_table.indexes.values() {
-                        if index.columns().len() == 1 && &index.columns()[0] == col {
+                        let exprs = index.expressions();
+                        if exprs.len() == 1 && &exprs[0] == left_expr {
                             let key = vec![val.clone()];
                             if let Some(row_ids) = index.get(&key) {
                                 result_rows = Some(base_table.rows.iter().filter(|r| row_ids.contains(&r.id)).collect());
@@ -287,6 +289,10 @@ impl Executor {
                     let name = format!("{:?}", fc.name).to_uppercase();
                     names.push(format!("{}(...)", name));
                 }
+                ast::Expression::ScalarFunc(sf) => {
+                    let name = format!("{:?}", sf.name).to_uppercase();
+                    names.push(format!("{}(...)", name));
+                }
                 _ => names.push(format!("col_{}", names.len())),
             }
         }
@@ -435,6 +441,13 @@ impl Executor {
     fn evaluate_having_expression_joined(&self, expr: &ast::Expression, contexts: &[Vec<(&Table, &Row)>], outer_contexts: &[(&Table, &Row)]) -> SqlResult<Value> {
         match expr {
             ast::Expression::FunctionCall(fc) => self.eval_aggregate_joined(fc, contexts, outer_contexts),
+            ast::Expression::ScalarFunc(_sf) => {
+                if let Some(first_ctx) = contexts.first() {
+                    evaluate_expression_joined(self, expr, first_ctx, outer_contexts)
+                } else {
+                    Ok(Value::Null)
+                }
+            }
             ast::Expression::Literal(v) => Ok(v.clone()),
             ast::Expression::Subquery(subquery) => {
                 let mut combined_outer = outer_contexts.to_vec();

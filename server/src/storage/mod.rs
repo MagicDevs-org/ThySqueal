@@ -13,6 +13,7 @@ pub use types::DataType;
 pub use value::Value;
 pub use table::{Table, Column, Row, TableIndex};
 use persistence::Persister;
+use crate::sql::executor::Executor;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DatabaseState {
@@ -94,5 +95,25 @@ impl Database {
     #[allow(dead_code)]
     pub fn table_names(&self) -> Vec<&String> {
         self.state.tables.keys().collect()
+    }
+
+    // Methods that need Executor for index evaluation
+    pub fn insert(&mut self, executor: &Executor, table_name: &str, values: Vec<Value>) -> Result<String, StorageError> {
+        let table = self.get_table_mut(table_name).ok_or_else(|| StorageError::TableNotFound(table_name.to_string()))?;
+        let id = table.insert(executor, values)?;
+        self.save()?;
+        Ok(id)
+    }
+
+    pub fn update(&mut self, executor: &Executor, table_name: &str, id: &str, values: Vec<Value>) -> Result<(), StorageError> {
+        let table = self.get_table_mut(table_name).ok_or_else(|| StorageError::TableNotFound(table_name.to_string()))?;
+        table.update(executor, id, values)?;
+        self.save()
+    }
+
+    pub fn delete(&mut self, executor: &Executor, table_name: &str, id: &str) -> Result<(), StorageError> {
+        let table = self.get_table_mut(table_name).ok_or_else(|| StorageError::TableNotFound(table_name.to_string()))?;
+        table.delete(executor, id)?;
+        self.save()
     }
 }

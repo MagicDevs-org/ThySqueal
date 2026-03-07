@@ -1,17 +1,14 @@
 use super::super::ast::{DeleteStmt, InsertStmt, UpdateStmt};
-use super::super::error::{SqlError, SqlResult};
-use super::super::eval::{evaluate_condition_joined, evaluate_expression_joined};
+use super::super::eval::{evaluate_condition, evaluate_expression};
 use super::{Executor, QueryResult};
+use crate::sql::error::SqlError;
+use crate::sql::error::SqlResult;
 
 impl Executor {
     pub(crate) async fn exec_insert(&self, stmt: InsertStmt) -> SqlResult<QueryResult> {
         let mut db = self.db.write().await;
-        let table = db
-            .get_table_mut(&stmt.table)
-            .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
-
-        table.insert(stmt.values)?;
-        db.save().map_err(|e| SqlError::Storage(e.to_string()))?;
+        db.insert(self, &stmt.table, stmt.values)
+            .map_err(|e| SqlError::Storage(e.to_string()))?;
 
         Ok(QueryResult {
             columns: vec![],
@@ -27,31 +24,39 @@ impl Executor {
             .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
 
         let mut rows_affected = 0;
-        let table_cloned = table.clone();
+        let mut updated_rows = Vec::new();
 
-        for row in table.rows.iter_mut() {
-            let matches = if let Some(ref cond) = stmt.where_clause {
-                evaluate_condition_joined(self, cond, &[(&table_cloned, row)], &[])?
+        for row in &table.rows {
+            if let Some(ref where_clause) = stmt.where_clause {
+                if evaluate_condition(self, where_clause, table, row)? {
+                    let mut new_values = row.values.clone();
+                    for (col_name, expr) in &stmt.assignments {
+                        let col_idx = table
+                            .column_index(col_name)
+                            .ok_or_else(|| SqlError::ColumnNotFound(col_name.clone()))?;
+                        new_values[col_idx] = evaluate_expression(self, expr, table, row)?;
+                    }
+                    updated_rows.push((row.id.clone(), new_values));
+                    rows_affected += 1;
+                }
             } else {
-                true
-            };
-
-            if matches {
+                let mut new_values = row.values.clone();
                 for (col_name, expr) in &stmt.assignments {
-                    let col_idx = table_cloned
+                    let col_idx = table
                         .column_index(col_name)
                         .ok_or_else(|| SqlError::ColumnNotFound(col_name.clone()))?;
-                    let new_val =
-                        evaluate_expression_joined(self, expr, &[(&table_cloned, row)], &[])?;
-                    row.values[col_idx] = new_val;
+                    new_values[col_idx] = evaluate_expression(self, expr, table, row)?;
                 }
+                updated_rows.push((row.id.clone(), new_values));
                 rows_affected += 1;
             }
         }
 
-        if rows_affected > 0 {
-            db.save().map_err(|e| SqlError::Storage(e.to_string()))?;
+        for (id, values) in updated_rows {
+            table.update(self, &id, values)?;
         }
+
+        db.save().map_err(|e| SqlError::Storage(e.to_string()))?;
 
         Ok(QueryResult {
             columns: vec![],
@@ -67,27 +72,25 @@ impl Executor {
             .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
 
         let mut rows_affected = 0;
-        let table_cloned = table.clone();
+        let mut ids_to_delete = Vec::new();
 
-        let mut i = 0;
-        while i < table.rows.len() {
-            let matches = if let Some(ref cond) = stmt.where_clause {
-                evaluate_condition_joined(self, cond, &[(&table_cloned, &table.rows[i])], &[])?
+        for row in &table.rows {
+            if let Some(ref where_clause) = stmt.where_clause {
+                if evaluate_condition(self, where_clause, table, row)? {
+                    ids_to_delete.push(row.id.clone());
+                    rows_affected += 1;
+                }
             } else {
-                true
-            };
-
-            if matches {
-                table.rows.remove(i);
+                ids_to_delete.push(row.id.clone());
                 rows_affected += 1;
-            } else {
-                i += 1;
             }
         }
 
-        if rows_affected > 0 {
-            db.save().map_err(|e| SqlError::Storage(e.to_string()))?;
+        for id in ids_to_delete {
+            table.delete(self, &id)?;
         }
+
+        db.save().map_err(|e| SqlError::Storage(e.to_string()))?;
 
         Ok(QueryResult {
             columns: vec![],

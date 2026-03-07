@@ -6,8 +6,11 @@ use super::error::StorageError;
 use super::types::DataType;
 use super::value::Value;
 use super::search::SearchIndex;
+use crate::sql::ast::Expression;
+use crate::sql::executor::Executor;
+use crate::sql::eval::evaluate_expression_joined;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Column {
     pub name: String,
     pub data_type: DataType,
@@ -26,23 +29,23 @@ pub struct Row {
 pub enum TableIndex {
     BTree {
         unique: bool,
-        columns: Vec<String>,
-        // Multi-column mapping: Vec<Value> is the key
+        expressions: Vec<serde_json::Value>, // Serialized Expressions
         data: BTreeMap<Vec<Value>, Vec<String>>,
     },
     Hash {
         unique: bool,
-        columns: Vec<String>,
+        expressions: Vec<serde_json::Value>,
         data: HashMap<Vec<Value>, Vec<String>>,
     },
 }
 
 impl TableIndex {
-    pub fn columns(&self) -> &[String] {
-        match self {
-            TableIndex::BTree { columns, .. } => columns,
-            TableIndex::Hash { columns, .. } => columns,
-        }
+    pub fn expressions(&self) -> Vec<Expression> {
+        let expr_jsons = match self {
+            TableIndex::BTree { expressions, .. } => expressions,
+            TableIndex::Hash { expressions, .. } => expressions,
+        };
+        expr_jsons.iter().map(|j| serde_json::from_value(j.clone()).unwrap()).collect()
     }
 
     pub fn is_unique(&self) -> bool {
@@ -190,24 +193,19 @@ impl Table {
         }
     }
 
-    pub fn create_index(&mut self, name: String, columns: Vec<String>, unique: bool, use_hash: bool) -> Result<(), StorageError> {
-        // Validate columns/paths
-        for path in &columns {
-            let base_col = path.split('.').next().unwrap();
-            if self.column_index(base_col).is_none() {
-                return Err(StorageError::ColumnNotFound(base_col.to_string()));
-            }
-        }
-
+    pub fn create_index(&mut self, executor: &Executor, name: String, expressions: Vec<Expression>, unique: bool, use_hash: bool) -> Result<(), StorageError> {
+        let expr_jsons: Vec<serde_json::Value> = expressions.iter().map(|e| serde_json::to_value(e).unwrap()).collect();
+        
         let mut index = if use_hash {
-            TableIndex::Hash { unique, columns: columns.clone(), data: HashMap::new() }
+            TableIndex::Hash { unique, expressions: expr_jsons, data: HashMap::new() }
         } else {
-            TableIndex::BTree { unique, columns: columns.clone(), data: BTreeMap::new() }
+            TableIndex::BTree { unique, expressions: expr_jsons, data: BTreeMap::new() }
         };
 
         // Populate existing data
+        let exprs = index.expressions();
         for row in &self.rows {
-            let key = self.extract_key(row, &columns)?;
+            let key = self.extract_key(executor, row, &exprs)?;
             index.insert(key, row.id.clone())?;
         }
 
@@ -215,33 +213,19 @@ impl Table {
         Ok(())
     }
 
-    fn extract_key(&self, row: &Row, columns: &[String]) -> Result<Vec<Value>, StorageError> {
-        self.extract_key_from_values(&row.values, columns)
+    fn extract_key(&self, executor: &Executor, row: &Row, expressions: &[Expression]) -> Result<Vec<Value>, StorageError> {
+        self.extract_key_from_values(executor, &row.values, expressions)
     }
 
-    fn extract_key_from_values(&self, values: &[Value], columns: &[String]) -> Result<Vec<Value>, StorageError> {
-        let mut key = Vec::with_capacity(columns.len());
-        for path in columns {
-            let mut parts = path.split('.');
-            let base_col_name = parts.next().unwrap();
-            let base_idx = self.column_index(base_col_name).ok_or_else(|| StorageError::ColumnNotFound(base_col_name.to_string()))?;
-            let mut current_val = values.get(base_idx).cloned().unwrap_or(Value::Null);
-
-            // Traverse JSON path if any
-            for part in parts {
-                current_val = match current_val {
-                    Value::Json(v) => {
-                        if let Some(inner) = v.get(part) {
-                            Value::from_json(inner.clone())
-                        } else {
-                            Value::Null
-                        }
-                    }
-                    _ => Value::Null,
-                };
-                if current_val == Value::Null { break; }
-            }
-            key.push(current_val);
+    pub fn extract_key_from_values(&self, executor: &Executor, values: &[Value], expressions: &[Expression]) -> Result<Vec<Value>, StorageError> {
+        let mut key = Vec::with_capacity(expressions.len());
+        let row = Row { id: "".to_string(), values: values.to_vec() };
+        let context = [(self, &row)];
+        
+        for expr in expressions {
+            let val = evaluate_expression_joined(executor, expr, &context, &[])
+                .map_err(|e| StorageError::PersistenceError(format!("Index expression evaluation error: {:?}", e)))?;
+            key.push(val);
         }
         Ok(key)
     }
@@ -280,7 +264,7 @@ impl Table {
         Ok(())
     }
 
-    pub fn insert(&mut self, values: Vec<Value>) -> Result<String, StorageError> {
+    pub fn insert(&mut self, executor: &Executor, values: Vec<Value>) -> Result<String, StorageError> {
         if values.len() != self.columns.len() {
             return Err(StorageError::InvalidType(format!(
                 "Expected {} columns, got {}",
@@ -292,7 +276,7 @@ impl Table {
         // 1. Check unique constraints/indexes before inserting
         for index in self.indexes.values() {
             if index.is_unique() {
-                let key = self.extract_key_from_values(&values, index.columns())?;
+                let key = self.extract_key_from_values(executor, &values, &index.expressions())?;
                 if index.get(&key).map_or(false, |ids| !ids.is_empty()) {
                     return Err(StorageError::DuplicateKey(format!("{:?}", key)));
                 }
@@ -304,7 +288,7 @@ impl Table {
         // 2. Update all indexes
         let mut index_data = Vec::new();
         for index in self.indexes.values() {
-            index_data.push(self.extract_key_from_values(&values, index.columns())?);
+            index_data.push(self.extract_key_from_values(executor, &values, &index.expressions())?);
         }
 
         for (index, key) in self.indexes.values_mut().zip(index_data) {
@@ -325,7 +309,7 @@ impl Table {
         Ok(id)
     }
 
-    pub fn update(&mut self, id: &str, values: Vec<Value>) -> Result<(), StorageError> {
+    pub fn update(&mut self, executor: &Executor, id: &str, values: Vec<Value>) -> Result<(), StorageError> {
         if values.len() != self.columns.len() {
             return Err(StorageError::InvalidType(format!(
                 "Expected {} columns, got {}",
@@ -340,8 +324,8 @@ impl Table {
             // 1. Check unique constraints
             for index in self.indexes.values() {
                 if index.is_unique() {
-                    let old_key = self.extract_key_from_values(&old_values, index.columns())?;
-                    let new_key = self.extract_key_from_values(&values, index.columns())?;
+                    let old_key = self.extract_key_from_values(executor, &old_values, &index.expressions())?;
+                    let new_key = self.extract_key_from_values(executor, &values, &index.expressions())?;
                     
                     if old_key != new_key && index.get(&new_key).is_some() {
                         return Err(StorageError::DuplicateKey(format!("{:?}", new_key)));
@@ -352,8 +336,8 @@ impl Table {
             // 2. Update all indexes
             let mut keys = Vec::new();
             for index in self.indexes.values() {
-                let old_key = self.extract_key_from_values(&old_values, index.columns())?;
-                let new_key = self.extract_key_from_values(&values, index.columns())?;
+                let old_key = self.extract_key_from_values(executor, &old_values, &index.expressions())?;
+                let new_key = self.extract_key_from_values(executor, &values, &index.expressions())?;
                 keys.push((old_key, new_key));
             }
 
@@ -378,14 +362,14 @@ impl Table {
         }
     }
 
-    pub fn delete(&mut self, id: &str) -> Result<(), StorageError> {
+    pub fn delete(&mut self, executor: &Executor, id: &str) -> Result<(), StorageError> {
         if let Some(pos) = self.rows.iter().position(|r| r.id == id) {
             let values = self.rows[pos].values.clone();
 
             // 1. Update all indexes
             let mut keys = Vec::new();
             for index in self.indexes.values() {
-                keys.push(self.extract_key_from_values(&values, index.columns())?);
+                keys.push(self.extract_key_from_values(executor, &values, &index.expressions())?);
             }
 
             for (index, key) in self.indexes.values_mut().zip(keys) {

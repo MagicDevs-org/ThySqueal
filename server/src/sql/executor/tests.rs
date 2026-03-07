@@ -357,6 +357,20 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_functional_index() {
+        let exec = Executor::new(crate::storage::Database::new());
+        exec.execute("CREATE TABLE users (id INT, email TEXT)").await.unwrap();
+        // Functional index: index the lowercase email
+        exec.execute("CREATE INDEX idx_lower_email ON users (LOWER(email))").await.unwrap();
+
+        exec.execute("INSERT INTO users (id, email) VALUES (1, 'ALICE@EXAMPLE.COM')").await.unwrap();
+
+        // Query using the same expression
+        let r = exec.execute("EXPLAIN SELECT * FROM users WHERE LOWER(email) = 'alice@example.com'").await.unwrap();
+        assert!(r.rows[0][1].as_text().unwrap().contains("Index Lookup (BTree)"));
+    }
+
+    #[tokio::test]
     async fn test_drop_table() {
         let exec = Executor::new(crate::storage::Database::new());
         exec.execute("CREATE TABLE x (id INT)").await.unwrap();

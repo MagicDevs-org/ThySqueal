@@ -74,17 +74,19 @@ pub fn parse_create_index(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStm
         .map(|p| p.as_str().trim().to_string())
         .ok_or_else(|| SqlError::Parse("Missing table name".to_string()))?;
     
-    // Columns list (may include paths)
-    let id_list = inner.find(|p| p.as_rule() == Rule::index_column_list)
-        .ok_or_else(|| SqlError::Parse("Missing column list for index".to_string()))?;
+    // Expressions list
+    let id_list = inner.find(|p| p.as_rule() == Rule::index_expression_list)
+        .ok_or_else(|| SqlError::Parse("Missing expression list for index".to_string()))?;
     
-    let columns: Vec<String> = id_list.into_inner()
-        .filter(|p| p.as_rule() == Rule::index_column)
-        .map(|p| p.as_str().trim().to_string())
-        .collect();
+    let mut expressions = Vec::new();
+    for expr_pair in id_list.into_inner() {
+        if expr_pair.as_rule() == Rule::expression {
+            expressions.push(super::expr::parse_expression(expr_pair)?);
+        }
+    }
 
-    if columns.is_empty() {
-        return Err(SqlError::Parse("Index must have at least one column".to_string()));
+    if expressions.is_empty() {
+        return Err(SqlError::Parse("Index must have at least one expression".to_string()));
     }
 
     // Optional USING clause
@@ -102,7 +104,7 @@ pub fn parse_create_index(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStm
     Ok(SqlStmt::CreateIndex(CreateIndexStmt { 
         name: index_name, 
         table, 
-        columns, 
+        expressions, 
         unique, 
         index_type 
     }))

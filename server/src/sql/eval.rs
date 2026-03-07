@@ -1,5 +1,5 @@
 use crate::storage::{Row, Table, Value};
-use super::ast::{BinaryOp, ComparisonOp, Condition, Expression, LogicalOp};
+use super::ast::{BinaryOp, ComparisonOp, Condition, Expression, LogicalOp, ScalarFuncType};
 use super::error::{SqlError, SqlResult};
 use super::executor::Executor;
 
@@ -165,6 +165,30 @@ pub fn evaluate_expression_joined(
                 _ => Err(SqlError::TypeMismatch("Unsupported types for binary operation".to_string())),
             }
         }
+        Expression::ScalarFunc(sf) => {
+            let val = evaluate_expression_joined(executor, &sf.arg, contexts, outer_contexts)?;
+            match sf.name {
+                ScalarFuncType::Lower => {
+                    let s = val.as_text().ok_or_else(|| SqlError::TypeMismatch("LOWER requires text".to_string()))?;
+                    Ok(Value::Text(s.to_lowercase()))
+                }
+                ScalarFuncType::Upper => {
+                    let s = val.as_text().ok_or_else(|| SqlError::TypeMismatch("UPPER requires text".to_string()))?;
+                    Ok(Value::Text(s.to_uppercase()))
+                }
+                ScalarFuncType::Length => {
+                    let s = val.as_text().ok_or_else(|| SqlError::TypeMismatch("LENGTH requires text".to_string()))?;
+                    Ok(Value::Int(s.len() as i64))
+                }
+                ScalarFuncType::Abs => {
+                    match val {
+                        Value::Int(i) => Ok(Value::Int(i.abs())),
+                        Value::Float(f) => Ok(Value::Float(f.abs())),
+                        _ => Err(SqlError::TypeMismatch("ABS requires numeric value".to_string())),
+                    }
+                }
+            }
+        }
         Expression::FunctionCall(_) => {
             Err(SqlError::Runtime("Aggregate functions must be evaluated at the top level".to_string()))
         }
@@ -174,22 +198,47 @@ pub fn evaluate_expression_joined(
     }
 }
 
-fn resolve_column(name: &str, contexts: &[(&Table, &Row)]) -> SqlResult<Value> {
+pub fn resolve_column(name: &str, contexts: &[(&Table, &Row)]) -> SqlResult<Value> {
     if name.contains('.') {
         let parts: Vec<&str> = name.split('.').collect();
-        if parts.len() == 2 {
-            let table_name = parts[0];
-            let col_name = parts[1];
-            for (table, row) in contexts {
-                if table.name == table_name {
-                    if let Some(idx) = table.column_index(col_name) {
-                        return row.values.get(idx).cloned()
-                            .ok_or_else(|| SqlError::Runtime(format!("Value not found for column index: {}", idx)));
+        // Case 1: table.column[.json_path]
+        for (table, row) in contexts {
+            if table.name == parts[0] {
+                if let Some(idx) = table.column_index(parts[1]) {
+                    let mut current_val = row.values.get(idx).cloned()
+                        .ok_or_else(|| SqlError::Runtime(format!("Value not found for column index: {}", idx)))?;
+                    
+                    // JSON path traversal
+                    for part in &parts[2..] {
+                        current_val = match current_val {
+                            Value::Json(v) => v.get(*part).map(|inner| Value::from_json(inner.clone())).unwrap_or(Value::Null),
+                            _ => Value::Null,
+                        };
+                        if current_val == Value::Null { break; }
                     }
+                    return Ok(current_val);
                 }
             }
         }
+        
+        // Case 2: column.json_path (no table prefix)
+        for (table, row) in contexts {
+            if let Some(idx) = table.column_index(parts[0]) {
+                let mut current_val = row.values.get(idx).cloned()
+                    .ok_or_else(|| SqlError::Runtime(format!("Value not found for column index: {}", idx)))?;
+                
+                for part in &parts[1..] {
+                    current_val = match current_val {
+                        Value::Json(v) => v.get(*part).map(|inner| Value::from_json(inner.clone())).unwrap_or(Value::Null),
+                        _ => Value::Null,
+                    };
+                    if current_val == Value::Null { break; }
+                }
+                return Ok(current_val);
+            }
+        }
     } else {
+        // Simple column
         for (table, row) in contexts {
             if let Some(idx) = table.column_index(name) {
                 return row.values.get(idx).cloned()

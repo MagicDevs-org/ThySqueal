@@ -47,10 +47,9 @@ data_type = { "INTEGER" | "BIGINT" | "SMALLINT" | "INT" | "DOUBLE" | "REAL" | "F
 drop_table_stmt = { KW_DROP ~ KW_TABLE ~ table_name }
 
 // CREATE INDEX statement
-create_index_stmt = { KW_CREATE ~ unique? ~ KW_INDEX ~ identifier ~ KW_ON ~ table_name ~ "(" ~ index_column_list ~ ")" ~ index_type_clause? }
+create_index_stmt = { KW_CREATE ~ unique? ~ KW_INDEX ~ identifier ~ KW_ON ~ table_name ~ "(" ~ index_expression_list ~ ")" ~ index_type_clause? }
 unique = { ^"UNIQUE" }
-index_column_list = { index_column ~ ("," ~ index_column)* }
-index_column = { identifier ~ ("." ~ identifier)* }
+index_expression_list = { expression ~ ("," ~ expression)* }
 identifier_list = { identifier ~ ("," ~ identifier)* }
 index_type_clause = { ^"USING" ~ index_type }
 index_type = { ^"BTREE" | ^"HASH" }
@@ -87,11 +86,14 @@ limit_count = @{ ASCII_DIGIT+ }
 // Expressions
 expression = { term ~ (("+" | "-") ~ term)* }
 term = { factor ~ (("*" | "/" | "%") ~ factor)* }
-factor = { aggregate_func | column_ref | literal | "(" ~ select_stmt ~ ")" | "(" ~ expression ~ ")" | KW_NOT ~ factor | "-" ~ factor }
+factor = { aggregate_func | scalar_func | column_ref | literal | "(" ~ select_stmt ~ ")" | "(" ~ expression ~ ")" | KW_NOT ~ factor | "-" ~ factor }
 
 aggregate_func = { agg_type ~ "(" ~ ( star | expression ) ~ ")" }
 agg_type = { KW_COUNT | KW_SUM | KW_AVG | KW_MIN | KW_MAX }
 star = { "*" }
+
+scalar_func = { scalar_func_name ~ "(" ~ expression ~ ")" }
+scalar_func_name = { ^"LOWER" | ^"UPPER" | ^"LENGTH" | ^"ABS" }
 
 literal = { string_literal | number_literal | boolean_literal | KW_NULL }
 

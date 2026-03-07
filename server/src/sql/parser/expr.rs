@@ -1,5 +1,5 @@
 use crate::storage::Value;
-use super::super::ast::{AggregateType, BinaryOp, ComparisonOp, Condition, Expression, FunctionCall, LogicalOp};
+use super::super::ast::{AggregateType, BinaryOp, ComparisonOp, Condition, Expression, FunctionCall, LogicalOp, ScalarFunction, ScalarFuncType};
 use super::super::error::{SqlError, SqlResult};
 use super::super::parser::Rule;
 
@@ -46,6 +46,7 @@ pub fn parse_factor(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expression> 
     
     match first.as_rule() {
         Rule::aggregate_func => parse_aggregate(first),
+        Rule::scalar_func => parse_scalar_func(first),
         Rule::literal => Ok(Expression::Literal(parse_literal(first)?)),
         Rule::column_ref => {
             let parts: Vec<String> = first.into_inner()
@@ -237,5 +238,29 @@ pub fn parse_aggregate_type(pair: pest::iterators::Pair<Rule>) -> SqlResult<Aggr
         Rule::KW_MIN => Ok(AggregateType::Min),
         Rule::KW_MAX => Ok(AggregateType::Max),
         _ => Err(SqlError::Parse(format!("Unknown aggregate type: {:?}", kw.as_rule()))),
+    }
+}
+
+pub fn parse_scalar_func(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expression> {
+    let mut inner = pair.into_inner();
+    let name_pair = inner.next().ok_or_else(|| SqlError::Parse("Missing scalar function name".to_string()))?;
+    let name = parse_scalar_func_type(name_pair)?;
+    let arg_pair = inner.next().ok_or_else(|| SqlError::Parse("Missing scalar function argument".to_string()))?;
+    let arg = parse_expression(arg_pair)?;
+    
+    Ok(Expression::ScalarFunc(ScalarFunction {
+        name,
+        arg: Box::new(arg),
+    }))
+}
+
+pub fn parse_scalar_func_type(pair: pest::iterators::Pair<Rule>) -> SqlResult<ScalarFuncType> {
+    let name = pair.as_str().to_uppercase();
+    match name.as_str() {
+        "LOWER" => Ok(ScalarFuncType::Lower),
+        "UPPER" => Ok(ScalarFuncType::Upper),
+        "LENGTH" => Ok(ScalarFuncType::Length),
+        "ABS" => Ok(ScalarFuncType::Abs),
+        _ => Err(SqlError::Parse(format!("Unknown scalar function: {}", name))),
     }
 }
