@@ -154,6 +154,18 @@ fn parse_select(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
         None
     };
 
+    let group_by = if let Some(p) = inner.clone().find(|p| p.as_rule() == Rule::group_by_clause) {
+        parse_group_by(p)?
+    } else {
+        Vec::new()
+    };
+
+    let having = if let Some(p) = inner.clone().find(|p| p.as_rule() == Rule::having_clause) {
+        Some(parse_having(p)?)
+    } else {
+        None
+    };
+
     let order_by = if let Some(p) = inner.clone().find(|p| p.as_rule() == Rule::order_by_clause) {
         parse_order_by(p)?
     } else {
@@ -170,9 +182,31 @@ fn parse_select(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
         columns,
         table,
         where_clause,
+        group_by,
+        having,
         order_by,
         limit,
     }))
+}
+
+fn parse_group_by(pair: pest::iterators::Pair<Rule>) -> SqlResult<Vec<Expression>> {
+    let mut inner = pair.into_inner();
+    let column_list = inner.find(|p| p.as_rule() == Rule::column_list).ok_or_else(|| SqlError::Parse("Missing GROUP BY column list".to_string()))?;
+    let mut exprs = Vec::new();
+    for col_expr in column_list.into_inner() {
+        if col_expr.as_rule() == Rule::column_expr {
+            let mut ce_inner = col_expr.into_inner();
+            let expr = parse_expression(ce_inner.find(|p| p.as_rule() == Rule::expression).ok_or_else(|| SqlError::Parse("Empty GROUP BY column expression".to_string()))?)?;
+            exprs.push(expr);
+        }
+    }
+    Ok(exprs)
+}
+
+fn parse_having(pair: pest::iterators::Pair<Rule>) -> SqlResult<Condition> {
+    let mut inner = pair.into_inner();
+    let cond_pair = inner.find(|p| p.as_rule() == Rule::condition).ok_or_else(|| SqlError::Parse("Missing HAVING condition".to_string()))?;
+    parse_condition(cond_pair)
 }
 
 fn parse_order_by(pair: pest::iterators::Pair<Rule>) -> SqlResult<Vec<OrderByItem>> {

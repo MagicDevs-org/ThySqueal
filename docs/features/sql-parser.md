@@ -18,10 +18,10 @@ Pest-based SQL parser for thy-squeal, supporting a MySQL-compatible dialect.
 - `ORDER BY`
 - `LIMIT` / `OFFSET`
 - `Aggregations` (COUNT, SUM, AVG, MIN, MAX)
+- `GROUP BY`
+- `HAVING`
 - [ ] `DISTINCT`
 - [ ] `JOIN` (INNER, LEFT)
-- [ ] `GROUP BY`
-- [ ] `HAVING`
 
 ### Data Manipulation Language (DML)
 - `INSERT INTO ... VALUES ...`

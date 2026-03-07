@@ -60,6 +60,25 @@ pub enum Value {
     Json(serde_json::Value),
 }
 
+impl Eq for Value {}
+
+impl std::hash::Hash for Value {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+        match self {
+            Value::Null => {}
+            Value::Int(i) => i.hash(state),
+            Value::Float(f) => f.to_bits().hash(state),
+            Value::Bool(b) => b.hash(state),
+            Value::Date(d) => d.hash(state),
+            Value::DateTime(dt) => dt.hash(state),
+            Value::Text(s) => s.hash(state),
+            Value::Blob(b) => b.hash(state),
+            Value::Json(j) => j.to_string().hash(state),
+        }
+    }
+}
+
 impl PartialOrd for Value {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         match (self, other) {

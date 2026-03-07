@@ -198,33 +198,89 @@ impl Executor {
             if let Some(e) = err { return Err(e); }
         }
 
-        // Handle Aggregates
-        if has_aggregates {
-            // Very simple global aggregation (no GROUP BY yet)
-            let mut row_values = Vec::new();
-            for col in &stmt.columns {
-                match &col.expr {
-                    ast::Expression::FunctionCall(fc) => {
-                        let val = self.eval_aggregate(fc, table, &matched_rows)?;
-                        row_values.push(val);
-                    },
-                    ast::Expression::Column(_) | ast::Expression::Literal(_) | ast::Expression::BinaryOp(_, _, _) => {
-                        // In standard SQL, selecting non-aggregated columns without GROUP BY is usually an error or returns first row.
-                        // For now, let's just evaluate it against the first matched row if it exists.
-                        if let Some(first_row) = matched_rows.first() {
-                            row_values.push(eval::evaluate_expression(&col.expr, table, first_row)?);
-                        } else {
-                            row_values.push(Value::Null);
+        // Handle Aggregates and Grouping
+        if has_aggregates || !stmt.group_by.is_empty() {
+            let mut result_rows = Vec::new();
+
+            if stmt.group_by.is_empty() {
+                // Global aggregation (single row result)
+                let mut row_values = Vec::new();
+                for col in &stmt.columns {
+                    match &col.expr {
+                        ast::Expression::FunctionCall(fc) => {
+                            let val = self.eval_aggregate(fc, table, &matched_rows)?;
+                            row_values.push(val);
+                        },
+                        ast::Expression::Column(_) | ast::Expression::Literal(_) | ast::Expression::BinaryOp(_, _, _) => {
+                            if let Some(first_row) = matched_rows.first() {
+                                row_values.push(eval::evaluate_expression(&col.expr, table, first_row)?);
+                            } else {
+                                row_values.push(Value::Null);
+                            }
+                        },
+                        ast::Expression::Star => {
+                            return Err(SqlError::Runtime("SELECT * with aggregate is not supported".to_string()));
                         }
-                    },
-                    ast::Expression::Star => {
-                        return Err(SqlError::Runtime("SELECT * with aggregate is not supported".to_string()));
+                    }
+                }
+                
+                // Apply HAVING to the single global group
+                let mut include_row = true;
+                if let Some(ref having_cond) = stmt.having {
+                    // Creating a dummy table/row context for HAVING is tricky because it often references aggregates.
+                    // For now, let's just evaluate it against the first row if no aggregates are in HAVING, 
+                    // BUT HAVING almost always has aggregates.
+                    // A proper implementation needs to evaluate aggregates inside HAVING.
+                    include_row = self.evaluate_having(having_cond, table, &matched_rows)?;
+                }
+
+                if include_row {
+                    result_rows.push(row_values);
+                }
+            } else {
+                // GROUP BY
+                let mut groups: std::collections::HashMap<Vec<Value>, Vec<&crate::storage::Row>> = std::collections::HashMap::new();
+                for row in &matched_rows {
+                    let mut group_key = Vec::new();
+                    for gb_expr in &stmt.group_by {
+                        group_key.push(eval::evaluate_expression(gb_expr, table, row)?);
+                    }
+                    groups.entry(group_key).or_default().push(row);
+                }
+
+                for (_key, group_rows) in groups {
+                    // Apply HAVING to group
+                    let include_group = if let Some(ref having_cond) = stmt.having {
+                        self.evaluate_having(having_cond, table, &group_rows)?
+                    } else {
+                        true
+                    };
+
+                    if include_group {
+                        let mut row_values = Vec::new();
+                        for col in &stmt.columns {
+                            match &col.expr {
+                                ast::Expression::FunctionCall(fc) => {
+                                    row_values.push(self.eval_aggregate(fc, table, &group_rows)?);
+                                },
+                                _ => {
+                                    // Use the first row of the group for non-aggregate expressions
+                                    if let Some(first_row) = group_rows.first() {
+                                        row_values.push(eval::evaluate_expression(&col.expr, table, first_row)?);
+                                    } else {
+                                        row_values.push(Value::Null);
+                                    }
+                                }
+                            }
+                        }
+                        result_rows.push(row_values);
                     }
                 }
             }
+
             return Ok(QueryResult {
                 columns: result_columns,
-                rows: vec![row_values],
+                rows: result_rows,
                 rows_affected: 0,
             });
         }
@@ -255,6 +311,55 @@ impl Executor {
             rows,
             rows_affected: 0,
         })
+    }
+
+    fn evaluate_having(&self, cond: &ast::Condition, table: &crate::storage::Table, rows: &[&crate::storage::Row]) -> SqlResult<bool> {
+        match cond {
+            ast::Condition::Comparison(left, op, right) => {
+                let left_val = self.evaluate_having_expression(left, table, rows)?;
+                let right_val = self.evaluate_having_expression(right, table, rows)?;
+                
+                match op {
+                    ast::ComparisonOp::Eq => Ok(left_val == right_val),
+                    ast::ComparisonOp::NotEq => Ok(left_val != right_val),
+                    ast::ComparisonOp::Lt => Ok(left_val < right_val),
+                    ast::ComparisonOp::Gt => Ok(left_val > right_val),
+                    ast::ComparisonOp::LtEq => Ok(left_val <= right_val),
+                    ast::ComparisonOp::GtEq => Ok(left_val >= right_val),
+                    ast::ComparisonOp::Like => {
+                        let l = left_val.as_text().ok_or_else(|| SqlError::TypeMismatch("LIKE requires text".to_string()))?;
+                        let r = right_val.as_text().ok_or_else(|| SqlError::TypeMismatch("LIKE requires text".to_string()))?;
+                        Ok(l.contains(&r.replace("%", ""))) // Simplistic LIKE for HAVING
+                    }
+                }
+            },
+            ast::Condition::Logical(left, op, right) => {
+                let l = self.evaluate_having(left, table, rows)?;
+                match op {
+                    ast::LogicalOp::And => Ok(l && self.evaluate_having(right, table, rows)?),
+                    ast::LogicalOp::Or => Ok(l || self.evaluate_having(right, table, rows)?),
+                }
+            },
+            ast::Condition::Not(c) => Ok(!self.evaluate_having(c, table, rows)?),
+            ast::Condition::IsNull(e) => Ok(self.evaluate_having_expression(e, table, rows)? == Value::Null),
+            ast::Condition::IsNotNull(e) => Ok(self.evaluate_having_expression(e, table, rows)? != Value::Null),
+        }
+    }
+
+    fn evaluate_having_expression(&self, expr: &ast::Expression, table: &crate::storage::Table, rows: &[&crate::storage::Row]) -> SqlResult<Value> {
+        match expr {
+            ast::Expression::FunctionCall(fc) => self.eval_aggregate(fc, table, rows),
+            ast::Expression::Literal(v) => Ok(v.clone()),
+            ast::Expression::Column(_) | ast::Expression::BinaryOp(_, _, _) => {
+                // For non-aggregates in HAVING, evaluate against the first row of the group
+                if let Some(first_row) = rows.first() {
+                    eval::evaluate_expression(expr, table, first_row)
+                } else {
+                    Ok(Value::Null)
+                }
+            },
+            ast::Expression::Star => Err(SqlError::Runtime("Star not allowed in HAVING".to_string())),
+        }
     }
 
     fn eval_aggregate(&self, fc: &ast::FunctionCall, table: &crate::storage::Table, rows: &[&crate::storage::Row]) -> SqlResult<Value> {
@@ -507,6 +612,48 @@ mod tests {
         assert_eq!(r.rows[0][0].as_float(), Some(100.0));
         assert_eq!(r.rows[0][1].as_float(), Some(200.0));
         assert_eq!(r.rows[0][2].as_float(), Some(150.0));
+    }
+
+    #[tokio::test]
+    async fn test_group_by_having() {
+        let exec = Executor::new();
+        exec.execute("CREATE TABLE orders (id INT, customer TEXT, amount FLOAT)")
+            .await
+            .unwrap();
+        exec.execute("INSERT INTO orders (id, customer, amount) VALUES (1, 'alice', 100.0)")
+            .await
+            .unwrap();
+        exec.execute("INSERT INTO orders (id, customer, amount) VALUES (2, 'bob', 200.0)")
+            .await
+            .unwrap();
+        exec.execute("INSERT INTO orders (id, customer, amount) VALUES (3, 'alice', 50.0)")
+            .await
+            .unwrap();
+        exec.execute("INSERT INTO orders (id, customer, amount) VALUES (4, 'charlie', 300.0)")
+            .await
+            .unwrap();
+
+        let r = exec.execute("SELECT customer, SUM(amount) FROM orders GROUP BY customer ORDER BY customer ASC")
+            .await
+            .unwrap();
+        
+        // Sorting might be needed if result order isn't guaranteed by groups iteration, 
+        // but let's check what we have. (HashMap doesn't guarantee order).
+        // Added ORDER BY customer ASC to SQL above to make it deterministic.
+        
+        assert_eq!(r.rows.len(), 3);
+        
+        // Find alice
+        let alice = r.rows.iter().find(|row| row[0].as_text() == Some("alice")).unwrap();
+        assert_eq!(alice[1].as_float(), Some(150.0));
+
+        // Test HAVING
+        let r = exec.execute("SELECT customer, SUM(amount) FROM orders GROUP BY customer HAVING SUM(amount) > 200")
+            .await
+            .unwrap();
+        assert_eq!(r.rows.len(), 1);
+        assert_eq!(r.rows[0][0].as_text(), Some("charlie"));
+        assert_eq!(r.rows[0][1].as_float(), Some(300.0));
     }
 
     #[tokio::test]

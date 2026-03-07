@@ -116,6 +116,8 @@ pub struct SelectStmt {
     pub columns: Vec<SelectColumn>,
     pub table: String,
     pub where_clause: Option<Condition>,
+    pub group_by: Vec<Expression>,
+    pub having: Option<Condition>,
     pub order_by: Vec<OrderByItem>,
     pub limit: Option<LimitClause>,
 }

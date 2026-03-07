@@ -88,8 +88,8 @@ See: [sql-parser.md](./features/sql-parser.md)
 
 ### Aggregations
 - [x] Add COUNT, SUM, AVG, MIN, MAX
-- [ ] Add GROUP BY
-- [ ] Add HAVING
+- [x] Add GROUP BY
+- [x] Add HAVING
 
 ### Schema
 - [ ] Add CREATE TABLE
