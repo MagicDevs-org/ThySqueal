@@ -1,9 +1,10 @@
+mod ast;
 mod parser;
 
 use crate::storage::Database;
 use crate::storage::Value;
-use crate::storage::{Column, DataType};
-use parser::{parse_statement_kind, StatementKind};
+use ast::SqlStmt;
+use parser::parse;
 
 #[derive(Debug)]
 pub struct QueryResult {
@@ -28,43 +29,22 @@ impl Executor {
     }
 
     pub async fn execute(&self, sql: &str) -> Result<QueryResult, String> {
-        let sql = sql.trim();
+        let stmt = parse(sql)?;
 
-        let kind = parse_statement_kind(sql)?;
-
-        match kind {
-            StatementKind::CreateTable => self.create_table(sql).await,
-            StatementKind::DropTable => self.drop_table(sql).await,
-            StatementKind::Select => self.select(sql).await,
-            StatementKind::Insert => self.insert(sql).await,
-            StatementKind::Update => Err("UPDATE is not implemented yet".to_string()),
-            StatementKind::Delete => Err("DELETE is not implemented yet".to_string()),
+        match stmt {
+            SqlStmt::CreateTable(ct) => self.exec_create_table(ct).await,
+            SqlStmt::DropTable(dt) => self.exec_drop_table(dt).await,
+            SqlStmt::Select(s) => self.exec_select(s).await,
+            SqlStmt::Insert(i) => self.exec_insert(i).await,
+            SqlStmt::Update(_) => Err("UPDATE is not implemented yet".to_string()),
+            SqlStmt::Delete(_) => Err("DELETE is not implemented yet".to_string()),
         }
     }
 
-    async fn create_table(&self, sql: &str) -> Result<QueryResult, String> {
-        // Simple parser: CREATE TABLE name (col1 TYPE1, col2 TYPE2, ...)
-        let sql = sql.trim().trim_end_matches(';');
-        let rest = sql.strip_prefix("CREATE TABLE").unwrap().trim();
-        
-        let (name, columns_part) = rest.split_once('(').ok_or("Invalid CREATE TABLE syntax")?;
-        let name = name.trim();
-        let columns_part = columns_part.trim_end_matches(')');
-        
-        let mut columns = Vec::new();
-        for col_def in columns_part.split(',') {
-            let col_def = col_def.trim();
-            let parts: Vec<&str> = col_def.split_whitespace().collect();
-            if parts.len() >= 2 {
-                let col_name = parts[0].to_string();
-                let data_type = DataType::from_str(parts[1]);
-                columns.push(Column { name: col_name, data_type });
-            }
-        }
-        
+    async fn exec_create_table(&self, stmt: ast::CreateTableStmt) -> Result<QueryResult, String> {
         let mut db = self.db.write().await;
-        db.create_table(name.to_string(), columns).map_err(|e| e.to_string())?;
-        
+        db.create_table(stmt.name, stmt.columns).map_err(|e| e.to_string())?;
+
         Ok(QueryResult {
             columns: vec![],
             rows: vec![],
@@ -72,13 +52,10 @@ impl Executor {
         })
     }
 
-    async fn drop_table(&self, sql: &str) -> Result<QueryResult, String> {
-        let sql = sql.trim().trim_end_matches(';');
-        let name = sql.strip_prefix("DROP TABLE").unwrap().trim();
-        
+    async fn exec_drop_table(&self, stmt: ast::DropTableStmt) -> Result<QueryResult, String> {
         let mut db = self.db.write().await;
-        db.drop_table(name).map_err(|e| e.to_string())?;
-        
+        db.drop_table(&stmt.name).map_err(|e| e.to_string())?;
+
         Ok(QueryResult {
             columns: vec![],
             rows: vec![],
@@ -86,61 +63,33 @@ impl Executor {
         })
     }
 
-    async fn select(&self, sql: &str) -> Result<QueryResult, String> {
-        let sql = sql.trim().trim_end_matches(';');
-        
-        // Simple parser: SELECT cols FROM table
-        let parts: Vec<&str> = sql.splitn(4, |c| c == ' ' || c == ',').collect();
-        
-        let mut columns = Vec::new();
-        let mut table_name = String::new();
-        let mut in_cols = false;
-        let mut in_from = false;
-        
-        for part in sql.split_whitespace() {
-            let part_upper = part.to_uppercase();
-            if part_upper == "SELECT" {
-                in_cols = true;
-                in_from = false;
-            } else if part_upper == "FROM" {
-                in_cols = false;
-                in_from = true;
-            } else if part_upper == "WHERE" || part_upper == "ORDER" || part_upper == "LIMIT" {
-                break;
-            } else if in_cols {
-                if part != "," {
-                    columns.push(part.to_string());
-                }
-            } else if in_from {
-                table_name = part.trim_end_matches(';').to_string();
-                break;
-            }
-        }
-        
-        if columns.is_empty() {
-            columns.push("*".to_string());
-        }
-        
+    async fn exec_select(&self, stmt: ast::SelectStmt) -> Result<QueryResult, String> {
         let db = self.db.read().await;
-        let table = db.get_table(&table_name)
-            .ok_or_else(|| format!("Table not found: {}", table_name))?;
-        
-        let rows: Vec<Vec<Value>> = table.rows.iter().map(|row| {
-            if columns.iter().any(|c| c == "*") {
-                row.values.clone()
-            } else {
-                columns.iter().filter_map(|col| {
-                    table.column_index(col).and_then(|idx| row.values.get(idx).cloned())
-                }).collect()
-            }
-        }).collect();
-        
-        let result_columns = if columns.iter().any(|c| c == "*") {
+        let table = db
+            .get_table(&stmt.table)
+            .ok_or_else(|| format!("Table not found: {}", stmt.table))?;
+
+        let result_columns = if stmt.columns.iter().any(|c| c == "*") {
             table.columns.iter().map(|c| c.name.clone()).collect()
         } else {
-            columns
+            stmt.columns.clone()
         };
-        
+
+        let rows: Vec<Vec<Value>> = table.rows.iter().map(|row| {
+            if stmt.columns.iter().any(|c| c == "*") {
+                row.values.clone()
+            } else {
+                stmt.columns
+                    .iter()
+                    .filter_map(|col| {
+                        table
+                            .column_index(col)
+                            .and_then(|idx| row.values.get(idx).cloned())
+                    })
+                    .collect()
+            }
+        }).collect();
+
         Ok(QueryResult {
             columns: result_columns,
             rows,
@@ -148,66 +97,66 @@ impl Executor {
         })
     }
 
-    async fn insert(&self, sql: &str) -> Result<QueryResult, String> {
-        // INSERT INTO table (col1, col2) VALUES (val1, val2)
-        let sql = sql.trim().trim_end_matches(';');
-        
-        let parts: Vec<&str> = sql.splitn(5, |c| c == ' ' || c == '(' || c == ')' || c == ',').collect();
-        
-        // Find table name
-        let mut table_name = String::new();
-        let mut in_into = false;
-        
-        for part in sql.split_whitespace() {
-            let part_upper = part.to_uppercase();
-            if part_upper == "INTO" {
-                in_into = true;
-            } else if in_into && !part_upper.is_empty() {
-                table_name = part.trim_end_matches('(').to_string();
-                break;
-            }
-        }
-        
-        if table_name.is_empty() {
-            return Err("Invalid INSERT syntax".to_string());
-        }
-        
-        // Parse VALUES
-        if let Some(values_part) = sql.split("VALUES").nth(1) {
-            let values_str = values_part.trim().trim_start_matches('(').trim_end_matches(')');
-            let values: Vec<Value> = values_str
-                .split(',')
-                .map(|v| {
-                    let v = v.trim();
-                    if v.starts_with('\'') {
-                        Value::Text(v.trim_matches('\'').to_string())
-                    } else if v == "NULL" {
-                        Value::Null
-                    } else if v.to_lowercase() == "true" || v.to_lowercase() == "false" {
-                        Value::Bool(v.to_lowercase() == "true")
-                    } else if let Ok(n) = v.parse::<i64>() {
-                        Value::Int(n)
-                    } else if let Ok(f) = v.parse::<f64>() {
-                        Value::Float(f)
-                    } else {
-                        Value::Text(v.to_string())
-                    }
-                })
-                .collect();
-            
-            let mut db = self.db.write().await;
-            let table = db.get_table_mut(&table_name)
-                .ok_or_else(|| format!("Table not found: {}", table_name))?;
-            
-            table.insert(values).map_err(|e| e.to_string())?;
-            
-            return Ok(QueryResult {
-                columns: vec![],
-                rows: vec![],
-                rows_affected: 1,
-            });
-        }
-        
-        Err("Invalid INSERT syntax".to_string())
+    async fn exec_insert(&self, stmt: ast::InsertStmt) -> Result<QueryResult, String> {
+        let mut db = self.db.write().await;
+        let table = db
+            .get_table_mut(&stmt.table)
+            .ok_or_else(|| format!("Table not found: {}", stmt.table))?;
+
+        table.insert(stmt.values).map_err(|e| e.to_string())?;
+
+        Ok(QueryResult {
+            columns: vec![],
+            rows: vec![],
+            rows_affected: 1,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_create_table_insert_select() {
+        let exec = Executor::new();
+
+        exec.execute("CREATE TABLE users (id INT, name TEXT)")
+            .await
+            .unwrap();
+        exec.execute("INSERT INTO users (id, name) VALUES (1, 'alice')")
+            .await
+            .unwrap();
+        exec.execute("INSERT INTO users (id, name) VALUES (2, 'bob')")
+            .await
+            .unwrap();
+
+        let r = exec.execute("SELECT * FROM users").await.unwrap();
+        assert_eq!(r.columns, vec!["id", "name"]);
+        assert_eq!(r.rows.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_select_columns() {
+        let exec = Executor::new();
+        exec.execute("CREATE TABLE t (a INT, b TEXT, c BOOL)")
+            .await
+            .unwrap();
+        exec.execute("INSERT INTO t (a, b, c) VALUES (1, 'x', true)")
+            .await
+            .unwrap();
+
+        let r = exec.execute("SELECT a, c FROM t").await.unwrap();
+        assert_eq!(r.columns, vec!["a", "c"]);
+        assert_eq!(r.rows.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_drop_table() {
+        let exec = Executor::new();
+        exec.execute("CREATE TABLE x (id INT)").await.unwrap();
+        exec.execute("DROP TABLE x").await.unwrap();
+        let err = exec.execute("SELECT * FROM x").await.unwrap_err();
+        assert!(err.contains("Table not found"));
     }
 }
