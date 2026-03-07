@@ -95,12 +95,28 @@ server/src/
 ├── main.rs
 ├── config.rs
 ├── storage/
-│   └── mod.rs
+│   ├── mod.rs       # Database struct
+│   ├── table.rs     # Table, Column, Row
+│   ├── value.rs     # Value enum & impls
+│   ├── types.rs     # DataType enum
+│   └── error.rs     # StorageError
 ├── sql/
-│   ├── mod.rs       # Executor, public API
-│   ├── parser.rs    # Pest parser, parse() -> SqlAst
-│   ├── ast.rs       # SqlAst, SelectStmt, InsertStmt, etc.
-│   ├── eval.rs      # evaluate_condition, evaluate_expression
-│   └── error.rs     # SqlError
+│   ├── mod.rs       # SQL module entry
+│   ├── ast.rs       # Abstract Syntax Tree
+│   ├── eval.rs      # Expression/Condition evaluator
+│   ├── error.rs     # SqlError enum
+│   ├── parser/      # Pest-based parser (modular)
+│   │   ├── mod.rs
+│   │   ├── expr.rs
+│   │   ├── select.rs
+│   │   ├── dml.rs
+│   │   ├── ddl.rs
+│   │   └── utils.rs
+│   └── executor/    # SQL statement execution
+│       ├── mod.rs
+│       ├── select.rs
+│       ├── dml.rs
+│       ├── ddl.rs
+│       └── tests.rs # SQL execution tests
 └── sql.pest
 ```

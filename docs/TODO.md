@@ -26,6 +26,7 @@ See: [sql-parser.md](./features/sql-parser.md), [tcp-protocol.md](./features/tcp
 - [x] UPDATE support
 - [x] DELETE support
 - [x] Wire Pest grammar (sql.pest) into executor
+- [x] Decompose parser into modular submodules
 
 ### Storage
 - [x] In-memory table struct
@@ -33,6 +34,7 @@ See: [sql-parser.md](./features/sql-parser.md), [tcp-protocol.md](./features/tcp
 - [x] Basic CRUD operations (insert, select, update, delete at Table level)
 - [x] Row ID generation (UUID)
 - [x] WHERE clause filtering (implemented via evaluate_condition)
+- [x] Decompose storage into modular submodules
 
 ### HTTP Server
 - [x] Set up Axum on port 9200
@@ -47,6 +49,7 @@ See: [sql-parser.md](./features/sql-parser.md), [tcp-protocol.md](./features/tcp
 - [x] Unit tests for SQL operations
 - [x] Integration tests (end-to-end via HTTP)
 - [x] REPL executes SQL over HTTP
+- [x] Modularized codebase for maintainability
 
 ### Current Status
 - Server running on http://localhost:9200
@@ -54,33 +57,31 @@ See: [sql-parser.md](./features/sql-parser.md), [tcp-protocol.md](./features/tcp
 - CREATE TABLE, DROP TABLE, INSERT, SELECT, UPDATE, DELETE supported
 - WHERE clause support with basic operators
 - ORDER BY and LIMIT/OFFSET support
+- Aggregations (COUNT, SUM, AVG, MIN, MAX)
+- GROUP BY and HAVING support
+- Column aliases
 - Structured errors returned in JSON response
 
-**Milestone v0.1**: Basic SQL server running; SELECT/INSERT/UPDATE/DELETE/CREATE/DROP work with WHERE clause support. Structured errors implemented.
+**Milestone v0.1**: Basic SQL server running; Full SQL CRUD with filtering, sorting, and grouping.
 
 ## Phase 2: HTTP API (v0.2)
 See: [http-api.md](./features/http-api.md)
 
 ### HTTP Server
 - [ ] GET /_stats - Storage/cache statistics
-- [ ] Implement REST CRUD endpoints:
-  - [ ] GET /<db>/<table> - List rows
-  - [ ] POST /<db>/<table> - Insert row
-  - [ ] GET /<db>/<table>/<id> - Get row
-  - [ ] PUT /<db>/<table>/<id> - Update row
-  - [ ] DELETE /<db>/<table>/<id> - Delete row
+- [ ] Implement REST CRUD endpoints
 
 ### Security
 - [ ] Basic Authentication
 - [ ] API Key support
-- [ ] TLS support (axum-server + rustls)
+- [ ] TLS support
 
 ## Phase 3: Advanced SQL (v0.3)
 See: [sql-parser.md](./features/sql-parser.md)
 
 ### Query Features
 - [ ] Add JOIN support (INNER, LEFT)
-- [x] Add WHERE clause operators (=, !=, >, <, >=, <=, LIKE, IS NULL, IS NOT NULL)
+- [x] Add WHERE clause operators
 - [x] Add ORDER BY
 - [x] Add LIMIT/OFFSET
 - [ ] Add DISTINCT
@@ -91,17 +92,12 @@ See: [sql-parser.md](./features/sql-parser.md)
 - [x] Add GROUP BY
 - [x] Add HAVING
 
-### Schema
-- [ ] Add CREATE TABLE
-- [ ] Add ALTER TABLE
-- [ ] Add CREATE INDEX
-
 ## Phase 4: Search & KV (v0.4)
 See: [full-text-search.md](./features/full-text-search.md), [key-value-store.md](./features/key-value-store.md)
 
-- [ ] Full-text search engine (tantivy or bleve style)
-- [ ] Redis-compatible KV commands (GET, SET, DEL, EXPIRE)
-- [ ] Table-level caching (moka)
+- [ ] Full-text search engine
+- [ ] Redis-compatible KV commands
+- [ ] Table-level caching
 
 ## Phase 5: Client (v0.5)
 See: [js-repl-client.md](./features/js-repl-client.md)
@@ -112,32 +108,13 @@ See: [js-repl-client.md](./features/js-repl-client.md)
 - [x] Add `.help`, `.quit` / `.exit`
 - [x] Wire SQL input to HTTP client execution
 - [ ] Add tab completion
-- [ ] Add `.load` command
 
 ### JavaScript Runtime
 - [ ] Integrate quickjs-rs
 - [ ] Add `conn.query(sql)` bridge to JS
-- [ ] Add script execution: `thy-squeal-client -f script.js`
 
 ## Phase 6: Production (v1.0)
 
 - [ ] Persistence: snapshot to disk (RDB-like)
 - [ ] WAL (Write Ahead Log) for durability
 - [ ] Distributed mode (Raft consensus)
-- [ ] Metrics (Prometheus)
-- [ ] Docker compose for full stack
-- [ ] Kubernetes Helm chart for release
-
----
-
-## Backlog (Future)
-
-- [ ] Clustering support
-- [ ] RIGHT JOIN
-- [ ] Subqueries in SELECT
-- [ ] Window functions
-- [ ] Transactions
-- [ ] Views with materialization
-- [ ] Pub/Sub
-- [ ] GraphQL API
-- [ ] Protobuf protocol
