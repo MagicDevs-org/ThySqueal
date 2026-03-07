@@ -39,14 +39,8 @@ struct QueryResponse {
     rows_affected: u64,
     #[serde(default)]
     execution_time_ms: u64,
-    #[serde(default)]
-    error: Option<QueryError>,
-}
-
-#[derive(Serialize)]
-struct QueryError {
-    code: String,
-    message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<sql::SqlError>,
 }
 
 async fn root() -> &'static str {
@@ -91,10 +85,7 @@ async fn execute_query(
                 data: vec![],
                 rows_affected: 0,
                 execution_time_ms: start.elapsed().as_millis() as u64,
-                error: Some(QueryError {
-                    code: "EXECUTION_ERROR".to_string(),
-                    message: e,
-                }),
+                error: Some(e),
             })
         }
     }

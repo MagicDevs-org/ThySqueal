@@ -1,7 +1,8 @@
 use crate::storage::{Row, Table, Value};
 use super::ast::{BinaryOp, ComparisonOp, Condition, Expression, LogicalOp};
+use super::error::{SqlError, SqlResult};
 
-pub fn evaluate_condition(cond: &Condition, table: &Table, row: &Row) -> Result<bool, String> {
+pub fn evaluate_condition(cond: &Condition, table: &Table, row: &Row) -> SqlResult<bool> {
     match cond {
         Condition::Comparison(left, op, right) => {
             let left_val = evaluate_expression(left, table, row)?;
@@ -15,8 +16,8 @@ pub fn evaluate_condition(cond: &Condition, table: &Table, row: &Row) -> Result<
                 ComparisonOp::LtEq => Ok(left_val <= right_val),
                 ComparisonOp::GtEq => Ok(left_val >= right_val),
                 ComparisonOp::Like => {
-                    let l = left_val.as_text().ok_or("LIKE requires text on the left")?;
-                    let r = right_val.as_text().ok_or("LIKE requires text on the right")?;
+                    let l = left_val.as_text().ok_or_else(|| SqlError::TypeMismatch("LIKE requires text on the left".to_string()))?;
+                    let r = right_val.as_text().ok_or_else(|| SqlError::TypeMismatch("LIKE requires text on the right".to_string()))?;
                     // Very simple LIKE: only handles % as prefix/suffix or exact match
                     if r.starts_with('%') && r.ends_with('%') {
                         let pat = &r[1..r.len()-1];
@@ -60,14 +61,14 @@ pub fn evaluate_condition(cond: &Condition, table: &Table, row: &Row) -> Result<
     }
 }
 
-pub fn evaluate_expression(expr: &Expression, table: &Table, row: &Row) -> Result<Value, String> {
+pub fn evaluate_expression(expr: &Expression, table: &Table, row: &Row) -> SqlResult<Value> {
     match expr {
         Expression::Literal(v) => Ok(v.clone()),
         Expression::Column(name) => {
             let idx = table.column_index(name)
-                .ok_or_else(|| format!("Column not found: {}", name))?;
+                .ok_or_else(|| SqlError::ColumnNotFound(name.clone()))?;
             row.values.get(idx).cloned()
-                .ok_or_else(|| format!("Value not found for column index: {}", idx))
+                .ok_or_else(|| SqlError::Runtime(format!("Value not found for column index: {}", idx)))
         }
         Expression::BinaryOp(left, op, right) => {
             let l = evaluate_expression(left, table, row)?;
@@ -80,7 +81,7 @@ pub fn evaluate_expression(expr: &Expression, table: &Table, row: &Row) -> Resul
                         BinaryOp::Sub => Ok(Value::Int(a - b)),
                         BinaryOp::Mul => Ok(Value::Int(a * b)),
                         BinaryOp::Div => {
-                            if b == 0 { return Err("Division by zero".to_string()); }
+                            if b == 0 { return Err(SqlError::Runtime("Division by zero".to_string())); }
                             Ok(Value::Int(a / b))
                         }
                     }
@@ -112,7 +113,7 @@ pub fn evaluate_expression(expr: &Expression, table: &Table, row: &Row) -> Resul
                         BinaryOp::Div => Ok(Value::Float(a / b)),
                     }
                 }
-                _ => Err("Unsupported types for binary operation".to_string()),
+                _ => Err(SqlError::TypeMismatch("Unsupported types for binary operation".to_string())),
             }
         }
     }

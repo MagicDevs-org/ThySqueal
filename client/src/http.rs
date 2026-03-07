@@ -18,15 +18,7 @@ pub struct QueryResponse {
     #[serde(default)]
     pub execution_time_ms: u64,
     #[serde(default)]
-    pub error: Option<QueryError>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct QueryError {
-    pub code: String,
-    pub message: String,
-    #[serde(default)]
-    pub position: Option<usize>,
+    pub error: Option<serde_json::Value>,
 }
 
 pub async fn execute_query(host: &str, port: u16, sql: &str) -> Result<()> {
@@ -45,9 +37,18 @@ pub async fn execute_query(host: &str, port: u16, sql: &str) -> Result<()> {
     let result: QueryResponse = response.json().await?;
     
     if result.success {
-        println!("{}", serde_json::to_string_pretty(&result.data)?);
+        if !result.data.is_empty() {
+            println!("{}", serde_json::to_string_pretty(&result.data)?);
+        } else {
+            println!("Success. Rows affected: {}", result.rows_affected);
+        }
     } else if let Some(error) = result.error {
-        eprintln!("Error: {} - {}", error.code, error.message);
+        if let Some(err_type) = error.get("type").and_then(|v| v.as_str()) {
+            let details = error.get("details").and_then(|v| v.as_str()).unwrap_or("");
+            eprintln!("Error ({}): {}", err_type, details);
+        } else {
+            eprintln!("Error: {}", error);
+        }
     }
 
     Ok(())

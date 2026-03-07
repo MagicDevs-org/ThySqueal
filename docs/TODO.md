@@ -54,13 +54,22 @@ See: [sql-parser.md](./features/sql-parser.md), [tcp-protocol.md](./features/tcp
 - [x] GET /, GET /health
 - [ ] Add more REST endpoints (/_stats, CRUD)
 
+### Milestone v0.1: Foundation
+- [x] Wired Pest parser into the Executor
+- [x] Implemented WHERE, UPDATE, DELETE
+- [x] Structured Error Handling (SqlError enum with JSON mapping)
+- [x] Unit tests for SQL operations
+- [x] REPL executes SQL over HTTP
+
 ### Current Status
 - Server running on http://localhost:9200
 - SQL execution works via POST /_query
 - CREATE TABLE, DROP TABLE, INSERT, SELECT, UPDATE, DELETE supported
-- WHERE clause support with basic operators (=, !=, >, <, >=, <=, LIKE, IS NULL)
+- WHERE clause support with basic operators
+- ORDER BY and LIMIT/OFFSET support
+- Structured errors returned in JSON response
 
-**Milestone v0.1**: Basic SQL server running; SELECT/INSERT/UPDATE/DELETE/CREATE/DROP work with WHERE clause support.
+**Milestone v0.1**: Basic SQL server running; SELECT/INSERT/UPDATE/DELETE/CREATE/DROP work with WHERE clause support. Structured errors implemented.
 
 ## Phase 2: HTTP API (v0.2)
 See: [http-api.md](./features/http-api.md)

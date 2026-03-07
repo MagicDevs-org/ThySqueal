@@ -1,12 +1,14 @@
 mod ast;
 mod parser;
 mod eval;
+pub mod error;
 
 use crate::storage::Database;
 use crate::storage::Value;
 use ast::SqlStmt;
 use parser::parse;
 use eval::evaluate_condition;
+pub use error::{SqlError, SqlResult};
 
 #[derive(Debug)]
 pub struct QueryResult {
@@ -30,7 +32,7 @@ impl Executor {
         &self.db
     }
 
-    pub async fn execute(&self, sql: &str) -> Result<QueryResult, String> {
+    pub async fn execute(&self, sql: &str) -> SqlResult<QueryResult> {
         let stmt = parse(sql)?;
 
         match stmt {
@@ -43,9 +45,9 @@ impl Executor {
         }
     }
 
-    async fn exec_create_table(&self, stmt: ast::CreateTableStmt) -> Result<QueryResult, String> {
+    async fn exec_create_table(&self, stmt: ast::CreateTableStmt) -> SqlResult<QueryResult> {
         let mut db = self.db.write().await;
-        db.create_table(stmt.name, stmt.columns).map_err(|e| e.to_string())?;
+        db.create_table(stmt.name, stmt.columns)?;
 
         Ok(QueryResult {
             columns: vec![],
@@ -54,9 +56,9 @@ impl Executor {
         })
     }
 
-    async fn exec_drop_table(&self, stmt: ast::DropTableStmt) -> Result<QueryResult, String> {
+    async fn exec_drop_table(&self, stmt: ast::DropTableStmt) -> SqlResult<QueryResult> {
         let mut db = self.db.write().await;
-        db.drop_table(&stmt.name).map_err(|e| e.to_string())?;
+        db.drop_table(&stmt.name)?;
 
         Ok(QueryResult {
             columns: vec![],
@@ -65,11 +67,11 @@ impl Executor {
         })
     }
 
-    async fn exec_update(&self, stmt: ast::UpdateStmt) -> Result<QueryResult, String> {
+    async fn exec_update(&self, stmt: ast::UpdateStmt) -> SqlResult<QueryResult> {
         let mut db = self.db.write().await;
         let table = db
             .get_table_mut(&stmt.table)
-            .ok_or_else(|| format!("Table not found: {}", stmt.table))?;
+            .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
 
         let mut rows_affected = 0;
         let table_cloned = table.clone();
@@ -85,7 +87,7 @@ impl Executor {
                 for (col_name, expr) in &stmt.assignments {
                     let col_idx = table_cloned
                         .column_index(col_name)
-                        .ok_or_else(|| format!("Column not found: {}", col_name))?;
+                        .ok_or_else(|| SqlError::ColumnNotFound(col_name.clone()))?;
                     let new_val = eval::evaluate_expression(expr, &table_cloned, row)?;
                     row.values[col_idx] = new_val;
                 }
@@ -100,11 +102,11 @@ impl Executor {
         })
     }
 
-    async fn exec_delete(&self, stmt: ast::DeleteStmt) -> Result<QueryResult, String> {
+    async fn exec_delete(&self, stmt: ast::DeleteStmt) -> SqlResult<QueryResult> {
         let mut db = self.db.write().await;
         let table = db
             .get_table_mut(&stmt.table)
-            .ok_or_else(|| format!("Table not found: {}", stmt.table))?;
+            .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
 
         let mut rows_affected = 0;
         let table_cloned = table.clone();
@@ -132,11 +134,11 @@ impl Executor {
         })
     }
 
-    async fn exec_select(&self, stmt: ast::SelectStmt) -> Result<QueryResult, String> {
+    async fn exec_select(&self, stmt: ast::SelectStmt) -> SqlResult<QueryResult> {
         let db = self.db.read().await;
         let table = db
             .get_table(&stmt.table)
-            .ok_or_else(|| format!("Table not found: {}", stmt.table))?;
+            .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
 
         let result_columns = if stmt.columns.iter().any(|c| c == "*") {
             table.columns.iter().map(|c| c.name.clone()).collect()
@@ -212,13 +214,13 @@ impl Executor {
         })
     }
 
-    async fn exec_insert(&self, stmt: ast::InsertStmt) -> Result<QueryResult, String> {
+    async fn exec_insert(&self, stmt: ast::InsertStmt) -> SqlResult<QueryResult> {
         let mut db = self.db.write().await;
         let table = db
             .get_table_mut(&stmt.table)
-            .ok_or_else(|| format!("Table not found: {}", stmt.table))?;
+            .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
 
-        table.insert(stmt.values).map_err(|e| e.to_string())?;
+        table.insert(stmt.values)?;
 
         Ok(QueryResult {
             columns: vec![],
@@ -235,35 +237,35 @@ mod tests {
     #[tokio::test]
     async fn test_create_table_insert_select() {
         let exec = Executor::new();
-
-        exec.execute("CREATE TABLE users (id INT, name TEXT)")
+        exec.execute("CREATE TABLE t (a INT, b TEXT, c FLOAT)")
             .await
             .unwrap();
-        exec.execute("INSERT INTO users (id, name) VALUES (1, 'alice')")
-            .await
-            .unwrap();
-        exec.execute("INSERT INTO users (id, name) VALUES (2, 'bob')")
+        exec.execute("INSERT INTO t (a, b, c) VALUES (1, 'hello', 3.14)")
             .await
             .unwrap();
 
-        let r = exec.execute("SELECT * FROM users").await.unwrap();
-        assert_eq!(r.columns, vec!["id", "name"]);
-        assert_eq!(r.rows.len(), 2);
+        let r = exec.execute("SELECT * FROM t").await.unwrap();
+        assert_eq!(r.columns, vec!["a", "b", "c"]);
+        assert_eq!(r.rows.len(), 1);
+        assert_eq!(r.rows[0][0].as_int(), Some(1));
+        assert_eq!(r.rows[0][1].as_text(), Some("hello"));
     }
 
     #[tokio::test]
     async fn test_select_columns() {
         let exec = Executor::new();
-        exec.execute("CREATE TABLE t (a INT, b TEXT, c BOOL)")
+        exec.execute("CREATE TABLE t (a INT, b TEXT, c FLOAT)")
             .await
             .unwrap();
-        exec.execute("INSERT INTO t (a, b, c) VALUES (1, 'x', true)")
+        exec.execute("INSERT INTO t (a, b, c) VALUES (1, 'hello', 3.14)")
             .await
             .unwrap();
 
         let r = exec.execute("SELECT a, c FROM t").await.unwrap();
         assert_eq!(r.columns, vec!["a", "c"]);
         assert_eq!(r.rows.len(), 1);
+        assert_eq!(r.rows[0].len(), 2);
+        assert_eq!(r.rows[0][0].as_int(), Some(1));
     }
 
     #[tokio::test]
@@ -372,6 +374,6 @@ mod tests {
         exec.execute("CREATE TABLE x (id INT)").await.unwrap();
         exec.execute("DROP TABLE x").await.unwrap();
         let err = exec.execute("SELECT * FROM x").await.unwrap_err();
-        assert!(err.contains("Table not found"));
+        assert!(matches!(err, SqlError::TableNotFound(_)));
     }
 }
