@@ -11,6 +11,7 @@ impl Executor {
             .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
 
         table.insert(stmt.values)?;
+        db.save().map_err(|e| SqlError::Storage(e.to_string()))?;
 
         Ok(QueryResult {
             columns: vec![],
@@ -47,6 +48,10 @@ impl Executor {
             }
         }
 
+        if rows_affected > 0 {
+            db.save().map_err(|e| SqlError::Storage(e.to_string()))?;
+        }
+
         Ok(QueryResult {
             columns: vec![],
             rows: vec![],
@@ -77,6 +82,10 @@ impl Executor {
             } else {
                 i += 1;
             }
+        }
+
+        if rows_affected > 0 {
+            db.save().map_err(|e| SqlError::Storage(e.to_string()))?;
         }
 
         Ok(QueryResult {
