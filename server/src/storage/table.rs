@@ -145,7 +145,7 @@ impl Table {
             // Check partial index condition
             if let Some(ref c) = cond {
                 let context = [(table_ref, None, row)];
-                if !evaluate_condition_joined(evaluator, c, &context, &[], db_state).map_err(|e| {
+                if !evaluate_condition_joined(evaluator, c, &context, &[], &[], db_state).map_err(|e| {
                     StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e))
                 })? {
                     continue;
@@ -185,7 +185,7 @@ impl Table {
         let context = [(self, None, &row)];
 
         for expr in expressions {
-            let val = evaluate_expression_joined(evaluator, expr, &context, &[], db_state).map_err(
+            let val = evaluate_expression_joined(evaluator, expr, &context, &[], &[], db_state).map_err(
                 |e| StorageError::PersistenceError(format!("Index expression evaluation error: {:?}", e)),
             )?;
             key.push(val);

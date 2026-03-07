@@ -83,6 +83,7 @@ pub fn parse_factor(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expression> 
         Rule::aggregate_func => parse_aggregate(first),
         Rule::scalar_func => parse_scalar_func(first),
         Rule::literal => Ok(Expression::Literal(parse_literal(first)?)),
+        Rule::placeholder => parse_placeholder(first),
         Rule::column_ref => {
             let parts: Vec<String> = first
                 .into_inner()
@@ -122,5 +123,17 @@ pub fn parse_factor(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expression> 
                 first.as_rule()
             )))
         }
+    }
+}
+
+pub fn parse_placeholder(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expression> {
+    let s = pair.as_str();
+    if s == "?" {
+        Ok(Expression::Placeholder(0))
+    } else if let Some(idx_str) = s.strip_prefix('$') {
+        let idx = idx_str.parse::<usize>().map_err(|_| SqlError::Parse(format!("Invalid placeholder index: {}", s)))?;
+        Ok(Expression::Placeholder(idx))
+    } else {
+        Err(SqlError::Parse(format!("Invalid placeholder: {}", s)))
     }
 }

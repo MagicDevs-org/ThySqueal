@@ -1,4 +1,4 @@
-use crate::storage::WalRecord;
+use crate::storage::{Value, WalRecord};
 use super::super::super::ast::UpdateStmt;
 use super::super::super::error::{SqlError, SqlResult};
 use super::super::super::eval::{evaluate_condition_joined, evaluate_expression_joined, Evaluator};
@@ -8,6 +8,7 @@ impl Executor {
     pub(crate) async fn exec_update(
         &self,
         stmt: UpdateStmt,
+        params: &[Value],
         tx_id: Option<&str>,
     ) -> SqlResult<QueryResult> {
         let table_name = stmt.table.clone();
@@ -32,7 +33,7 @@ impl Executor {
         for row in &table.rows {
             let context = [(table, None, row)];
             let matched = if let Some(ref cond) = stmt.where_clause {
-                evaluate_condition_joined(self, cond, &context, &[], &state)?
+                evaluate_condition_joined(self, cond, &context, params, &[], &state)?
             } else {
                 true
             };
@@ -43,7 +44,7 @@ impl Executor {
                     let col_idx = table
                         .column_index(col_name)
                         .ok_or_else(|| SqlError::ColumnNotFound(col_name.clone()))?;
-                    let mut val = evaluate_expression_joined(self, expr, &context, &[], &state)?;
+                    let mut val = evaluate_expression_joined(self, expr, &context, params, &[], &state)?;
                     
                     // Perform type casting for UPDATE
                     let target_type = &table.columns[col_idx].data_type;

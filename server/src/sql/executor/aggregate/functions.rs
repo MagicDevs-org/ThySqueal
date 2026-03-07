@@ -1,8 +1,8 @@
-use crate::storage::{Row, Table, Value, DatabaseState};
 use super::super::super::ast;
 use super::super::super::error::{SqlError, SqlResult};
-use super::super::super::eval::{evaluate_expression_joined};
+use super::super::super::eval::evaluate_expression_joined;
 use super::super::Executor;
+use crate::storage::{DatabaseState, Row, Table, Value};
 
 impl Executor {
     pub(crate) fn eval_aggregate_joined(
@@ -23,6 +23,7 @@ impl Executor {
                             self,
                             &fc.args[0],
                             ctx,
+                            &[],
                             outer_contexts,
                             db_state,
                         )?;
@@ -42,6 +43,7 @@ impl Executor {
                         self,
                         &fc.args[0],
                         ctx,
+                        &[],
                         outer_contexts,
                         db_state,
                     )?;
@@ -75,6 +77,7 @@ impl Executor {
                         self,
                         &fc.args[0],
                         ctx,
+                        &[],
                         outer_contexts,
                         db_state,
                     )?;
@@ -94,6 +97,7 @@ impl Executor {
                         self,
                         &fc.args[0],
                         ctx,
+                        &[],
                         outer_contexts,
                         db_state,
                     )?;
@@ -114,6 +118,7 @@ impl Executor {
                         self,
                         &fc.args[0],
                         ctx,
+                        &[],
                         outer_contexts,
                         db_state,
                     )?;

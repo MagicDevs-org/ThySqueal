@@ -8,21 +8,21 @@ async fn test_subqueries() {
     let executor = Arc::new(Executor::new(db));
 
     executor
-        .execute("CREATE TABLE users (id INT, name TEXT)", None)
+        .execute("CREATE TABLE users (id INT, name TEXT)", vec![], None)
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO users VALUES (1, 'Alice')", None)
+        .execute("INSERT INTO users VALUES (1, 'Alice')", vec![], None)
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO users VALUES (2, 'Bob')", None)
+        .execute("INSERT INTO users VALUES (2, 'Bob')", vec![], None)
         .await
         .unwrap();
 
     // Subquery in WHERE (IN)
     let result = executor
-            .execute("SELECT name FROM users WHERE id IN (SELECT id FROM users WHERE name = 'Bob')", None)
+            .execute("SELECT name FROM users WHERE id IN (SELECT id FROM users WHERE name = 'Bob')", vec![], None)
             .await
             .unwrap();
     assert_eq!(result.rows.len(), 1);
@@ -30,7 +30,7 @@ async fn test_subqueries() {
 
     // Correlated subquery in SELECT
     let result = executor
-            .execute("SELECT name, (SELECT COUNT(*) FROM users u2 WHERE u2.id <= users.id) as rank FROM users ORDER BY id", None)
+            .execute("SELECT name, (SELECT COUNT(*) FROM users u2 WHERE u2.id <= users.id) as rank FROM users ORDER BY id", vec![], None)
             .await
             .unwrap();
     assert_eq!(result.rows[0][1], Value::Int(1));

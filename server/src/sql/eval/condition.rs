@@ -8,15 +8,16 @@ pub fn evaluate_condition_joined(
     executor: &dyn Evaluator,
     cond: &Condition,
     contexts: &[(&Table, Option<&str>, &Row)],
+    params: &[Value],
     outer_contexts: &[(&Table, Option<&str>, &Row)],
     db_state: &DatabaseState,
 ) -> SqlResult<bool> {
     match cond {
         Condition::Comparison(left, op, right) => {
             let left_val =
-                evaluate_expression_joined(executor, left, contexts, outer_contexts, db_state)?;
+                evaluate_expression_joined(executor, left, contexts, params, outer_contexts, db_state)?;
             let right_val =
-                evaluate_expression_joined(executor, right, contexts, outer_contexts, db_state)?;
+                evaluate_expression_joined(executor, right, contexts, params, outer_contexts, db_state)?;
 
             match op {
                 ComparisonOp::Eq => Ok(left_val == right_val),
@@ -46,21 +47,22 @@ pub fn evaluate_condition_joined(
             }
         }
         Condition::IsNull(expr) => {
-            let val = evaluate_expression_joined(executor, expr, contexts, outer_contexts, db_state)?;
+            let val = evaluate_expression_joined(executor, expr, contexts, params, outer_contexts, db_state)?;
             Ok(matches!(val, Value::Null))
         }
         Condition::IsNotNull(expr) => {
-            let val = evaluate_expression_joined(executor, expr, contexts, outer_contexts, db_state)?;
+            let val = evaluate_expression_joined(executor, expr, contexts, params, outer_contexts, db_state)?;
             Ok(!matches!(val, Value::Null))
         }
         Condition::InSubquery(expr, subquery) => {
-            let val = evaluate_expression_joined(executor, expr, contexts, outer_contexts, db_state)?;
+            let val = evaluate_expression_joined(executor, expr, contexts, params, outer_contexts, db_state)?;
             let mut combined_outer = outer_contexts.to_vec();
             combined_outer.extend_from_slice(contexts);
 
             let result = futures::executor::block_on(executor.exec_select_internal(
                 (**subquery).clone(),
                 &combined_outer,
+                params,
                 db_state,
             ))?;
             for row in &result.rows {
@@ -71,24 +73,24 @@ pub fn evaluate_condition_joined(
             Ok(false)
         }
         Condition::Logical(left, op, right) => {
-            let l = evaluate_condition_joined(executor, left, contexts, outer_contexts, db_state)?;
+            let l = evaluate_condition_joined(executor, left, contexts, params, outer_contexts, db_state)?;
             match op {
                 LogicalOp::And => {
                     if !l {
                         return Ok(false);
                     }
-                    evaluate_condition_joined(executor, right, contexts, outer_contexts, db_state)
+                    evaluate_condition_joined(executor, right, contexts, params, outer_contexts, db_state)
                 }
                 LogicalOp::Or => {
                     if l {
                         return Ok(true);
                     }
-                    evaluate_condition_joined(executor, right, contexts, outer_contexts, db_state)
+                    evaluate_condition_joined(executor, right, contexts, params, outer_contexts, db_state)
                 }
             }
         }
         Condition::Not(cond) => {
-            Ok(!evaluate_condition_joined(executor, cond, contexts, outer_contexts, db_state)?)
+            Ok(!evaluate_condition_joined(executor, cond, contexts, params, outer_contexts, db_state)?)
         }
     }
 }

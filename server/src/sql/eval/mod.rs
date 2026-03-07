@@ -17,6 +17,7 @@ pub trait Evaluator: Send + Sync {
         &'a self,
         stmt: super::ast::SelectStmt,
         outer_contexts: &'a [(&'a Table, Option<&'a str>, &'a Row)],
+        params: &'a [Value],
         db_state: &'a DatabaseState,
     ) -> BoxFuture<'a, SqlResult<super::executor::QueryResult>>;
 }
@@ -30,6 +31,7 @@ impl Evaluator for RecoveryEvaluator {
         &'a self,
         _stmt: super::ast::SelectStmt,
         _outer_contexts: &'a [(&'a Table, Option<&'a str>, &'a Row)],
+        _params: &'a [Value],
         _db_state: &'a DatabaseState,
     ) -> BoxFuture<'a, SqlResult<super::executor::QueryResult>> {
         async {
@@ -47,10 +49,11 @@ pub fn evaluate_condition(
     cond: &Condition,
     table: &Table,
     table_alias: Option<&str>,
+    params: &[Value],
     row: &Row,
     db_state: &DatabaseState,
 ) -> SqlResult<bool> {
-    evaluate_condition_joined(executor, cond, &[(table, table_alias, row)], &[], db_state)
+    evaluate_condition_joined(executor, cond, &[(table, table_alias, row)], params, &[], db_state)
 }
 
 #[allow(dead_code)]
@@ -59,8 +62,9 @@ pub fn evaluate_expression(
     expr: &Expression,
     table: &Table,
     table_alias: Option<&str>,
+    params: &[Value],
     row: &Row,
     db_state: &DatabaseState,
 ) -> SqlResult<Value> {
-    evaluate_expression_joined(executor, expr, &[(table, table_alias, row)], &[], db_state)
+    evaluate_expression_joined(executor, expr, &[(table, table_alias, row)], params, &[], db_state)
 }

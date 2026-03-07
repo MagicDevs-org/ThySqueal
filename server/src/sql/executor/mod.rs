@@ -37,7 +37,7 @@ impl Executor {
         }
     }
 
-    pub async fn execute(&self, sql: &str, transaction_id: Option<String>) -> SqlResult<QueryResult> {
+    pub async fn execute(&self, sql: &str, params: Vec<Value>, transaction_id: Option<String>) -> SqlResult<QueryResult> {
         let stmt = parse(sql)?;
 
         let mut res = match stmt {
@@ -53,10 +53,10 @@ impl Executor {
                         .transactions
                         .get(id)
                         .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
-                    self.exec_select_recursive(s, &[], &state, Some(id)).await?
+                    self.exec_select_recursive(s, &[], &params, &state, Some(id)).await?
                 } else {
                     let db = self.db.read().await;
-                    self.exec_select_recursive(s, &[], db.state(), None).await?
+                    self.exec_select_recursive(s, &[], &params, db.state(), None).await?
                 }
             }
             SqlStmt::Explain(s) => {
@@ -84,8 +84,8 @@ impl Executor {
                 }
             }
             SqlStmt::Insert(i) => self.exec_insert(i, transaction_id.as_deref()).await?,
-            SqlStmt::Update(u) => self.exec_update(u, transaction_id.as_deref()).await?,
-            SqlStmt::Delete(d) => self.exec_delete(d, transaction_id.as_deref()).await?,
+            SqlStmt::Update(u) => self.exec_update(u, &params, transaction_id.as_deref()).await?,
+            SqlStmt::Delete(d) => self.exec_delete(d, &params, transaction_id.as_deref()).await?,
         };
 
         if res.transaction_id.is_none() {
@@ -101,9 +101,10 @@ impl Evaluator for Executor {
         &'a self,
         stmt: super::ast::SelectStmt,
         outer_contexts: &'a [(&'a Table, Option<&'a str>, &'a Row)],
+        params: &'a [Value],
         db_state: &'a DatabaseState,
     ) -> BoxFuture<'a, SqlResult<QueryResult>> {
-        self.exec_select_recursive(stmt, outer_contexts, db_state, None)
+        self.exec_select_recursive(stmt, outer_contexts, params, db_state, None)
     }
 }
 

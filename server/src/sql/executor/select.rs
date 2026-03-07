@@ -1,4 +1,4 @@
-use crate::storage::{DatabaseState, Row, Table};
+use crate::storage::{DatabaseState, Row, Table, Value};
 use crate::storage::info_schema::get_info_schema_tables;
 use super::super::ast::{self, SelectStmt};
 use super::super::error::{SqlError, SqlResult};
@@ -14,6 +14,7 @@ impl Executor {
         &'a self,
         stmt: SelectStmt,
         outer_contexts: &'a [(&'a Table, Option<&'a str>, &'a Row)],
+        params: &'a [Value],
         db_state: &'a DatabaseState,
         tx_id: Option<&'a str>,
     ) -> BoxFuture<'a, SqlResult<QueryResult>> {
@@ -99,6 +100,7 @@ impl Executor {
                             self,
                             &join.on,
                             &eval_ctx,
+                            params,
                             outer_contexts,
                             db_state,
                         )? {
@@ -127,6 +129,7 @@ impl Executor {
                         self,
                         where_cond,
                         &eval_ctx,
+                        params,
                         outer_contexts,
                         db_state,
                     )? {
@@ -149,6 +152,7 @@ impl Executor {
                         stmt,
                         matched_rows,
                         outer_contexts,
+                        params,
                         db_state,
                         tx_id,
                     )
@@ -167,6 +171,7 @@ impl Executor {
                             self,
                             &item.expr,
                             &eval_a,
+                            params,
                             outer_contexts,
                             db_state,
                         ) {
@@ -180,6 +185,7 @@ impl Executor {
                             self,
                             &item.expr,
                             &eval_b,
+                            params,
                             outer_contexts,
                             db_state,
                         ) {
@@ -239,6 +245,7 @@ impl Executor {
                                 self,
                                 &col.expr,
                                 &eval_ctx,
+                                params,
                                 outer_contexts,
                                 db_state,
                             )?);

@@ -18,6 +18,21 @@ pub enum SqlStmt {
     Rollback,
 }
 
+impl SqlStmt {
+    pub fn resolve_placeholders(&mut self) {
+        let mut counter = 0;
+        match self {
+            SqlStmt::Select(s) => s.resolve_placeholders(&mut counter),
+            SqlStmt::Update(u) => u.resolve_placeholders(&mut counter),
+            SqlStmt::Delete(d) => d.resolve_placeholders(&mut counter),
+            SqlStmt::Explain(s) => s.resolve_placeholders(&mut counter),
+            SqlStmt::CreateIndex(ci) => ci.resolve_placeholders(&mut counter),
+            // No placeholders in these statements
+            SqlStmt::CreateTable(_) | SqlStmt::DropTable(_) | SqlStmt::Insert(_) | SqlStmt::Search(_) | SqlStmt::Begin | SqlStmt::Commit | SqlStmt::Rollback => {}
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SearchStmt {
     pub table: String,
@@ -27,6 +42,7 @@ pub struct SearchStmt {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Expression {
     Literal(Value),
+    Placeholder(usize),
     Column(String),
     BinaryOp(Box<Expression>, BinaryOp, Box<Expression>),
     FunctionCall(FunctionCall),
@@ -36,9 +52,37 @@ pub enum Expression {
 }
 
 impl Expression {
+    pub fn resolve_placeholders(&mut self, counter: &mut usize) {
+        match self {
+            Expression::Placeholder(i) => {
+                if *i == 0 {
+                    *counter += 1;
+                    *i = *counter;
+                }
+            }
+            Expression::BinaryOp(l, _, r) => {
+                l.resolve_placeholders(counter);
+                r.resolve_placeholders(counter);
+            }
+            Expression::FunctionCall(fc) => {
+                for arg in &mut fc.args {
+                    arg.resolve_placeholders(counter);
+                }
+            }
+            Expression::ScalarFunc(sf) => {
+                sf.arg.resolve_placeholders(counter);
+            }
+            Expression::Subquery(s) => {
+                s.resolve_placeholders(counter);
+            }
+            _ => {}
+        }
+    }
+
     pub fn to_sql(&self) -> String {
         match self {
             Expression::Literal(v) => v.to_sql(),
+            Expression::Placeholder(i) => format!("${}", i),
             Expression::Column(c) => c.clone(),
             Expression::BinaryOp(l, op, r) => {
                 format!("({} {} {})", l.to_sql(), op.to_sql(), r.to_sql())
@@ -115,6 +159,26 @@ pub enum Condition {
 }
 
 impl Condition {
+    pub fn resolve_placeholders(&mut self, counter: &mut usize) {
+        match self {
+            Condition::Comparison(l, _, r) => {
+                l.resolve_placeholders(counter);
+                r.resolve_placeholders(counter);
+            }
+            Condition::IsNull(e) => e.resolve_placeholders(counter),
+            Condition::IsNotNull(e) => e.resolve_placeholders(counter),
+            Condition::InSubquery(e, s) => {
+                e.resolve_placeholders(counter);
+                s.resolve_placeholders(counter);
+            }
+            Condition::Logical(l, _, r) => {
+                l.resolve_placeholders(counter);
+                r.resolve_placeholders(counter);
+            }
+            Condition::Not(c) => c.resolve_placeholders(counter),
+        }
+    }
+
     pub fn to_sql(&self) -> String {
         match self {
             Condition::Comparison(l, op, r) => {
@@ -196,10 +260,29 @@ pub struct UpdateStmt {
     pub where_clause: Option<Condition>,
 }
 
+impl UpdateStmt {
+    pub fn resolve_placeholders(&mut self, counter: &mut usize) {
+        for (_, expr) in &mut self.assignments {
+            expr.resolve_placeholders(counter);
+        }
+        if let Some(c) = &mut self.where_clause {
+            c.resolve_placeholders(counter);
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DeleteStmt {
     pub table: String,
     pub where_clause: Option<Condition>,
+}
+
+impl DeleteStmt {
+    pub fn resolve_placeholders(&mut self, counter: &mut usize) {
+        if let Some(c) = &mut self.where_clause {
+            c.resolve_placeholders(counter);
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -216,6 +299,17 @@ pub struct CreateIndexStmt {
     pub unique: bool,
     pub index_type: IndexType,
     pub where_clause: Option<Condition>,
+}
+
+impl CreateIndexStmt {
+    pub fn resolve_placeholders(&mut self, counter: &mut usize) {
+        for expr in &mut self.expressions {
+            expr.resolve_placeholders(counter);
+        }
+        if let Some(c) = &mut self.where_clause {
+            c.resolve_placeholders(counter);
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -241,6 +335,29 @@ pub struct SelectStmt {
     pub having: Option<Condition>,
     pub order_by: Vec<OrderByItem>,
     pub limit: Option<LimitClause>,
+}
+
+impl SelectStmt {
+    pub fn resolve_placeholders(&mut self, counter: &mut usize) {
+        for col in &mut self.columns {
+            col.expr.resolve_placeholders(counter);
+        }
+        for join in &mut self.joins {
+            join.on.resolve_placeholders(counter);
+        }
+        if let Some(c) = &mut self.where_clause {
+            c.resolve_placeholders(counter);
+        }
+        for expr in &mut self.group_by {
+            expr.resolve_placeholders(counter);
+        }
+        if let Some(c) = &mut self.having {
+            c.resolve_placeholders(counter);
+        }
+        for item in &mut self.order_by {
+            item.expr.resolve_placeholders(counter);
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

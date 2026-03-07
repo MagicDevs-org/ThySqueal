@@ -31,7 +31,7 @@ alias = { (KW_AS ~ identifier) | identifier }
 // INSERT statement
 insert_stmt = { KW_INSERT ~ KW_INTO ~ table_name ~ ("(" ~ column_list ~ ")")? ~ KW_VALUES ~ "(" ~ value_list ~ ")" }
 
-value_list = { literal ~ ("," ~ literal)* }
+value_list = { (literal | placeholder) ~ ("," ~ (literal | placeholder))* }
 
 // UPDATE statement
 update_stmt = { KW_UPDATE ~ table_name ~ KW_SET ~ set_list ~ where_clause? }
@@ -97,7 +97,7 @@ plus_minus = { "+" | "-" }
 term = { factor ~ (mul_div ~ factor)* }
 mul_div = { "*" | "/" | "%" }
 
-factor = { aggregate_func | scalar_func | column_ref | literal | "(" ~ select_stmt_inner ~ ")" | "(" ~ expression ~ ")" | KW_NOT ~ factor | "-" ~ factor }
+factor = { aggregate_func | scalar_func | column_ref | literal | placeholder | "(" ~ select_stmt_inner ~ ")" | "(" ~ expression ~ ")" | KW_NOT ~ factor | "-" ~ factor }
 
 aggregate_func = { agg_type ~ "(" ~ ( star | expression ) ~ ")" }
 agg_type = { KW_COUNT | KW_SUM | KW_AVG | KW_MIN | KW_MAX }
@@ -111,6 +111,8 @@ literal = { string_literal | number_literal | boolean_literal | KW_NULL }
 string_literal = { "'" ~ (!"'" ~ ANY)* ~ "'" }
 number_literal = { ("-" | "+")? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? }
 boolean_literal = { KW_TRUE | KW_FALSE }
+
+placeholder = { "?" | ("$" ~ ASCII_DIGIT+) }
 
 column_ref = { identifier ~ ("." ~ identifier)* }
 

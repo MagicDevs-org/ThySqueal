@@ -124,11 +124,11 @@ async fn test_wal_recovery() {
         let executor = Arc::new(Executor::new(db));
 
         executor
-            .execute("CREATE TABLE w (id INT, v TEXT)", None)
+            .execute("CREATE TABLE w (id INT, v TEXT)", vec![], None)
             .await
             .unwrap();
         executor
-            .execute("INSERT INTO w VALUES (1, 'wal_data')", None)
+            .execute("INSERT INTO w VALUES (1, 'wal_data')", vec![], None)
             .await
             .unwrap();
     }
@@ -141,7 +141,7 @@ async fn test_wal_recovery() {
         let executor = Arc::new(Executor::new(db));
 
         let r = executor
-            .execute("SELECT v FROM w WHERE id = 1", None)
+            .execute("SELECT v FROM w WHERE id = 1", vec![], None)
             .await
             .unwrap();
         assert_eq!(r.rows[0][0].as_text(), Some("wal_data"));

@@ -1,4 +1,4 @@
-use crate::storage::WalRecord;
+use crate::storage::{Value, WalRecord};
 use super::super::super::ast::DeleteStmt;
 use super::super::super::error::{SqlError, SqlResult};
 use super::super::super::eval::{evaluate_condition_joined, Evaluator};
@@ -8,6 +8,7 @@ impl Executor {
     pub(crate) async fn exec_delete(
         &self,
         stmt: DeleteStmt,
+        params: &[Value],
         tx_id: Option<&str>,
     ) -> SqlResult<QueryResult> {
         let table_name = stmt.table.clone();
@@ -32,7 +33,7 @@ impl Executor {
         for row in &table.rows {
             let context = [(table, None, row)];
             let matched = if let Some(ref cond) = stmt.where_clause {
-                evaluate_condition_joined(self, cond, &context, &[], &state)?
+                evaluate_condition_joined(self, cond, &context, params, &[], &state)?
             } else {
                 true
             };

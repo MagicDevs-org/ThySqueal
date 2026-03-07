@@ -87,7 +87,7 @@ impl Executor {
             if trimmed.ends_with(';') {
                 let stmt_to_exec = current_stmt.trim().trim_end_matches(';');
                 if !stmt_to_exec.is_empty() {
-                    let res = self.execute(stmt_to_exec, None).await?;
+                    let res = self.execute(stmt_to_exec, vec![], None).await?;
                     total_affected += res.rows_affected;
                     last_res = res;
                 }

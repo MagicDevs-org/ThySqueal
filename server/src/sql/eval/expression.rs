@@ -8,11 +8,18 @@ pub fn evaluate_expression_joined(
     executor: &dyn Evaluator,
     expr: &Expression,
     contexts: &[(&Table, Option<&str>, &Row)],
+    params: &[Value],
     outer_contexts: &[(&Table, Option<&str>, &Row)],
     db_state: &DatabaseState,
 ) -> SqlResult<Value> {
     match expr {
         Expression::Literal(v) => Ok(v.clone()),
+        Expression::Placeholder(i) => {
+            if *i == 0 {
+                return Err(SqlError::Runtime("Positional placeholder '?' was not correctly numbered".to_string()));
+            }
+            params.get(*i - 1).cloned().ok_or_else(|| SqlError::Runtime(format!("Missing parameter for placeholder ${}", i)))
+        }
         Expression::Column(name) => {
             if let Ok(val) = resolve_column(name, contexts) {
                 return Ok(val);
@@ -30,6 +37,7 @@ pub fn evaluate_expression_joined(
             let result = futures::executor::block_on(executor.exec_select_internal(
                 (**subquery).clone(),
                 &combined_outer,
+                params,
                 db_state,
             ))?;
             if result.rows.is_empty() {
@@ -46,9 +54,9 @@ pub fn evaluate_expression_joined(
         }
         Expression::BinaryOp(left, op, right) => {
             let l =
-                evaluate_expression_joined(executor, left, contexts, outer_contexts, db_state)?;
+                evaluate_expression_joined(executor, left, contexts, params, outer_contexts, db_state)?;
             let r =
-                evaluate_expression_joined(executor, right, contexts, outer_contexts, db_state)?;
+                evaluate_expression_joined(executor, right, contexts, params, outer_contexts, db_state)?;
 
             match (l, r) {
                 (Value::Int(a), Value::Int(b)) => match op {
@@ -92,7 +100,7 @@ pub fn evaluate_expression_joined(
             }
         }
         Expression::ScalarFunc(sf) => {
-            let val = evaluate_expression_joined(executor, &sf.arg, contexts, outer_contexts, db_state)?;
+            let val = evaluate_expression_joined(executor, &sf.arg, contexts, params, outer_contexts, db_state)?;
             match sf.name {
                 ScalarFuncType::Lower => {
                     let s = val.as_text().ok_or_else(|| {

@@ -59,7 +59,7 @@ impl HttpServer {
         State(executor): State<Arc<Executor>>,
         Json(payload): Json<QueryRequest>,
     ) -> impl IntoResponse {
-        match executor.execute(&payload.sql, payload.transaction_id).await {
+        match executor.execute(&payload.sql, vec![], payload.transaction_id).await {
             Ok(result) => (StatusCode::OK, Json(Self::map_result(result, None))),
             Err(e) => {
                 error!("Query error: {:?}", e);

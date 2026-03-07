@@ -34,7 +34,7 @@ impl Table {
             // Check partial condition
             if let Some(cond) = index.where_clause() {
                 let context = [(table_ref, None, &row)];
-                if !evaluate_condition_joined(evaluator, &cond, &context, &[], db_state).map_err(
+                if !evaluate_condition_joined(evaluator, &cond, &context, &[], &[], db_state).map_err(
                     |e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)),
                 )? {
                     continue;
@@ -56,7 +56,7 @@ impl Table {
             // Check partial condition
             if let Some(cond) = index.where_clause() {
                 let context = [(table_ref, None, &row)];
-                if !evaluate_condition_joined(evaluator, &cond, &context, &[], db_state).map_err(
+                if !evaluate_condition_joined(evaluator, &cond, &context, &[], &[], db_state).map_err(
                     |e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)),
                 )? {
                     index_keys.push(None);
@@ -119,7 +119,7 @@ impl Table {
                 // Check if new row matches partial condition
                 if let Some(cond) = index.where_clause() {
                     let context = [(table_ref, None, &new_row)];
-                    if !evaluate_condition_joined(evaluator, &cond, &context, &[], db_state).map_err(
+                    if !evaluate_condition_joined(evaluator, &cond, &context, &[], &[], db_state).map_err(
                         |e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)),
                     )? {
                         continue;
@@ -148,7 +148,7 @@ impl Table {
                 let cond = index.where_clause();
                 let old_match = if let Some(ref c) = cond {
                     let context = [(table_ref, None, &old_row)];
-                    evaluate_condition_joined(evaluator, c, &context, &[], db_state).map_err(|e| {
+                    evaluate_condition_joined(evaluator, c, &context, &[], &[], db_state).map_err(|e| {
                         StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e))
                     })?
                 } else {
@@ -156,7 +156,7 @@ impl Table {
                 };
                 let new_match = if let Some(ref c) = cond {
                     let context = [(table_ref, None, &new_row)];
-                    evaluate_condition_joined(evaluator, c, &context, &[], db_state).map_err(|e| {
+                    evaluate_condition_joined(evaluator, c, &context, &[], &[], db_state).map_err(|e| {
                         StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e))
                     })?
                 } else {
@@ -224,7 +224,7 @@ impl Table {
                 // Check partial condition
                 if let Some(cond) = index.where_clause() {
                     let context = [(table_ref, None, &row)];
-                    if !evaluate_condition_joined(evaluator, &cond, &context, &[], db_state).map_err(
+                    if !evaluate_condition_joined(evaluator, &cond, &context, &[], &[], db_state).map_err(
                         |e| StorageError::PersistenceError(format!("Index where clause evaluation error: {:?}", e)),
                     )? {
                         index_to_remove.push(None);

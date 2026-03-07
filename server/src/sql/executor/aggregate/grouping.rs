@@ -12,6 +12,7 @@ impl Executor {
         stmt: SelectStmt,
         matched_rows: Vec<JoinedContext<'_>>,
         outer_contexts: &[(&Table, Option<&str>, &Row)],
+        params: &[Value],
         db_state: &DatabaseState,
         tx_id: Option<&str>,
     ) -> SqlResult<QueryResult> {
@@ -46,6 +47,7 @@ impl Executor {
                                 self,
                                 &col.expr,
                                 first_row_ctx,
+                                params,
                                 outer_contexts,
                                 db_state,
                             )?);
@@ -57,7 +59,7 @@ impl Executor {
             }
 
             let include_row = if let Some(ref having_cond) = stmt.having {
-                self.evaluate_having_joined(having_cond, &eval_contexts, outer_contexts, db_state)
+                self.evaluate_having_joined(having_cond, &eval_contexts, params, outer_contexts, db_state)
                     .await?
             } else {
                 true
@@ -78,6 +80,7 @@ impl Executor {
                         self,
                         gb_expr,
                         &eval_ctx,
+                        params,
                         outer_contexts,
                         db_state,
                     )?);
@@ -95,6 +98,7 @@ impl Executor {
                     self.evaluate_having_joined(
                         having_cond,
                         &group_eval_contexts,
+                        params,
                         outer_contexts,
                         db_state,
                     )
@@ -121,6 +125,7 @@ impl Executor {
                                         self,
                                         &col.expr,
                                         first_ctx,
+                                        params,
                                         outer_contexts,
                                         db_state,
                                     )?);
@@ -152,16 +157,17 @@ impl Executor {
         &self,
         cond: &ast::Condition,
         contexts: &[Vec<(&Table, Option<&str>, &Row)>],
+        params: &[Value],
         outer_contexts: &[(&Table, Option<&str>, &Row)],
         db_state: &DatabaseState,
     ) -> SqlResult<bool> {
         match cond {
             ast::Condition::Comparison(left, op, right) => {
                 let left_val = self
-                    .evaluate_having_expression_joined(left, contexts, outer_contexts, db_state)
+                    .evaluate_having_expression_joined(left, contexts, params, outer_contexts, db_state)
                     .await?;
                 let right_val = self
-                    .evaluate_having_expression_joined(right, contexts, outer_contexts, db_state)
+                    .evaluate_having_expression_joined(right, contexts, params, outer_contexts, db_state)
                     .await?;
 
                 match op {
@@ -183,13 +189,14 @@ impl Executor {
                 }
             }
             ast::Condition::Logical(left, op, right) => {
-                let l = Box::pin(self.evaluate_having_joined(left, contexts, outer_contexts, db_state))
+                let l = Box::pin(self.evaluate_having_joined(left, contexts, params, outer_contexts, db_state))
                     .await?;
                 match op {
                     ast::LogicalOp::And => Ok(l
                         && Box::pin(self.evaluate_having_joined(
                             right,
                             contexts,
+                            params,
                             outer_contexts,
                             db_state,
                         ))
@@ -198,6 +205,7 @@ impl Executor {
                         || Box::pin(self.evaluate_having_joined(
                             right,
                             contexts,
+                            params,
                             outer_contexts,
                             db_state,
                         ))
@@ -207,28 +215,29 @@ impl Executor {
             ast::Condition::Not(c) => Ok(!Box::pin(self.evaluate_having_joined(
                 c,
                 contexts,
+                params,
                 outer_contexts,
                 db_state,
             ))
             .await?),
             ast::Condition::IsNull(e) => Ok(self
-                .evaluate_having_expression_joined(e, contexts, outer_contexts, db_state)
+                .evaluate_having_expression_joined(e, contexts, params, outer_contexts, db_state)
                 .await?
                 == Value::Null),
             ast::Condition::IsNotNull(e) => Ok(self
-                .evaluate_having_expression_joined(e, contexts, outer_contexts, db_state)
+                .evaluate_having_expression_joined(e, contexts, params, outer_contexts, db_state)
                 .await?
                 != Value::Null),
             ast::Condition::InSubquery(expr, subquery) => {
                 let val = self
-                    .evaluate_having_expression_joined(expr, contexts, outer_contexts, db_state)
+                    .evaluate_having_expression_joined(expr, contexts, params, outer_contexts, db_state)
                     .await?;
                 let mut combined_outer = outer_contexts.to_vec();
                 if let Some(first_ctx) = contexts.first() {
                     combined_outer.extend_from_slice(first_ctx);
                 }
                 let result = self
-                    .exec_select_internal((**subquery).clone(), &combined_outer, db_state)
+                    .exec_select_internal((**subquery).clone(), &combined_outer, params, db_state)
                     .await?;
                 for row in &result.rows {
                     if !row.is_empty() && row[0] == val {
@@ -244,6 +253,7 @@ impl Executor {
         &self,
         expr: &ast::Expression,
         contexts: &[Vec<(&Table, Option<&str>, &Row)>],
+        params: &[Value],
         outer_contexts: &[(&Table, Option<&str>, &Row)],
         db_state: &DatabaseState,
     ) -> SqlResult<Value> {
@@ -253,7 +263,7 @@ impl Executor {
             }
             ast::Expression::ScalarFunc(_sf) => {
                 if let Some(first_ctx) = contexts.first() {
-                    evaluate_expression_joined(self, expr, first_ctx, outer_contexts, db_state)
+                    evaluate_expression_joined(self, expr, first_ctx, params, outer_contexts, db_state)
                 } else {
                     Ok(Value::Null)
                 }
@@ -265,7 +275,7 @@ impl Executor {
                     combined_outer.extend_from_slice(first_ctx);
                 }
                 let result = self
-                    .exec_select_internal((**subquery).clone(), &combined_outer, db_state)
+                    .exec_select_internal((**subquery).clone(), &combined_outer, params, db_state)
                     .await?;
                 if result.rows.is_empty() {
                     Ok(Value::Null)
@@ -281,7 +291,14 @@ impl Executor {
             }
             ast::Expression::Column(_) | ast::Expression::BinaryOp(_, _, _) => {
                 if let Some(first_ctx) = contexts.first() {
-                    evaluate_expression_joined(self, expr, first_ctx, outer_contexts, db_state)
+                    evaluate_expression_joined(self, expr, first_ctx, params, outer_contexts, db_state)
+                } else {
+                    Ok(Value::Null)
+                }
+            }
+            ast::Expression::Placeholder(_) => {
+                if let Some(first_ctx) = contexts.first() {
+                    evaluate_expression_joined(self, expr, first_ctx, params, outer_contexts, db_state)
                 } else {
                     Ok(Value::Null)
                 }

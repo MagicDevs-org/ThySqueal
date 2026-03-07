@@ -1,5 +1,4 @@
 use crate::{http::create_app, sql::Executor};
-use crate::storage::Database;
 use axum::{
     body::Body,
     http::{Request, StatusCode},
