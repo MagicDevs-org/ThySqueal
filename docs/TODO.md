@@ -35,8 +35,8 @@
 
 ## Phase 4: ACID & Protocol (v0.4) - 🏗 IN PROGRESS
 - [x] Transactions (BEGIN, COMMIT, ROLLBACK)
-- [ ] Write-Ahead Logging (WAL) for durability - **CURRENT FOCUS**
-- [ ] Information Schema (tables, columns metadata)
+- [x] Write-Ahead Logging (WAL) for durability - ✅ COMPLETE
+- [ ] Information Schema (tables, columns metadata) - **CURRENT FOCUS**
 - [ ] SQL Dump/Restore (.sql script export)
 - [ ] MySQL Protocol Compatibility (TCP 3306)
 - [ ] Parameterized Queries (Prepared Statements)

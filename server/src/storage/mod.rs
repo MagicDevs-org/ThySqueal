@@ -12,8 +12,8 @@ pub use error::StorageError;
 pub use types::DataType;
 pub use value::Value;
 pub use table::{Table, Column, Row, TableIndex};
-use persistence::Persister;
-use crate::sql::executor::Executor;
+pub use persistence::{Persister, WalRecord};
+use crate::sql::eval::{Evaluator, RecoveryEvaluator};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DatabaseState {
@@ -50,19 +50,122 @@ impl Database {
     }
 
     pub fn with_persister(persister: Box<dyn Persister>, data_dir: String) -> Result<Self, StorageError> {
-        let mut tables = persister.load_tables().unwrap_or_default();
+        let tables = persister.load_tables().unwrap_or_default();
+        let mut db = Self {
+            state: DatabaseState { tables },
+            persister: Some(persister),
+            _data_dir: Some(data_dir.clone()),
+        };
 
-        // Initialize search indices for each table
-        for (name, table) in &mut tables {
+        // Replay WAL logs
+        db.replay_logs()?;
+
+        // Initialize search indices for each table (after WAL replay)
+        for (name, table) in &mut db.state.tables {
             let search_path = format!("{}/search_{}", data_dir, name);
             table.setup_search_index(&search_path).map_err(|e| StorageError::PersistenceError(e.to_string()))?;
         }
 
-        Ok(Self {
-            state: DatabaseState { tables },
-            persister: Some(persister),
-            _data_dir: Some(data_dir),
-        })
+        Ok(db)
+    }
+
+    fn replay_logs(&mut self) -> Result<(), StorageError> {
+        if let Some(ref persister) = self.persister {
+            let logs = persister.load_logs()?;
+            if logs.is_empty() {
+                return Ok(());
+            }
+
+            tracing::info!("Replaying {} WAL records", logs.len());
+            let recovery_eval = RecoveryEvaluator;
+            
+            // Buffer for in-progress transactions
+            let mut pending_txs: HashMap<String, Vec<WalRecord>> = HashMap::new();
+
+            for record in logs {
+                match record {
+                    WalRecord::Begin { tx_id } => {
+                        pending_txs.insert(tx_id, Vec::new());
+                    }
+                    WalRecord::Commit { tx_id } => {
+                        if let Some(records) = pending_txs.remove(&tx_id) {
+                            for r in records {
+                                self.apply_record(&recovery_eval, r)?;
+                            }
+                        }
+                    }
+                    WalRecord::Rollback { tx_id } => {
+                        pending_txs.remove(&tx_id);
+                    }
+                    r => {
+                        // Check if it's part of a transaction
+                        let tx_id_opt = match &r {
+                            WalRecord::CreateTable { tx_id, .. } => tx_id,
+                            WalRecord::DropTable { tx_id, .. } => tx_id,
+                            WalRecord::Insert { tx_id, .. } => tx_id,
+                            WalRecord::Update { tx_id, .. } => tx_id,
+                            WalRecord::Delete { tx_id, .. } => tx_id,
+                            WalRecord::CreateIndex { tx_id, .. } => tx_id,
+                            _ => &None,
+                        };
+
+                        if let Some(id) = tx_id_opt {
+                            if let Some(v) = pending_txs.get_mut(id) {
+                                v.push(r);
+                            }
+                        } else {
+                            // Autocommit record
+                            self.apply_record(&recovery_eval, r)?;
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn apply_record(&mut self, evaluator: &dyn Evaluator, record: WalRecord) -> Result<(), StorageError> {
+        match record {
+            WalRecord::CreateTable { name, columns, .. } => {
+                self.state.tables.insert(name.clone(), Table::new(name, columns));
+            }
+            WalRecord::DropTable { name, .. } => {
+                self.state.tables.remove(&name);
+            }
+            WalRecord::Insert { table, values, .. } => {
+                let db_state = self.state.clone();
+                if let Some(t) = self.state.get_table_mut(&table) {
+                    t.insert(evaluator, values, &db_state)?;
+                }
+            }
+            WalRecord::Update { table, id, values, .. } => {
+                let db_state = self.state.clone();
+                if let Some(t) = self.state.get_table_mut(&table) {
+                    t.update(evaluator, &id, values, &db_state)?;
+                }
+            }
+            WalRecord::Delete { table, id, .. } => {
+                let db_state = self.state.clone();
+                if let Some(t) = self.state.get_table_mut(&table) {
+                    t.delete(evaluator, &id, &db_state)?;
+                }
+            }
+            WalRecord::CreateIndex { table, name, expressions, unique, use_hash, where_clause, .. } => {
+                let db_state = self.state.clone();
+                if let Some(t) = self.state.get_table_mut(&table) {
+                    t.create_index(evaluator, name, expressions, unique, use_hash, where_clause, &db_state)?;
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    pub fn log_operation(&self, record: &WalRecord) -> Result<(), StorageError> {
+        if let Some(ref persister) = self.persister {
+            persister.log_operation(record)?;
+        }
+        Ok(())
     }
 
     pub fn save(&self) -> Result<(), StorageError> {
@@ -78,9 +181,12 @@ impl Database {
             return Err(StorageError::DuplicateKey(name));
         }
         
+        // Executor should have logged this already if called from Executor
+        // But for direct Database calls, we might want to log too.
+        // For now, let's assume all mutations go through Executor for SQL.
+
         let mut table = Table::new(name.clone(), columns);
         
-        // Initialize search index if data_dir is available
         if let Some(ref data_dir) = self._data_dir {
             let search_path = format!("{}/search_{}", data_dir, name);
             table.setup_search_index(&search_path).map_err(|e| StorageError::PersistenceError(e.to_string()))?;
@@ -124,23 +230,23 @@ impl Database {
         self.save()
     }
 
-    // Methods that need Executor for index evaluation
-    pub fn insert(&mut self, executor: &Executor, table_name: &str, values: Vec<Value>, db_state: &DatabaseState) -> Result<String, StorageError> {
+    // Direct mutation methods (already logged by Executor)
+    pub fn insert(&mut self, evaluator: &dyn Evaluator, table_name: &str, values: Vec<Value>, db_state: &DatabaseState) -> Result<String, StorageError> {
         let table = self.get_table_mut(table_name).ok_or_else(|| StorageError::TableNotFound(table_name.to_string()))?;
-        let id = table.insert(executor, values, db_state)?;
+        let id = table.insert(evaluator, values, db_state)?;
         self.save()?;
         Ok(id)
     }
 
-    pub fn _update(&mut self, executor: &Executor, table_name: &str, id: &str, values: Vec<Value>, db_state: &DatabaseState) -> Result<(), StorageError> {
+    pub fn update(&mut self, evaluator: &dyn Evaluator, table_name: &str, id: &str, values: Vec<Value>, db_state: &DatabaseState) -> Result<(), StorageError> {
         let table = self.get_table_mut(table_name).ok_or_else(|| StorageError::TableNotFound(table_name.to_string()))?;
-        table.update(executor, id, values, db_state)?;
+        table.update(evaluator, id, values, db_state)?;
         self.save()
     }
 
-    pub fn _delete(&mut self, executor: &Executor, table_name: &str, id: &str, db_state: &DatabaseState) -> Result<(), StorageError> {
+    pub fn delete(&mut self, evaluator: &dyn Evaluator, table_name: &str, id: &str, db_state: &DatabaseState) -> Result<(), StorageError> {
         let table = self.get_table_mut(table_name).ok_or_else(|| StorageError::TableNotFound(table_name.to_string()))?;
-        table.delete(executor, id, db_state)?;
+        table.delete(evaluator, id, db_state)?;
         self.save()
     }
 }

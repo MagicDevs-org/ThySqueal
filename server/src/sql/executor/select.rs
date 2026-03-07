@@ -1,7 +1,7 @@
 use crate::storage::{Value, Table, Row, TableIndex, DatabaseState};
 use super::super::ast::{self, SelectStmt};
 use super::super::error::{SqlError, SqlResult};
-use super::super::eval::{evaluate_condition_joined, evaluate_expression_joined};
+use super::super::eval::{evaluate_condition_joined, evaluate_expression_joined, Evaluator};
 use super::{QueryResult, Executor};
 use futures::future::BoxFuture;
 use futures::FutureExt;

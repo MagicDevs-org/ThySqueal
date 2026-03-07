@@ -1,15 +1,43 @@
 use crate::storage::{Row, Table, Value, DatabaseState};
 use super::ast::{BinaryOp, ComparisonOp, Condition, Expression, LogicalOp, ScalarFuncType};
 use super::error::{SqlError, SqlResult};
-use super::executor::Executor;
+use futures::future::BoxFuture;
+use futures::FutureExt;
+
+/// Trait for evaluating expressions, implemented by Executor and RecoveryEvaluator
+pub trait Evaluator: Send + Sync {
+    fn exec_select_internal<'a>(
+        &'a self,
+        stmt: super::ast::SelectStmt,
+        outer_contexts: &'a [(&'a Table, &'a Row)],
+        db_state: &'a DatabaseState,
+    ) -> BoxFuture<'a, SqlResult<super::executor::QueryResult>>;
+}
+
+/// A simple evaluator used during WAL recovery when a full Executor is not yet available.
+/// It does not support subqueries.
+pub struct RecoveryEvaluator;
+
+impl Evaluator for RecoveryEvaluator {
+    fn exec_select_internal<'a>(
+        &'a self,
+        _stmt: super::ast::SelectStmt,
+        _outer_contexts: &'a [(&'a Table, &'a Row)],
+        _db_state: &'a DatabaseState,
+    ) -> BoxFuture<'a, SqlResult<super::executor::QueryResult>> {
+        async {
+            Err(SqlError::Runtime("Subqueries are not supported during WAL recovery".to_string()))
+        }.boxed()
+    }
+}
 
 #[allow(dead_code)]
-pub fn evaluate_condition(executor: &Executor, cond: &Condition, table: &Table, row: &Row, db_state: &DatabaseState) -> SqlResult<bool> {
+pub fn evaluate_condition(executor: &dyn Evaluator, cond: &Condition, table: &Table, row: &Row, db_state: &DatabaseState) -> SqlResult<bool> {
     evaluate_condition_joined(executor, cond, &[(table, row)], &[], db_state)
 }
 
 pub fn evaluate_condition_joined(
-    executor: &Executor,
+    executor: &dyn Evaluator,
     cond: &Condition,
     contexts: &[(&Table, &Row)],
     outer_contexts: &[(&Table, &Row)],
@@ -56,6 +84,8 @@ pub fn evaluate_condition_joined(
             let mut combined_outer = outer_contexts.to_vec();
             combined_outer.extend_from_slice(contexts);
             
+            // We need a hack here because of block_on and lifetimes
+            // In a real system, we'd use async all the way up.
             let result = futures::executor::block_on(executor.exec_select_internal((**subquery).clone(), &combined_outer, db_state))?;
             for row in result.rows {
                 if !row.is_empty() && row[0] == val {
@@ -84,12 +114,12 @@ pub fn evaluate_condition_joined(
 }
 
 #[allow(dead_code)]
-pub fn evaluate_expression(executor: &Executor, expr: &Expression, table: &Table, row: &Row, db_state: &DatabaseState) -> SqlResult<Value> {
+pub fn evaluate_expression(executor: &dyn Evaluator, expr: &Expression, table: &Table, row: &Row, db_state: &DatabaseState) -> SqlResult<Value> {
     evaluate_expression_joined(executor, expr, &[(table, row)], &[], db_state)
 }
 
 pub fn evaluate_expression_joined(
-    executor: &Executor,
+    executor: &dyn Evaluator,
     expr: &Expression,
     contexts: &[(&Table, &Row)],
     outer_contexts: &[(&Table, &Row)],

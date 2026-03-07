@@ -7,8 +7,10 @@ mod tests;
 use super::ast::SqlStmt;
 use super::error::{SqlResult, SqlError};
 use super::parser::parse;
-use crate::storage::{Database, Row, Table, Value, DatabaseState};
+use super::eval::Evaluator;
+use crate::storage::{Database, Row, Table, Value, DatabaseState, WalRecord};
 use dashmap::DashMap;
+use futures::future::BoxFuture;
 
 #[derive(Debug)]
 pub struct QueryResult {
@@ -79,16 +81,20 @@ impl Executor {
 
         Ok(res)
     }
+}
 
-    pub(crate) async fn exec_select_internal(
-        &self,
+impl Evaluator for Executor {
+    fn exec_select_internal<'a>(
+        &'a self,
         stmt: super::ast::SelectStmt,
-        outer_contexts: &[(&Table, &Row)],
-        db_state: &DatabaseState,
-    ) -> SqlResult<QueryResult> {
-        self.exec_select_recursive(stmt, outer_contexts, db_state, None).await
+        outer_contexts: &'a [(&'a Table, &'a Row)],
+        db_state: &'a DatabaseState,
+    ) -> BoxFuture<'a, SqlResult<QueryResult>> {
+        self.exec_select_recursive(stmt, outer_contexts, db_state, None)
     }
+}
 
+impl Executor {
     pub(crate) async fn mutate_state<F, R>(&self, tx_id: Option<&str>, f: F) -> SqlResult<R>
     where F: FnOnce(&mut DatabaseState) -> SqlResult<R>
     {
@@ -106,6 +112,10 @@ impl Executor {
     async fn exec_begin(&self) -> SqlResult<QueryResult> {
         let db = self.db.read().await;
         let tx_id = uuid::Uuid::new_v4().to_string();
+        
+        // Log BEGIN to WAL
+        db.log_operation(&WalRecord::Begin { tx_id: tx_id.clone() }).map_err(|e| SqlError::Storage(e.to_string()))?;
+
         let state = db.state().clone();
         self.transactions.insert(tx_id.clone(), state);
 
@@ -124,6 +134,10 @@ impl Executor {
             .1;
 
         let mut db = self.db.write().await;
+        
+        // Log COMMIT to WAL
+        db.log_operation(&WalRecord::Commit { tx_id: tx_id.to_string() }).map_err(|e| SqlError::Storage(e.to_string()))?;
+
         db.set_state(state).map_err(|e| SqlError::Storage(e.to_string()))?;
 
         Ok(QueryResult {
@@ -137,6 +151,10 @@ impl Executor {
     async fn exec_rollback(&self, tx_id: Option<&str>) -> SqlResult<QueryResult> {
         let tx_id = tx_id.ok_or_else(|| SqlError::Runtime("No active transaction".to_string()))?;
         self.transactions.remove(tx_id);
+
+        let db = self.db.read().await;
+        // Log ROLLBACK to WAL
+        db.log_operation(&WalRecord::Rollback { tx_id: tx_id.to_string() }).map_err(|e| SqlError::Storage(e.to_string()))?;
 
         Ok(QueryResult {
             columns: vec![],
