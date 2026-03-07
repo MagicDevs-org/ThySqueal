@@ -4,7 +4,7 @@ pub mod ddl;
 #[cfg(test)]
 mod tests;
 
-use crate::storage::{Database, Value};
+use crate::storage::{Database, Value, Table, Row};
 use super::error::{SqlResult};
 use super::ast::SqlStmt;
 use super::parser::parse;
@@ -37,10 +37,14 @@ impl Executor {
         match stmt {
             SqlStmt::CreateTable(ct) => self.exec_create_table(ct).await,
             SqlStmt::DropTable(dt) => self.exec_drop_table(dt).await,
-            SqlStmt::Select(s) => self.exec_select(s).await,
+            SqlStmt::Select(s) => self.exec_select_recursive(s, &[]).await,
             SqlStmt::Insert(i) => self.exec_insert(i).await,
             SqlStmt::Update(u) => self.exec_update(u).await,
             SqlStmt::Delete(d) => self.exec_delete(d).await,
         }
+    }
+
+    pub(crate) async fn exec_select_internal(&self, stmt: super::ast::SelectStmt, outer_contexts: &[(&Table, &Row)]) -> SqlResult<QueryResult> {
+        self.exec_select_recursive(stmt, outer_contexts).await
     }
 }

@@ -18,6 +18,7 @@ pub enum Expression {
     BinaryOp(Box<Expression>, BinaryOp, Box<Expression>),
     FunctionCall(FunctionCall),
     Star,
+    Subquery(Box<SelectStmt>),
 }
 
 #[derive(Debug, Clone)]
@@ -48,6 +49,7 @@ pub enum Condition {
     Comparison(Expression, ComparisonOp, Expression),
     IsNull(Expression),
     IsNotNull(Expression),
+    InSubquery(Expression, Box<SelectStmt>),
     Logical(Box<Condition>, LogicalOp, Box<Condition>),
     #[allow(dead_code)]
     Not(Box<Condition>),

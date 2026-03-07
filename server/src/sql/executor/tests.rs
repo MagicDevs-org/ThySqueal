@@ -247,6 +247,35 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_subqueries() {
+        let exec = Executor::new(crate::storage::Database::new());
+        exec.execute("CREATE TABLE users (id INT, name TEXT)").await.unwrap();
+        exec.execute("CREATE TABLE posts (id INT, user_id INT, title TEXT)").await.unwrap();
+        
+        exec.execute("INSERT INTO users (id, name) VALUES (1, 'alice')").await.unwrap();
+        exec.execute("INSERT INTO users (id, name) VALUES (2, 'bob')").await.unwrap();
+        
+        exec.execute("INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'p1')").await.unwrap();
+
+        // 1. IN subquery
+        let r = exec.execute("SELECT name FROM users WHERE id IN (SELECT user_id FROM posts)")
+            .await
+            .unwrap();
+        assert_eq!(r.rows.len(), 1);
+        assert_eq!(r.rows[0][0].as_text(), Some("alice"));
+
+        // 2. Scalar subquery in SELECT
+        let r = exec.execute("SELECT name, (SELECT title FROM posts WHERE user_id = users.id) AS post_title FROM users ORDER BY id ASC")
+            .await
+            .unwrap();
+        assert_eq!(r.rows.len(), 2);
+        assert_eq!(r.rows[0][0].as_text(), Some("alice"));
+        assert_eq!(r.rows[0][1].as_text(), Some("p1"));
+        assert_eq!(r.rows[1][0].as_text(), Some("bob"));
+        assert_eq!(r.rows[1][1], crate::storage::Value::Null);
+    }
+
+    #[tokio::test]
     async fn test_distinct() {
         let exec = Executor::new(crate::storage::Database::new());
         exec.execute("CREATE TABLE t (name TEXT)").await.unwrap();

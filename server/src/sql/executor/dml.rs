@@ -31,7 +31,7 @@ impl Executor {
 
         for row in table.rows.iter_mut() {
             let matches = if let Some(ref cond) = stmt.where_clause {
-                evaluate_condition_joined(cond, &[(&table_cloned, row)])?
+                evaluate_condition_joined(self, cond, &[(&table_cloned, row)], &[])?
             } else {
                 true
             };
@@ -41,7 +41,7 @@ impl Executor {
                     let col_idx = table_cloned
                         .column_index(col_name)
                         .ok_or_else(|| SqlError::ColumnNotFound(col_name.clone()))?;
-                    let new_val = evaluate_expression_joined(expr, &[(&table_cloned, row)])?;
+                    let new_val = evaluate_expression_joined(self, expr, &[(&table_cloned, row)], &[])?;
                     row.values[col_idx] = new_val;
                 }
                 rows_affected += 1;
@@ -71,7 +71,7 @@ impl Executor {
         let mut i = 0;
         while i < table.rows.len() {
             let matches = if let Some(ref cond) = stmt.where_clause {
-                evaluate_condition_joined(cond, &[(&table_cloned, &table.rows[i])])?
+                evaluate_condition_joined(self, cond, &[(&table_cloned, &table.rows[i])], &[])?
             } else {
                 true
             };

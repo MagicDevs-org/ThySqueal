@@ -54,6 +54,14 @@ pub fn parse_factor(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expression> 
                 .collect();
             Ok(Expression::Column(parts.join(".")))
         }
+        Rule::select_stmt => {
+            let stmt = super::select::parse_select(first)?;
+            if let super::super::ast::SqlStmt::Select(s) = stmt {
+                Ok(Expression::Subquery(Box::new(s)))
+            } else {
+                Err(SqlError::Parse("Expected SELECT statement in subquery".to_string()))
+            }
+        }
         Rule::expression => parse_expression(first),
         Rule::KW_NOT => {
             Err(SqlError::Parse("NOT in expression factor not yet implemented".to_string()))
@@ -79,7 +87,15 @@ pub fn parse_condition(pair: pest::iterators::Pair<Rule>) -> SqlResult<Condition
             
             match op_pair.as_rule() {
                 Rule::comparison_op => {
-                    let op = match op_pair.as_str().to_uppercase().as_str() {
+                    let op_str = op_pair.as_str().to_uppercase();
+                    if op_str == "IN" {
+                        let next_expr = inner.next().ok_or_else(|| SqlError::Parse("Expected subquery after IN".to_string()))?;
+                        // Find select_stmt recursively in this expression
+                        let subquery = find_select_stmt(next_expr)?;
+                        return Ok(Condition::InSubquery(left, Box::new(subquery)));
+                    }
+
+                    let op = match op_str.as_str() {
                         "=" => ComparisonOp::Eq,
                         "!=" | "<>" => ComparisonOp::NotEq,
                         "<" => ComparisonOp::Lt,
@@ -132,6 +148,21 @@ pub fn parse_condition(pair: pest::iterators::Pair<Rule>) -> SqlResult<Condition
         }
         _ => Err(SqlError::Parse(format!("Unsupported condition rule: {:?}", first.as_rule()))),
     }
+}
+
+fn find_select_stmt(pair: pest::iterators::Pair<Rule>) -> SqlResult<super::super::ast::SelectStmt> {
+    if pair.as_rule() == Rule::select_stmt {
+        let stmt = super::select::parse_select(pair.clone())?;
+        if let super::super::ast::SqlStmt::Select(s) = stmt {
+            return Ok(s);
+        }
+    }
+    for inner in pair.into_inner() {
+        if let Ok(s) = find_select_stmt(inner) {
+            return Ok(s);
+        }
+    }
+    Err(SqlError::Parse("Could not find SELECT statement in subquery context".to_string()))
 }
 
 pub fn parse_literal(pair: pest::iterators::Pair<Rule>) -> SqlResult<Value> {

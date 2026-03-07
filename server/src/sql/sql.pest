@@ -51,7 +51,12 @@ group_by_clause = { KW_GROUP ~ KW_BY ~ column_list }
 // HAVING clause
 having_clause = { KW_HAVING ~ condition }
 
-condition = { expression ~ comparison_op ~ expression | expression ~ KW_IS ~ (KW_NOT? ~ KW_NULL) | "(" ~ condition ~ ")" ~ (logical_op ~ condition)? }
+condition = {
+    expression ~ comparison_op ~ expression |
+    expression ~ KW_IS ~ (KW_NOT? ~ KW_NULL) |
+    expression ~ KW_IN ~ "(" ~ select_stmt ~ ")" |
+    "(" ~ condition ~ ")" ~ (logical_op ~ condition)?
+}
 
 comparison_op = { "=" | "!=" | "<>" | "<" | ">" | "<=" | ">=" | "LIKE" | "IN" | "BETWEEN" }
 logical_op = { KW_AND | KW_OR }
@@ -69,7 +74,7 @@ limit_count = @{ ASCII_DIGIT+ }
 // Expressions
 expression = { term ~ (("+" | "-") ~ term)* }
 term = { factor ~ (("*" | "/" | "%") ~ factor)* }
-factor = { aggregate_func | column_ref | literal | "(" ~ expression ~ ")" | KW_NOT ~ factor | "-" ~ factor }
+factor = { aggregate_func | column_ref | literal | "(" ~ select_stmt ~ ")" | "(" ~ expression ~ ")" | KW_NOT ~ factor | "-" ~ factor }
 
 aggregate_func = { agg_type ~ "(" ~ ( star | expression ) ~ ")" }
 agg_type = { KW_COUNT | KW_SUM | KW_AVG | KW_MIN | KW_MAX }
@@ -91,7 +96,7 @@ keyword = {
     KW_SELECT | KW_FROM | KW_WHERE | KW_INSERT | KW_INTO | KW_JOIN | KW_INNER | KW_LEFT | KW_ON | KW_VALUES | KW_UPDATE | KW_SET | KW_DELETE |
     KW_CREATE | KW_TABLE | KW_DROP | KW_GROUP | KW_BY | KW_ORDER | KW_HAVING | KW_LIMIT | KW_OFFSET | KW_ASC | KW_DESC |
     KW_DISTINCT | KW_AS | KW_AND | KW_OR | KW_NOT | KW_NULL | KW_IS | KW_TRUE | KW_FALSE |
-    KW_COUNT | KW_SUM | KW_AVG | KW_MIN | KW_MAX
+    KW_COUNT | KW_SUM | KW_AVG | KW_MIN | KW_MAX | KW_IN
 }
 
 // Keywords (reserved)
@@ -133,6 +138,7 @@ KW_SUM      = @{ ^"SUM" ~ !id_char }
 KW_AVG      = @{ ^"AVG" ~ !id_char }
 KW_MIN      = @{ ^"MIN" ~ !id_char }
 KW_MAX      = @{ ^"MAX" ~ !id_char }
+KW_IN       = @{ ^"IN" ~ !id_char }
 
 id_char = _{ ASCII_ALPHA | ASCII_DIGIT | "_" }
 

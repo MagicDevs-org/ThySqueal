@@ -1,17 +1,23 @@
 use crate::storage::{Row, Table, Value};
 use super::ast::{BinaryOp, ComparisonOp, Condition, Expression, LogicalOp};
 use super::error::{SqlError, SqlResult};
+use super::executor::Executor;
 
 #[allow(dead_code)]
-pub fn evaluate_condition(cond: &Condition, table: &Table, row: &Row) -> SqlResult<bool> {
-    evaluate_condition_joined(cond, &[(table, row)])
+pub fn evaluate_condition(executor: &Executor, cond: &Condition, table: &Table, row: &Row) -> SqlResult<bool> {
+    evaluate_condition_joined(executor, cond, &[(table, row)], &[])
 }
 
-pub fn evaluate_condition_joined(cond: &Condition, contexts: &[(&Table, &Row)]) -> SqlResult<bool> {
+pub fn evaluate_condition_joined(
+    executor: &Executor,
+    cond: &Condition,
+    contexts: &[(&Table, &Row)],
+    outer_contexts: &[(&Table, &Row)],
+) -> SqlResult<bool> {
     match cond {
         Condition::Comparison(left, op, right) => {
-            let left_val = evaluate_expression_joined(left, contexts)?;
-            let right_val = evaluate_expression_joined(right, contexts)?;
+            let left_val = evaluate_expression_joined(executor, left, contexts, outer_contexts)?;
+            let right_val = evaluate_expression_joined(executor, right, contexts, outer_contexts)?;
             
             match op {
                 ComparisonOp::Eq => Ok(left_val == right_val),
@@ -39,70 +45,91 @@ pub fn evaluate_condition_joined(cond: &Condition, contexts: &[(&Table, &Row)]) 
             }
         }
         Condition::IsNull(expr) => {
-            let val = evaluate_expression_joined(expr, contexts)?;
+            let val = evaluate_expression_joined(executor, expr, contexts, outer_contexts)?;
             Ok(matches!(val, Value::Null))
         }
         Condition::IsNotNull(expr) => {
-            let val = evaluate_expression_joined(expr, contexts)?;
+            let val = evaluate_expression_joined(executor, expr, contexts, outer_contexts)?;
             Ok(!matches!(val, Value::Null))
         }
+        Condition::InSubquery(expr, subquery) => {
+            let val = evaluate_expression_joined(executor, expr, contexts, outer_contexts)?;
+            // Correctly pass current contexts as outer_contexts to subquery
+            let mut combined_outer = outer_contexts.to_vec();
+            combined_outer.extend_from_slice(contexts);
+            
+            let result = futures::executor::block_on(executor.exec_select_internal((**subquery).clone(), &combined_outer))?;
+            for row in result.rows {
+                if !row.is_empty() && row[0] == val {
+                    return Ok(true);
+                }
+            }
+            Ok(false)
+        }
         Condition::Logical(left, op, right) => {
-            let l = evaluate_condition_joined(left, contexts)?;
+            let l = evaluate_condition_joined(executor, left, contexts, outer_contexts)?;
             match op {
                 LogicalOp::And => {
                     if !l { return Ok(false); }
-                    evaluate_condition_joined(right, contexts)
+                    evaluate_condition_joined(executor, right, contexts, outer_contexts)
                 }
                 LogicalOp::Or => {
                     if l { return Ok(true); }
-                    evaluate_condition_joined(right, contexts)
+                    evaluate_condition_joined(executor, right, contexts, outer_contexts)
                 }
             }
         }
         Condition::Not(cond) => {
-            Ok(!evaluate_condition_joined(cond, contexts)?)
+            Ok(!evaluate_condition_joined(executor, cond, contexts, outer_contexts)?)
         }
     }
 }
 
 #[allow(dead_code)]
-pub fn evaluate_expression(expr: &Expression, table: &Table, row: &Row) -> SqlResult<Value> {
-    evaluate_expression_joined(expr, &[(table, row)])
+pub fn evaluate_expression(executor: &Executor, expr: &Expression, table: &Table, row: &Row) -> SqlResult<Value> {
+    evaluate_expression_joined(executor, expr, &[(table, row)], &[])
 }
 
-pub fn evaluate_expression_joined(expr: &Expression, contexts: &[(&Table, &Row)]) -> SqlResult<Value> {
+pub fn evaluate_expression_joined(
+    executor: &Executor,
+    expr: &Expression,
+    contexts: &[(&Table, &Row)],
+    outer_contexts: &[(&Table, &Row)],
+) -> SqlResult<Value> {
     match expr {
         Expression::Literal(v) => Ok(v.clone()),
         Expression::Column(name) => {
-            // Handle qualified name table.column
-            if name.contains('.') {
-                let parts: Vec<&str> = name.split('.').collect();
-                if parts.len() == 2 {
-                    let table_name = parts[0];
-                    let col_name = parts[1];
-                    for (table, row) in contexts {
-                        if table.name == table_name {
-                            let idx = table.column_index(col_name)
-                                .ok_or_else(|| SqlError::ColumnNotFound(name.clone()))?;
-                            return row.values.get(idx).cloned()
-                                .ok_or_else(|| SqlError::Runtime(format!("Value not found for column index: {}", idx)));
-                        }
-                    }
-                }
+            // 1. Search in local contexts
+            if let Ok(val) = resolve_column(name, contexts) {
+                return Ok(val);
             }
-
-            // Unqualified name: find first table that has it
-            for (table, row) in contexts {
-                if let Some(idx) = table.column_index(name) {
-                    return row.values.get(idx).cloned()
-                        .ok_or_else(|| SqlError::Runtime(format!("Value not found for column index: {}", idx)));
-                }
+            // 2. Search in outer contexts (correlated subquery)
+            if let Ok(val) = resolve_column(name, outer_contexts) {
+                return Ok(val);
             }
+            
             Err(SqlError::ColumnNotFound(name.clone()))
         }
+        Expression::Subquery(subquery) => {
+            let mut combined_outer = outer_contexts.to_vec();
+            combined_outer.extend_from_slice(contexts);
+
+            let result = futures::executor::block_on(executor.exec_select_internal((**subquery).clone(), &combined_outer))?;
+            if result.rows.is_empty() {
+                Ok(Value::Null)
+            } else if result.rows.len() > 1 {
+                Err(SqlError::Runtime("Subquery returned more than one row".to_string()))
+            } else {
+                if result.rows[0].is_empty() {
+                    Ok(Value::Null)
+                } else {
+                    Ok(result.rows[0][0].clone())
+                }
+            }
+        }
         Expression::BinaryOp(left, op, right) => {
-            let l = evaluate_expression_joined(left, contexts)?;
-            let r = evaluate_expression_joined(right, contexts)?;
+            let l = evaluate_expression_joined(executor, left, contexts, outer_contexts)?;
+            let r = evaluate_expression_joined(executor, right, contexts, outer_contexts)?;
             
             match (l, r) {
                 (Value::Int(a), Value::Int(b)) => {
@@ -152,4 +179,30 @@ pub fn evaluate_expression_joined(expr: &Expression, contexts: &[(&Table, &Row)]
             Err(SqlError::Runtime("Star expression must be evaluated at the top level".to_string()))
         }
     }
+}
+
+fn resolve_column(name: &str, contexts: &[(&Table, &Row)]) -> SqlResult<Value> {
+    if name.contains('.') {
+        let parts: Vec<&str> = name.split('.').collect();
+        if parts.len() == 2 {
+            let table_name = parts[0];
+            let col_name = parts[1];
+            for (table, row) in contexts {
+                if table.name == table_name {
+                    if let Some(idx) = table.column_index(col_name) {
+                        return Ok(row.values.get(idx).cloned()
+                            .ok_or_else(|| SqlError::Runtime(format!("Value not found for column index: {}", idx)))?);
+                    }
+                }
+            }
+        }
+    } else {
+        for (table, row) in contexts {
+            if let Some(idx) = table.column_index(name) {
+                return Ok(row.values.get(idx).cloned()
+                    .ok_or_else(|| SqlError::Runtime(format!("Value not found for column index: {}", idx)))?);
+            }
+        }
+    }
+    Err(SqlError::ColumnNotFound(name.to_string()))
 }

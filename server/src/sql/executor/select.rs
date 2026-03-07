@@ -5,7 +5,7 @@ use super::super::eval::{evaluate_condition_joined, evaluate_expression_joined};
 use super::{QueryResult, Executor};
 
 impl Executor {
-    pub(crate) async fn exec_select(&self, stmt: SelectStmt) -> SqlResult<QueryResult> {
+    pub(crate) async fn exec_select_recursive(&self, stmt: SelectStmt, outer_contexts: &[(&Table, &Row)]) -> SqlResult<QueryResult> {
         let db = self.db.read().await;
         
         // 1. Get base table
@@ -34,7 +34,7 @@ impl Executor {
                         .chain(std::iter::once((join_table, new_row)))
                         .collect();
                     
-                    if evaluate_condition_joined(&join.on, &eval_ctx)? {
+                    if evaluate_condition_joined(self, &join.on, &eval_ctx, outer_contexts)? {
                         let mut next_ctx = existing_ctx.clone();
                         next_ctx.push((join_table, new_row.clone()));
                         next_joined_rows.push(next_ctx);
@@ -56,7 +56,7 @@ impl Executor {
         if let Some(ref where_cond) = stmt.where_clause {
             for ctx in joined_rows {
                 let eval_ctx: Vec<(&Table, &Row)> = ctx.iter().map(|(t, r)| (*t, r)).collect();
-                if evaluate_condition_joined(where_cond, &eval_ctx)? {
+                if evaluate_condition_joined(self, where_cond, &eval_ctx, outer_contexts)? {
                     matched_rows.push(ctx);
                 }
             }
@@ -68,7 +68,7 @@ impl Executor {
         let has_aggregates = stmt.columns.iter().any(|c| matches!(c.expr, ast::Expression::FunctionCall(_)));
         
         if has_aggregates || !stmt.group_by.is_empty() {
-             return self.exec_select_with_grouping_owned(stmt, matched_rows).await;
+             return self.exec_select_with_grouping_owned(stmt, matched_rows, outer_contexts).await;
         }
 
         // 5. Apply ORDER BY
@@ -79,11 +79,11 @@ impl Executor {
                 let eval_b: Vec<(&Table, &Row)> = b.iter().map(|(t, r)| (*t, r)).collect();
                 
                 for item in &stmt.order_by {
-                    let val_a = match evaluate_expression_joined(&item.expr, &eval_a) {
+                    let val_a = match evaluate_expression_joined(self, &item.expr, &eval_a, outer_contexts) {
                         Ok(v) => v,
                         Err(e) => { err = Some(e); return std::cmp::Ordering::Equal; }
                     };
-                    let val_b = match evaluate_expression_joined(&item.expr, &eval_b) {
+                    let val_b = match evaluate_expression_joined(self, &item.expr, &eval_b, outer_contexts) {
                         Ok(v) => v,
                         Err(e) => { err = Some(e); return std::cmp::Ordering::Equal; }
                     };
@@ -122,7 +122,7 @@ impl Executor {
                         }
                     }
                     _ => {
-                        row_values.push(evaluate_expression_joined(&col.expr, &eval_ctx)?);
+                        row_values.push(evaluate_expression_joined(self, &col.expr, &eval_ctx, outer_contexts)?);
                     }
                 }
             }
@@ -169,7 +169,7 @@ impl Executor {
         names
     }
 
-    async fn exec_select_with_grouping_owned(&self, stmt: SelectStmt, matched_rows: Vec<Vec<(&Table, Row)>>) -> SqlResult<QueryResult> {
+    async fn exec_select_with_grouping_owned(&self, stmt: SelectStmt, matched_rows: Vec<Vec<(&Table, Row)>>, outer_contexts: &[(&Table, &Row)]) -> SqlResult<QueryResult> {
         let mut result_rows = Vec::new();
         let db = self.db.read().await;
         let base_table = db.get_table(&stmt.table).unwrap();
@@ -184,11 +184,11 @@ impl Executor {
             for col in &stmt.columns {
                 match &col.expr {
                     ast::Expression::FunctionCall(fc) => {
-                        row_values.push(self.eval_aggregate_joined(fc, &eval_contexts)?);
+                        row_values.push(self.eval_aggregate_joined(fc, &eval_contexts, outer_contexts)?);
                     },
                     _ => {
                         if let Some(first_row_ctx) = eval_contexts.first() {
-                            row_values.push(evaluate_expression_joined(&col.expr, first_row_ctx)?);
+                            row_values.push(evaluate_expression_joined(self, &col.expr, first_row_ctx, outer_contexts)?);
                         } else {
                             row_values.push(Value::Null);
                         }
@@ -197,7 +197,7 @@ impl Executor {
             }
             
             let include_row = if let Some(ref having_cond) = stmt.having {
-                self.evaluate_having_joined(having_cond, &eval_contexts)?
+                self.evaluate_having_joined(having_cond, &eval_contexts, outer_contexts)?
             } else {
                 true
             };
@@ -212,7 +212,7 @@ impl Executor {
                 let eval_ctx: Vec<(&Table, &Row)> = ctx.iter().map(|(t, r)| (*t, r)).collect();
                 let mut group_key = Vec::new();
                 for gb_expr in &stmt.group_by {
-                    group_key.push(evaluate_expression_joined(gb_expr, &eval_ctx)?);
+                    group_key.push(evaluate_expression_joined(self, gb_expr, &eval_ctx, outer_contexts)?);
                 }
                 groups.entry(group_key).or_default().push(ctx);
             }
@@ -223,7 +223,7 @@ impl Executor {
                     .collect();
 
                 let include_group = if let Some(ref having_cond) = stmt.having {
-                    self.evaluate_having_joined(having_cond, &group_eval_contexts)?
+                    self.evaluate_having_joined(having_cond, &group_eval_contexts, outer_contexts)?
                 } else {
                     true
                 };
@@ -233,11 +233,11 @@ impl Executor {
                     for col in &stmt.columns {
                         match &col.expr {
                             ast::Expression::FunctionCall(fc) => {
-                                row_values.push(self.eval_aggregate_joined(fc, &group_eval_contexts)?);
+                                row_values.push(self.eval_aggregate_joined(fc, &group_eval_contexts, outer_contexts)?);
                             },
                             _ => {
                                 if let Some(first_ctx) = group_eval_contexts.first() {
-                                    row_values.push(evaluate_expression_joined(&col.expr, first_ctx)?);
+                                    row_values.push(evaluate_expression_joined(self, &col.expr, first_ctx, outer_contexts)?);
                                 } else {
                                     row_values.push(Value::Null);
                                 }
@@ -261,11 +261,11 @@ impl Executor {
         })
     }
 
-    fn evaluate_having_joined(&self, cond: &ast::Condition, contexts: &[Vec<(&Table, &Row)>]) -> SqlResult<bool> {
+    fn evaluate_having_joined(&self, cond: &ast::Condition, contexts: &[Vec<(&Table, &Row)>], outer_contexts: &[(&Table, &Row)]) -> SqlResult<bool> {
         match cond {
             ast::Condition::Comparison(left, op, right) => {
-                let left_val = self.evaluate_having_expression_joined(left, contexts)?;
-                let right_val = self.evaluate_having_expression_joined(right, contexts)?;
+                let left_val = self.evaluate_having_expression_joined(left, contexts, outer_contexts)?;
+                let right_val = self.evaluate_having_expression_joined(right, contexts, outer_contexts)?;
                 
                 match op {
                     ast::ComparisonOp::Eq => Ok(left_val == right_val),
@@ -282,33 +282,67 @@ impl Executor {
                 }
             },
             ast::Condition::Logical(left, op, right) => {
-                let l = self.evaluate_having_joined(left, contexts)?;
+                let l = self.evaluate_having_joined(left, contexts, outer_contexts)?;
                 match op {
-                    ast::LogicalOp::And => Ok(l && self.evaluate_having_joined(right, contexts)?),
-                    ast::LogicalOp::Or => Ok(l || self.evaluate_having_joined(right, contexts)?),
+                    ast::LogicalOp::And => Ok(l && self.evaluate_having_joined(right, contexts, outer_contexts)?),
+                    ast::LogicalOp::Or => Ok(l || self.evaluate_having_joined(right, contexts, outer_contexts)?),
                 }
             },
-            ast::Condition::Not(c) => Ok(!self.evaluate_having_joined(c, contexts)?),
-            ast::Condition::IsNull(e) => Ok(self.evaluate_having_expression_joined(e, contexts)? == Value::Null),
-            ast::Condition::IsNotNull(e) => Ok(self.evaluate_having_expression_joined(e, contexts)? != Value::Null),
-        }
-    }
-
-    fn evaluate_having_expression_joined(&self, expr: &ast::Expression, contexts: &[Vec<(&Table, &Row)>]) -> SqlResult<Value> {
-        match expr {
-            ast::Expression::FunctionCall(fc) => self.eval_aggregate_joined(fc, contexts),
-            ast::Expression::Literal(v) => Ok(v.clone()),
-            _ => {
+            ast::Condition::Not(c) => Ok(!self.evaluate_having_joined(c, contexts, outer_contexts)?),
+            ast::Condition::IsNull(e) => Ok(self.evaluate_having_expression_joined(e, contexts, outer_contexts)? == Value::Null),
+            ast::Condition::IsNotNull(e) => Ok(self.evaluate_having_expression_joined(e, contexts, outer_contexts)? != Value::Null),
+            ast::Condition::InSubquery(expr, subquery) => {
+                let val = self.evaluate_having_expression_joined(expr, contexts, outer_contexts)?;
+                let mut combined_outer = outer_contexts.to_vec();
+                // Pick first row of each group context as representative for outer scope if available
                 if let Some(first_ctx) = contexts.first() {
-                    evaluate_expression_joined(expr, first_ctx)
-                } else {
-                    Ok(Value::Null)
+                    combined_outer.extend_from_slice(first_ctx);
                 }
+                let result = futures::executor::block_on(self.exec_select_internal((**subquery).clone(), &combined_outer))?;
+                for row in result.rows {
+                    if !row.is_empty() && row[0] == val {
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
             }
         }
     }
 
-    fn eval_aggregate_joined(&self, fc: &ast::FunctionCall, contexts: &[Vec<(&Table, &Row)>]) -> SqlResult<Value> {
+    fn evaluate_having_expression_joined(&self, expr: &ast::Expression, contexts: &[Vec<(&Table, &Row)>], outer_contexts: &[(&Table, &Row)]) -> SqlResult<Value> {
+        match expr {
+            ast::Expression::FunctionCall(fc) => self.eval_aggregate_joined(fc, contexts, outer_contexts),
+            ast::Expression::Literal(v) => Ok(v.clone()),
+            ast::Expression::Subquery(subquery) => {
+                let mut combined_outer = outer_contexts.to_vec();
+                if let Some(first_ctx) = contexts.first() {
+                    combined_outer.extend_from_slice(first_ctx);
+                }
+                let result = futures::executor::block_on(self.exec_select_internal((**subquery).clone(), &combined_outer))?;
+                if result.rows.is_empty() {
+                    Ok(Value::Null)
+                } else if result.rows.len() > 1 {
+                    Err(SqlError::Runtime("Subquery returned more than one row".to_string()))
+                } else {
+                    if result.rows[0].is_empty() {
+                        Ok(Value::Null)
+                    } else {
+                        Ok(result.rows[0][0].clone())
+                    }
+                }
+            },
+            ast::Expression::Column(_) | ast::Expression::BinaryOp(_, _, _) => {
+                if let Some(first_ctx) = contexts.first() {
+                    evaluate_expression_joined(self, expr, first_ctx, outer_contexts)
+                } else {
+                    Ok(Value::Null)
+                }
+            },
+            ast::Expression::Star => Err(SqlError::Runtime("Star not allowed in HAVING".to_string())),
+        }
+    }
+
+    fn eval_aggregate_joined(&self, fc: &ast::FunctionCall, contexts: &[Vec<(&Table, &Row)>], outer_contexts: &[(&Table, &Row)]) -> SqlResult<Value> {
         match fc.name {
             ast::AggregateType::Count => {
                 if fc.args.len() == 1 && matches!(fc.args[0], ast::Expression::Star) {
@@ -316,7 +350,7 @@ impl Executor {
                 } else {
                     let mut count = 0;
                     for ctx in contexts {
-                        let val = evaluate_expression_joined(&fc.args[0], ctx)?;
+                        let val = evaluate_expression_joined(self, &fc.args[0], ctx, outer_contexts)?;
                         if val != Value::Null {
                             count += 1;
                         }
@@ -329,7 +363,7 @@ impl Executor {
                 let mut sum_i = 0;
                 let mut is_float = false;
                 for ctx in contexts {
-                    let val = evaluate_expression_joined(&fc.args[0], ctx)?;
+                    let val = evaluate_expression_joined(self, &fc.args[0], ctx, outer_contexts)?;
                     match val {
                         Value::Int(i) => { sum_i += i; sum_f += i as f64; },
                         Value::Float(f) => { sum_f += f; is_float = true; },
@@ -342,7 +376,7 @@ impl Executor {
             ast::AggregateType::Min => {
                 let mut min_val: Option<Value> = None;
                 for ctx in contexts {
-                    let val = evaluate_expression_joined(&fc.args[0], ctx)?;
+                    let val = evaluate_expression_joined(self, &fc.args[0], ctx, outer_contexts)?;
                     if val == Value::Null { continue; }
                     if min_val.is_none() || val < min_val.clone().unwrap() {
                         min_val = Some(val);
@@ -353,7 +387,7 @@ impl Executor {
             ast::AggregateType::Max => {
                 let mut max_val: Option<Value> = None;
                 for ctx in contexts {
-                    let val = evaluate_expression_joined(&fc.args[0], ctx)?;
+                    let val = evaluate_expression_joined(self, &fc.args[0], ctx, outer_contexts)?;
                     if val == Value::Null { continue; }
                     if max_val.is_none() || val > max_val.clone().unwrap() {
                         max_val = Some(val);
@@ -365,7 +399,7 @@ impl Executor {
                 let mut sum = 0.0;
                 let mut count = 0;
                 for ctx in contexts {
-                    let val = evaluate_expression_joined(&fc.args[0], ctx)?;
+                    let val = evaluate_expression_joined(self, &fc.args[0], ctx, outer_contexts)?;
                     match val {
                         Value::Int(i) => { sum += i as f64; count += 1; },
                         Value::Float(f) => { sum += f; count += 1; },
