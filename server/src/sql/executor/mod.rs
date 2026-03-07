@@ -1,5 +1,8 @@
+pub mod aggregate;
 pub mod ddl;
 pub mod dml;
+pub mod explain;
+pub mod search;
 pub mod select;
 #[cfg(test)]
 mod tests;
