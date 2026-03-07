@@ -1,17 +1,18 @@
 pub mod error;
-pub mod persistence;
-pub mod table;
 pub mod types;
 pub mod value;
+pub mod table;
+pub mod persistence;
+pub mod search;
 
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
 
 pub use error::StorageError;
-use persistence::Persister;
-pub use table::{Column, Row, Table};
 pub use types::DataType;
 pub use value::Value;
+pub use table::{Table, Column, Row};
+use persistence::Persister;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DatabaseState {
@@ -21,6 +22,7 @@ pub struct DatabaseState {
 pub struct Database {
     state: DatabaseState,
     persister: Option<Box<dyn Persister>>,
+    data_dir: Option<String>,
 }
 
 impl Database {
@@ -28,17 +30,26 @@ impl Database {
         Self {
             state: DatabaseState::default(),
             persister: None,
+            data_dir: None,
         }
     }
 
-    pub fn with_persister(persister: Box<dyn Persister>) -> Result<Self, StorageError> {
-        let tables = persister.load_tables().unwrap_or_default();
+    pub fn with_persister(persister: Box<dyn Persister>, data_dir: String) -> Result<Self, StorageError> {
+        let mut tables = persister.load_tables().unwrap_or_default();
+
+        // Initialize search indices for each table
+        for (name, table) in &mut tables {
+            let search_path = format!("{}/search_{}", data_dir, name);
+            table.setup_search_index(&search_path).map_err(|e| StorageError::PersistenceError(e.to_string()))?;
+        }
 
         Ok(Self {
             state: DatabaseState { tables },
             persister: Some(persister),
+            data_dir: Some(data_dir),
         })
     }
+
     pub fn save(&self) -> Result<(), StorageError> {
         if let Some(persister) = &self.persister {
             persister.save_tables(&self.state.tables)
@@ -51,15 +62,21 @@ impl Database {
         if self.state.tables.contains_key(&name) {
             return Err(StorageError::DuplicateKey(name));
         }
-        self.state
-            .tables
-            .insert(name.clone(), Table::new(name, columns));
+        
+        let mut table = Table::new(name.clone(), columns);
+        
+        // Initialize search index if data_dir is available
+        if let Some(ref data_dir) = self.data_dir {
+            let search_path = format!("{}/search_{}", data_dir, name);
+            table.setup_search_index(&search_path).map_err(|e| StorageError::PersistenceError(e.to_string()))?;
+        }
+
+        self.state.tables.insert(name, table);
         self.save()
     }
 
     pub fn drop_table(&mut self, name: &str) -> Result<(), StorageError> {
-        self.state
-            .tables
+        self.state.tables
             .remove(name)
             .map(|_| ())
             .ok_or_else(|| StorageError::TableNotFound(name.to_string()))?;
@@ -74,6 +91,7 @@ impl Database {
         self.state.tables.get_mut(name)
     }
 
+    #[allow(dead_code)]
     pub fn table_names(&self) -> Vec<&String> {
         self.state.tables.keys().collect()
     }

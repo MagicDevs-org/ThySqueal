@@ -28,6 +28,7 @@ pub fn parse(input: &str) -> SqlResult<SqlStmt> {
 
     match kind_pair.as_rule() {
         Rule::explain_stmt => parse_explain(kind_pair),
+        Rule::search_stmt => parse_search(kind_pair),
         Rule::select_stmt => select::parse_select(kind_pair),
         Rule::insert_stmt => dml::parse_insert(kind_pair),
         Rule::create_table_stmt => ddl::parse_create_table(kind_pair),
@@ -41,7 +42,7 @@ pub fn parse(input: &str) -> SqlResult<SqlStmt> {
 
 fn parse_explain(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
     let mut inner = pair.into_inner();
-    // Skip KW_EXPLAIN (the first child pair is the keyword)
+    // Skip KW_EXPLAIN
     let _ = inner.next();
     let select_pair = inner.next().ok_or_else(|| SqlError::Parse("Expected SELECT statement after EXPLAIN".to_string()))?;
     let select_stmt = select::parse_select(select_pair)?;
@@ -50,6 +51,21 @@ fn parse_explain(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
     } else {
         Err(SqlError::Parse("Expected SELECT statement after EXPLAIN".to_string()))
     }
+}
+
+fn parse_search(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
+    let mut inner = pair.into_inner();
+    // Skip KW_SEARCH
+    let _ = inner.next();
+    let table = inner
+        .find(|p| p.as_rule() == Rule::table_name)
+        .map(|p| p.as_str().trim().to_string())
+        .ok_or_else(|| SqlError::Parse("Missing search table name".to_string()))?;
+    let query_literal = inner.next().ok_or_else(|| SqlError::Parse("Missing search query".to_string()))?;
+    let query_val = expr::parse_literal(query_literal)?;
+    let query_str = query_val.as_text().ok_or_else(|| SqlError::Parse("Search query must be a string".to_string()))?.to_string();
+
+    Ok(SqlStmt::Search(super::ast::SearchStmt { table, query: query_str }))
 }
 
 // Internal re-exports for the parser submodules

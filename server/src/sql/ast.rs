@@ -11,6 +11,13 @@ pub enum SqlStmt {
     Update(UpdateStmt),
     Delete(DeleteStmt),
     Explain(SelectStmt),
+    Search(SearchStmt),
+}
+
+#[derive(Debug, Clone)]
+pub struct SearchStmt {
+    pub table: String,
+    pub query: String,
 }
 
 #[derive(Debug, Clone)]
