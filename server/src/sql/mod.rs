@@ -1,10 +1,12 @@
 mod ast;
 mod parser;
+mod eval;
 
 use crate::storage::Database;
 use crate::storage::Value;
 use ast::SqlStmt;
 use parser::parse;
+use eval::evaluate_condition;
 
 #[derive(Debug)]
 pub struct QueryResult {
@@ -36,8 +38,8 @@ impl Executor {
             SqlStmt::DropTable(dt) => self.exec_drop_table(dt).await,
             SqlStmt::Select(s) => self.exec_select(s).await,
             SqlStmt::Insert(i) => self.exec_insert(i).await,
-            SqlStmt::Update(_) => Err("UPDATE is not implemented yet".to_string()),
-            SqlStmt::Delete(_) => Err("DELETE is not implemented yet".to_string()),
+            SqlStmt::Update(u) => self.exec_update(u).await,
+            SqlStmt::Delete(d) => self.exec_delete(d).await,
         }
     }
 
@@ -63,6 +65,73 @@ impl Executor {
         })
     }
 
+    async fn exec_update(&self, stmt: ast::UpdateStmt) -> Result<QueryResult, String> {
+        let mut db = self.db.write().await;
+        let table = db
+            .get_table_mut(&stmt.table)
+            .ok_or_else(|| format!("Table not found: {}", stmt.table))?;
+
+        let mut rows_affected = 0;
+        let table_cloned = table.clone();
+
+        for row in table.rows.iter_mut() {
+            let matches = if let Some(ref cond) = stmt.where_clause {
+                evaluate_condition(cond, &table_cloned, row)?
+            } else {
+                true
+            };
+
+            if matches {
+                for (col_name, expr) in &stmt.assignments {
+                    let col_idx = table_cloned
+                        .column_index(col_name)
+                        .ok_or_else(|| format!("Column not found: {}", col_name))?;
+                    let new_val = eval::evaluate_expression(expr, &table_cloned, row)?;
+                    row.values[col_idx] = new_val;
+                }
+                rows_affected += 1;
+            }
+        }
+
+        Ok(QueryResult {
+            columns: vec![],
+            rows: vec![],
+            rows_affected,
+        })
+    }
+
+    async fn exec_delete(&self, stmt: ast::DeleteStmt) -> Result<QueryResult, String> {
+        let mut db = self.db.write().await;
+        let table = db
+            .get_table_mut(&stmt.table)
+            .ok_or_else(|| format!("Table not found: {}", stmt.table))?;
+
+        let mut rows_affected = 0;
+        let table_cloned = table.clone();
+
+        let mut i = 0;
+        while i < table.rows.len() {
+            let matches = if let Some(ref cond) = stmt.where_clause {
+                evaluate_condition(cond, &table_cloned, &table.rows[i])?
+            } else {
+                true
+            };
+
+            if matches {
+                table.rows.remove(i);
+                rows_affected += 1;
+            } else {
+                i += 1;
+            }
+        }
+
+        Ok(QueryResult {
+            columns: vec![],
+            rows: vec![],
+            rows_affected,
+        })
+    }
+
     async fn exec_select(&self, stmt: ast::SelectStmt) -> Result<QueryResult, String> {
         let db = self.db.read().await;
         let table = db
@@ -75,20 +144,30 @@ impl Executor {
             stmt.columns.clone()
         };
 
-        let rows: Vec<Vec<Value>> = table.rows.iter().map(|row| {
-            if stmt.columns.iter().any(|c| c == "*") {
-                row.values.clone()
+        let mut rows = Vec::new();
+        for row in &table.rows {
+            let matches = if let Some(ref cond) = stmt.where_clause {
+                evaluate_condition(cond, table, row)?
             } else {
-                stmt.columns
-                    .iter()
-                    .filter_map(|col| {
-                        table
-                            .column_index(col)
-                            .and_then(|idx| row.values.get(idx).cloned())
-                    })
-                    .collect()
+                true
+            };
+
+            if matches {
+                let values = if stmt.columns.iter().any(|c| c == "*") {
+                    row.values.clone()
+                } else {
+                    stmt.columns
+                        .iter()
+                        .filter_map(|col| {
+                            table
+                                .column_index(col)
+                                .and_then(|idx| row.values.get(idx).cloned())
+                        })
+                        .collect()
+                };
+                rows.push(values);
             }
-        }).collect();
+        }
 
         Ok(QueryResult {
             columns: result_columns,
@@ -149,6 +228,62 @@ mod tests {
         let r = exec.execute("SELECT a, c FROM t").await.unwrap();
         assert_eq!(r.columns, vec!["a", "c"]);
         assert_eq!(r.rows.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_select_where() {
+        let exec = Executor::new();
+        exec.execute("CREATE TABLE users (id INT, name TEXT)")
+            .await
+            .unwrap();
+        exec.execute("INSERT INTO users (id, name) VALUES (1, 'alice')")
+            .await
+            .unwrap();
+        exec.execute("INSERT INTO users (id, name) VALUES (2, 'bob')")
+            .await
+            .unwrap();
+        exec.execute("INSERT INTO users (id, name) VALUES (3, 'charlie')")
+            .await
+            .unwrap();
+
+        let r = exec.execute("SELECT * FROM users WHERE id = 2").await.unwrap();
+        assert_eq!(r.rows.len(), 1);
+        assert_eq!(r.rows[0][1].as_text(), Some("bob"));
+
+        let r = exec.execute("SELECT name FROM users WHERE id > 1").await.unwrap();
+        assert_eq!(r.rows.len(), 2);
+
+        let r = exec.execute("SELECT * FROM users WHERE name = 'alice'").await.unwrap();
+        assert_eq!(r.rows.len(), 1);
+        assert_eq!(r.rows[0][0].as_int(), Some(1));
+    }
+
+    #[tokio::test]
+    async fn test_update() {
+        let exec = Executor::new();
+        exec.execute("CREATE TABLE t (id INT, v TEXT)").await.unwrap();
+        exec.execute("INSERT INTO t (id, v) VALUES (1, 'old')").await.unwrap();
+        
+        let r = exec.execute("UPDATE t SET v = 'new' WHERE id = 1").await.unwrap();
+        assert_eq!(r.rows_affected, 1);
+        
+        let r = exec.execute("SELECT v FROM t WHERE id = 1").await.unwrap();
+        assert_eq!(r.rows[0][0].as_text(), Some("new"));
+    }
+
+    #[tokio::test]
+    async fn test_delete() {
+        let exec = Executor::new();
+        exec.execute("CREATE TABLE t (id INT)").await.unwrap();
+        exec.execute("INSERT INTO t (id) VALUES (1)").await.unwrap();
+        exec.execute("INSERT INTO t (id) VALUES (2)").await.unwrap();
+        
+        let r = exec.execute("DELETE FROM t WHERE id = 1").await.unwrap();
+        assert_eq!(r.rows_affected, 1);
+        
+        let r = exec.execute("SELECT * FROM t").await.unwrap();
+        assert_eq!(r.rows.len(), 1);
+        assert_eq!(r.rows[0][0].as_int(), Some(2));
     }
 
     #[tokio::test]

@@ -12,15 +12,57 @@ pub enum SqlStmt {
 }
 
 #[derive(Debug, Clone)]
+pub enum Expression {
+    Literal(Value),
+    Column(String),
+    BinaryOp(Box<Expression>, BinaryOp, Box<Expression>),
+}
+
+#[derive(Debug, Clone)]
+pub enum BinaryOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+}
+
+#[derive(Debug, Clone)]
+pub enum Condition {
+    Comparison(Expression, ComparisonOp, Expression),
+    IsNull(Expression),
+    IsNotNull(Expression),
+    Logical(Box<Condition>, LogicalOp, Box<Condition>),
+    Not(Box<Condition>),
+}
+
+#[derive(Debug, Clone)]
+pub enum ComparisonOp {
+    Eq,
+    NotEq,
+    Lt,
+    Gt,
+    LtEq,
+    GtEq,
+    Like,
+}
+
+#[derive(Debug, Clone)]
+pub enum LogicalOp {
+    And,
+    Or,
+}
+
+#[derive(Debug, Clone)]
 pub struct UpdateStmt {
     pub table: String,
-    // set_list, where_clause - not yet implemented
+    pub assignments: Vec<(String, Expression)>,
+    pub where_clause: Option<Condition>,
 }
 
 #[derive(Debug, Clone)]
 pub struct DeleteStmt {
     pub table: String,
-    // where_clause - not yet implemented
+    pub where_clause: Option<Condition>,
 }
 
 #[derive(Debug, Clone)]
@@ -38,6 +80,7 @@ pub struct DropTableStmt {
 pub struct SelectStmt {
     pub columns: Vec<String>,
     pub table: String,
+    pub where_clause: Option<Condition>,
 }
 
 #[derive(Debug, Clone)]

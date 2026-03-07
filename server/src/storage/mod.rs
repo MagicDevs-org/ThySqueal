@@ -47,7 +47,7 @@ impl DataType {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Value {
     Null,
     Int(i64),
@@ -58,6 +58,24 @@ pub enum Value {
     Text(String),
     Blob(Vec<u8>),
     Json(serde_json::Value),
+}
+
+impl PartialOrd for Value {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match (self, other) {
+            (Value::Null, Value::Null) => Some(std::cmp::Ordering::Equal),
+            (Value::Int(a), Value::Int(b)) => a.partial_cmp(b),
+            (Value::Int(a), Value::Float(b)) => (*a as f64).partial_cmp(b),
+            (Value::Float(a), Value::Int(b)) => a.partial_cmp(&(*b as f64)),
+            (Value::Float(a), Value::Float(b)) => a.partial_cmp(b),
+            (Value::Bool(a), Value::Bool(b)) => a.partial_cmp(b),
+            (Value::Text(a), Value::Text(b)) => a.partial_cmp(b),
+            (Value::Date(a), Value::Date(b)) => a.partial_cmp(b),
+            (Value::DateTime(a), Value::DateTime(b)) => a.partial_cmp(b),
+            // Otherwise, they are not comparable or one is Null
+            _ => None,
+        }
+    }
 }
 
 impl Value {
