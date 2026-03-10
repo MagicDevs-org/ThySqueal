@@ -55,7 +55,7 @@
 - [x] **Constraints**: Proper `PRIMARY KEY` and `FOREIGN KEY` (Referential Integrity)
 - [x] **AUTO_INCREMENT / SERIAL**: Automated ID generation for integer columns
 - [x] **Standard SQL Functions**: `CONCAT`, `SUBSTRING`, `COALESCE`, `NOW()`, `DATE_FORMAT`, `CAST(x AS type)`
-- [ ] **CTEs (WITH clause)**: Common Table Expressions for complex query readability
+- [x] **CTEs (WITH clause)**: Common Table Expressions for complex query readability
 - [ ] **Information Schema Expansion**: `statistics`, `key_column_usage`, `schemata` tables
 - [ ] Secondary Index optimization (using index only if selective)
 - [ ] Materialized Views

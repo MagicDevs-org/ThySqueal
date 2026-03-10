@@ -18,8 +18,11 @@ deallocate_stmt = { (KW_DEALLOCATE ~ KW_PREPARE? ~ identifier) | (KW_DROP ~ KW_P
 expression_list = { expression ~ ("," ~ expression)* }
 
 // SELECT statement
-select_stmt = { select_stmt_inner }
+select_stmt = { with_clause? ~ select_stmt_inner }
 select_stmt_inner = { KW_SELECT ~ distinct? ~ select_columns ~ (KW_FROM ~ table_name_with_alias ~ join_clause* ~ where_clause? ~ group_by_clause? ~ having_clause? ~ order_by_clause? ~ limit_clause?)? }
+
+with_clause = { KW_WITH ~ cte_definition ~ ("," ~ cte_definition)* }
+cte_definition = { identifier ~ KW_AS ~ "(" ~ select_stmt_inner ~ ")" }
 
 table_name_with_alias = { table_name ~ alias? }
 
@@ -147,7 +150,7 @@ keyword = {
     KW_DISTINCT | KW_AS | KW_AND | KW_OR | KW_NOT | KW_NULL | KW_IS | KW_TRUE | KW_FALSE |
     KW_COUNT | KW_SUM | KW_AVG | KW_MIN | KW_MAX | KW_IN | KW_BEGIN | KW_COMMIT | KW_ROLLBACK | KW_START | KW_TRANSACTION |
     KW_PREPARE | KW_EXECUTE | KW_DEALLOCATE | KW_USING | KW_AUTO_INCREMENT | KW_PRIMARY | KW_KEY |
-    KW_ALTER | KW_ADD | KW_COLUMN | KW_RENAME | KW_TO | KW_FOREIGN | KW_REFERENCES
+    KW_ALTER | KW_ADD | KW_COLUMN | KW_RENAME | KW_TO | KW_FOREIGN | KW_REFERENCES | KW_WITH
 }
 
 // Keywords (reserved)
@@ -212,6 +215,7 @@ KW_ADD      = @{ ^"ADD" ~ !id_char }
 KW_COLUMN   = @{ ^"COLUMN" ~ !id_char }
 KW_RENAME   = @{ ^"RENAME" ~ !id_char }
 KW_TO       = @{ ^"TO" ~ !id_char }
+KW_WITH     = @{ ^"WITH" ~ !id_char }
 
 id_char = _{ ASCII_ALPHA | ASCII_DIGIT | "_" }
 

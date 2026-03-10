@@ -236,3 +236,30 @@ async fn test_constraints() {
         .unwrap_err(); // Fails
     assert!(err.to_string().contains("Foreign key constraint violation"));
 }
+
+#[tokio::test]
+async fn test_ctes() {
+    let db = Database::new();
+    let executor = Arc::new(Executor::new(db));
+
+    let sql = "WITH t AS (SELECT 1 AS val) SELECT * FROM t";
+    let result = executor.execute(sql, vec![], None).await.unwrap();
+    assert_eq!(result.rows.len(), 1);
+    assert_eq!(result.rows[0][0], Value::Int(1));
+    assert_eq!(result.columns[0], "val");
+
+    // Multiple CTEs and JOIN
+    executor
+        .execute("CREATE TABLE users (id INT, name TEXT)", vec![], None)
+        .await
+        .unwrap();
+    executor
+        .execute("INSERT INTO users VALUES (1, 'Alice')", vec![], None)
+        .await
+        .unwrap();
+
+    let sql = "WITH a AS (SELECT * FROM users), b AS (SELECT 2 AS id) SELECT a.name FROM a JOIN b ON a.id = b.id - 1";
+    let result = executor.execute(sql, vec![], None).await.unwrap();
+    assert_eq!(result.rows.len(), 1);
+    assert_eq!(result.rows[0][0], Value::Text("Alice".to_string()));
+}

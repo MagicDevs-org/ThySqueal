@@ -86,6 +86,21 @@ EXECUTE inst USING 2, 'Bob';
 DEALLOCATE PREPARE inst;
 ```
 
+### Common Table Expressions (CTEs)
+thy-squeal supports non-recursive CTEs using the `WITH` clause:
+
+- `WITH name AS (subquery) [, ...] SELECT ...`
+
+**Example:**
+```sql
+WITH regional_sales AS (
+    SELECT region, SUM(amount) AS total
+    FROM orders
+    GROUP BY region
+)
+SELECT * FROM regional_sales WHERE total > 1000;
+```
+
 ### Parameterized Queries
 thy-squeal supports parameterized queries to prevent SQL injection and improve performance:
 

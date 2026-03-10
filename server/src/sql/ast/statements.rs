@@ -116,6 +116,7 @@ pub struct DropTableStmt {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SelectStmt {
+    pub with_clause: Option<WithClause>,
     pub columns: Vec<SelectColumn>,
     pub table: String,
     pub table_alias: Option<String>,
@@ -130,6 +131,11 @@ pub struct SelectStmt {
 
 impl SelectStmt {
     pub fn resolve_placeholders(&mut self, counter: &mut usize) {
+        if let Some(with) = &mut self.with_clause {
+            for cte in &mut with.ctes {
+                cte.query.resolve_placeholders(counter);
+            }
+        }
         for col in &mut self.columns {
             col.expr.resolve_placeholders(counter);
         }
@@ -149,6 +155,17 @@ impl SelectStmt {
             item.expr.resolve_placeholders(counter);
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WithClause {
+    pub ctes: Vec<Cte>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Cte {
+    pub name: String,
+    pub query: SelectStmt,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

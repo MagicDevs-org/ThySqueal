@@ -5,8 +5,10 @@ use super::super::Executor;
 use super::super::QueryResult;
 use super::super::select::JoinedContext;
 use crate::storage::{DatabaseState, Row, Table, Value};
+use std::collections::HashMap;
 
 impl Executor {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) async fn exec_select_with_grouping_owned(
         &self,
         stmt: SelectStmt,
@@ -15,13 +17,18 @@ impl Executor {
         params: &[Value],
         db_state: &DatabaseState,
         tx_id: Option<&str>,
+        cte_tables: &HashMap<String, Table>,
     ) -> SqlResult<QueryResult> {
-        let base_table = if stmt.table.starts_with("information_schema.") {
+        let base_table = if let Some(t) = cte_tables.get(&stmt.table) {
+            t
+        } else if stmt.table.starts_with("information_schema.") {
             return Err(SqlError::Runtime(
                 "GROUP BY with information_schema is not yet supported".to_string(),
             ));
         } else {
-            db_state.get_table(&stmt.table).unwrap()
+            db_state
+                .get_table(&stmt.table)
+                .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?
         };
 
         let mut result_rows = Vec::new();
@@ -160,7 +167,13 @@ impl Executor {
         }
 
         Ok(QueryResult {
-            columns: self.get_result_column_names(&stmt, base_table, &stmt.joins, db_state),
+            columns: self.get_result_column_names(
+                &stmt,
+                base_table,
+                &stmt.joins,
+                db_state,
+                cte_tables,
+            ),
             rows: result_rows,
             rows_affected: 0,
             transaction_id: tx_id.map(|s| s.to_string()),

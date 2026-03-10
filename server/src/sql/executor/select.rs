@@ -6,6 +6,7 @@ use crate::storage::info_schema::get_info_schema_tables;
 use crate::storage::{DatabaseState, Row, Table, Value};
 use futures::FutureExt;
 use futures::future::BoxFuture;
+use std::collections::HashMap;
 
 pub type JoinedContext<'a> = Vec<(&'a Table, Option<String>, Row)>;
 
@@ -19,6 +20,41 @@ impl Executor {
         tx_id: Option<&'a str>,
     ) -> BoxFuture<'a, SqlResult<QueryResult>> {
         async move {
+            // 0. Resolve CTEs
+            let mut cte_tables = HashMap::new();
+            if let Some(with) = &stmt.with_clause {
+                for cte in &with.ctes {
+                    let res = self
+                        .exec_select_recursive(
+                            cte.query.clone(),
+                            outer_contexts,
+                            params,
+                            db_state,
+                            tx_id,
+                        )
+                        .await?;
+                    let mut cols = Vec::new();
+                    for name in &res.columns {
+                        cols.push(crate::storage::Column {
+                            name: name.clone(),
+                            data_type: crate::storage::DataType::Text, // Default for CTE results
+                            is_auto_increment: false,
+                        });
+                    }
+                    let mut table = Table::new(cte.name.clone(), cols, None, vec![]);
+                    table.rows = res
+                        .rows
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, values)| Row {
+                            id: format!("cte_{}_{}", cte.name, i),
+                            values,
+                        })
+                        .collect();
+                    cte_tables.insert(cte.name.clone(), table);
+                }
+            }
+
             // 1. Resolve base table and initial rows
             let info_schema_storage;
             let dual_table_storage;
@@ -30,6 +66,8 @@ impl Executor {
                     values: vec![],
                 }];
                 (&dual_table_storage, rows)
+            } else if let Some(t) = cte_tables.get(&stmt.table) {
+                (t, t.rows.clone())
             } else if stmt.table.starts_with("information_schema.") {
                 let table_name = stmt.table.strip_prefix("information_schema.").unwrap();
                 info_schema_storage = get_info_schema_tables(db_state);
@@ -64,7 +102,7 @@ impl Executor {
                                             .collect(),
                                     );
                                 } else {
-                                    result_rows = Some(vec![]); // Value not in index
+                                    result_rows = Some(vec![]);
                                 }
                                 break;
                             }
@@ -87,7 +125,9 @@ impl Executor {
 
             // 3. Process JOINS
             for join in &stmt.joins {
-                let join_table = if join.table.starts_with("information_schema.") {
+                let join_table = if let Some(t) = cte_tables.get(&join.table) {
+                    t
+                } else if join.table.starts_with("information_schema.") {
                     return Err(SqlError::Runtime(
                         "JOIN with information_schema is not yet supported".to_string(),
                     ));
@@ -174,6 +214,7 @@ impl Executor {
                         params,
                         db_state,
                         tx_id,
+                        &cte_tables,
                     )
                     .await;
             }
@@ -248,7 +289,7 @@ impl Executor {
 
             // 8. Project Columns
             let result_columns: Vec<String> =
-                self.get_result_column_names(&stmt, base_table, &stmt.joins, db_state);
+                self.get_result_column_names(&stmt, base_table, &stmt.joins, db_state, &cte_tables);
 
             let mut projected_rows = Vec::new();
             for ctx in final_rows {
@@ -298,6 +339,7 @@ impl Executor {
         base_table: &Table,
         joins: &[ast::Join],
         db_state: &DatabaseState,
+        cte_tables: &HashMap<String, Table>,
     ) -> Vec<String> {
         let mut names = Vec::new();
         for col in &stmt.columns {
@@ -310,7 +352,13 @@ impl Executor {
                 ast::Expression::Star => {
                     names.extend(base_table.columns.iter().map(|c| c.name.clone()));
                     for join in joins {
-                        if let Some(t) = db_state.get_table(&join.table) {
+                        let join_table = if let Some(t) = cte_tables.get(&join.table) {
+                            Some(t)
+                        } else {
+                            db_state.get_table(&join.table)
+                        };
+
+                        if let Some(t) = join_table {
                             names.extend(t.columns.iter().map(|c| c.name.clone()));
                         }
                     }

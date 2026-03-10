@@ -3,7 +3,7 @@ pub mod columns;
 pub mod joins;
 
 use super::super::ast::{SelectStmt, SqlStmt};
-use super::super::error::SqlResult;
+use super::super::error::{SqlError, SqlResult};
 use super::super::parser::Rule;
 use super::expr::parse_condition;
 pub use clauses::*;
@@ -11,10 +11,42 @@ pub use columns::*;
 pub use joins::*;
 
 pub fn parse_select(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
-    let mut inner = if pair.as_rule() == Rule::select_stmt {
-        pair.into_inner().next().unwrap().into_inner()
-    } else {
+    let mut inner = pair.into_inner();
+    let mut with_clause = None;
+
+    let mut first = inner.next().unwrap();
+    if first.as_rule() == Rule::with_clause {
+        let mut ctes = Vec::new();
+        for cte_pair in first.into_inner() {
+            if cte_pair.as_rule() == Rule::cte_definition {
+                let mut cte_inner = cte_pair.into_inner();
+                let name = cte_inner.next().unwrap().as_str().trim().to_string();
+                // Skip KW_AS
+                let _ = cte_inner.next();
+                let query_pair = cte_inner.next().unwrap();
+                let query = parse_select_inner(query_pair)?;
+                ctes.push(crate::sql::ast::Cte { name, query });
+            }
+        }
+        with_clause = Some(crate::sql::ast::WithClause { ctes });
+        first = inner
+            .next()
+            .ok_or_else(|| SqlError::Parse("Missing SELECT after WITH".to_string()))?;
+    }
+
+    let mut stmt = parse_select_inner(first)?;
+    stmt.with_clause = with_clause;
+    Ok(SqlStmt::Select(stmt))
+}
+
+pub fn parse_select_inner(pair: pest::iterators::Pair<Rule>) -> SqlResult<SelectStmt> {
+    let mut inner = if pair.as_rule() == Rule::select_stmt_inner {
         pair.into_inner()
+    } else {
+        return Err(SqlError::Parse(format!(
+            "Expected select_stmt_inner, got {:?}",
+            pair.as_rule()
+        )));
     };
 
     // Skip KW_SELECT
@@ -54,7 +86,8 @@ pub fn parse_select(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
         }
     }
 
-    Ok(SqlStmt::Select(SelectStmt {
+    Ok(SelectStmt {
+        with_clause: None,
         columns,
         table,
         table_alias,
@@ -65,5 +98,5 @@ pub fn parse_select(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
         having,
         order_by,
         limit,
-    }))
+    })
 }
