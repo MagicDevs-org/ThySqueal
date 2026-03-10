@@ -26,5 +26,5 @@ pub enum SqlError {
     PermissionDenied(String),
 
     #[error("Internal storage error: {0}")]
-    Storage(String),
+    Storage(#[from] crate::storage::error::StorageError),
 }

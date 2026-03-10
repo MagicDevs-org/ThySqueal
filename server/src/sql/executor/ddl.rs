@@ -26,14 +26,18 @@ impl Executor {
                 columns: columns.clone(),
                 primary_key: primary_key.clone(),
                 foreign_keys: foreign_keys.clone(),
-            })
-            .map_err(|e| SqlError::Storage(e.to_string()))?;
+            })?;
         }
 
         // 2. Mutate state
         self.mutate_state(tx_id, |state| {
             if state.tables.contains_key(&name) {
-                return Err(SqlError::Storage(format!("Table {} already exists", name)));
+                return Err(SqlError::Storage(
+                    crate::storage::error::StorageError::PersistenceError(format!(
+                        "Table {} already exists",
+                        name
+                    )),
+                ));
             }
 
             let mut table = Table::new(
@@ -55,17 +59,15 @@ impl Executor {
                     .map(|c| crate::sql::ast::Expression::Column(c.clone()))
                     .collect();
 
-                table
-                    .create_index(
-                        self,
-                        format!("pk_{}", name),
-                        pk_exprs,
-                        true,  // unique
-                        false, // btree
-                        None,  // no where clause
-                        state,
-                    )
-                    .map_err(|e| SqlError::Storage(e.to_string()))?;
+                table.create_index(
+                    self,
+                    format!("pk_{}", name),
+                    pk_exprs,
+                    true,  // unique
+                    false, // btree
+                    None,  // no where clause
+                    state,
+                )?;
             }
 
             state.tables.insert(name, table);
@@ -88,15 +90,16 @@ impl Executor {
     ) -> SqlResult<QueryResult> {
         self.mutate_state(tx_id, |state| {
             if state.tables.contains_key(&stmt.name) {
-                return Err(SqlError::Storage(format!(
-                    "Table {} already exists",
-                    stmt.name
-                )));
+                return Err(SqlError::Storage(
+                    crate::storage::error::StorageError::PersistenceError(format!(
+                        "Table {} already exists",
+                        stmt.name
+                    )),
+                ));
             }
 
             let plan = SelectQueryPlan::new(stmt.query.clone(), state, Session::root());
-            let res = futures::executor::block_on(self.exec_select_recursive(plan))
-                .map_err(|e: SqlError| SqlError::Storage(e.to_string()))?;
+            let res = futures::executor::block_on(self.exec_select_recursive(plan))?;
 
             let mut cols = Vec::new();
             for col_name in &res.columns {
@@ -145,8 +148,7 @@ impl Executor {
             db.log_operation(&WalRecord::DropTable {
                 tx_id: tx_id.map(|s| s.to_string()),
                 name: stmt.name.clone(),
-            })
-            .map_err(|e| SqlError::Storage(e.to_string()))?;
+            })?;
         }
 
         // 2. Mutate state
@@ -187,8 +189,7 @@ impl Executor {
                 unique: stmt.unique,
                 use_hash: matches!(stmt.index_type, IndexType::Hash),
                 where_clause: stmt.where_clause.clone(),
-            })
-            .map_err(|e| SqlError::Storage(e.to_string()))?;
+            })?;
         }
 
         // 2. Mutate state
@@ -198,17 +199,15 @@ impl Executor {
                 .get_table_mut(&table_name)
                 .ok_or_else(|| SqlError::TableNotFound(table_name.clone()))?;
 
-            table
-                .create_index(
-                    self,
-                    index_name,
-                    stmt.expressions,
-                    stmt.unique,
-                    matches!(stmt.index_type, IndexType::Hash),
-                    stmt.where_clause,
-                    &db_state_copy,
-                )
-                .map_err(|e| SqlError::Storage(e.to_string()))?;
+            table.create_index(
+                self,
+                index_name,
+                stmt.expressions,
+                stmt.unique,
+                matches!(stmt.index_type, IndexType::Hash),
+                stmt.where_clause,
+                &db_state_copy,
+            )?;
             Ok(())
         })
         .await?;
@@ -233,8 +232,7 @@ impl Executor {
                 tx_id: tx_id.map(|s| s.to_string()),
                 table: stmt.table.clone(),
                 action: stmt.action.clone(),
-            })
-            .map_err(|e| SqlError::Storage(e.to_string()))?;
+            })?;
         }
 
         // 2. Mutate state
@@ -244,25 +242,19 @@ impl Executor {
                     let table = state
                         .get_table_mut(&stmt.table)
                         .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
-                    table
-                        .add_column(col)
-                        .map_err(|e| SqlError::Storage(e.to_string()))?;
+                    table.add_column(col)?;
                 }
                 AlterAction::DropColumn(col_name) => {
                     let table = state
                         .get_table_mut(&stmt.table)
                         .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
-                    table
-                        .drop_column(&col_name)
-                        .map_err(|e| SqlError::Storage(e.to_string()))?;
+                    table.drop_column(&col_name)?;
                 }
                 AlterAction::RenameColumn { old_name, new_name } => {
                     let table = state
                         .get_table_mut(&stmt.table)
                         .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
-                    table
-                        .rename_column(&old_name, &new_name)
-                        .map_err(|e| SqlError::Storage(e.to_string()))?;
+                    table.rename_column(&old_name, &new_name)?;
                 }
                 AlterAction::RenameTable(new_name) => {
                     let table = state

@@ -1,6 +1,7 @@
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Clone, Serialize, Deserialize)]
 pub enum StorageError {
     #[error("Table not found: {0}")]
     TableNotFound(String),

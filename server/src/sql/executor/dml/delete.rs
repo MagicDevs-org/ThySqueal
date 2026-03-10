@@ -55,8 +55,7 @@ impl Executor {
                     tx_id: tx_id.map(|s| s.to_string()),
                     table: table_name.clone(),
                     id: id.clone(),
-                })
-                .map_err(|e| SqlError::Storage(e.to_string()))?;
+                })?;
             }
 
             self.mutate_state(tx_id, |state| {
@@ -64,9 +63,7 @@ impl Executor {
                 let table = state
                     .get_table_mut(&table_name)
                     .ok_or_else(|| SqlError::TableNotFound(table_name.clone()))?;
-                table
-                    .delete(self as &dyn Evaluator, &id, &db_state_copy)
-                    .map_err(|e| SqlError::Storage(e.to_string()))?;
+                table.delete(self as &dyn Evaluator, &id, &db_state_copy)?;
 
                 self.refresh_materialized_views(state)?;
                 Ok(())

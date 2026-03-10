@@ -17,7 +17,7 @@ impl Executor {
             let mut db = self.db.write().await;
             let state = db.state_mut();
             let res = f(state)?;
-            db.save().map_err(|e| SqlError::Storage(e.to_string()))?;
+            db.save()?;
             Ok(res)
         }
     }
@@ -29,8 +29,7 @@ impl Executor {
         // Log BEGIN to WAL
         db.log_operation(&WalRecord::Begin {
             tx_id: tx_id.clone(),
-        })
-        .map_err(|e| SqlError::Storage(e.to_string()))?;
+        })?;
 
         let state = db.state().clone();
         self.transactions.insert(tx_id.clone(), state);
@@ -56,11 +55,9 @@ impl Executor {
         // Log COMMIT to WAL
         db.log_operation(&WalRecord::Commit {
             tx_id: tx_id.to_string(),
-        })
-        .map_err(|e| SqlError::Storage(e.to_string()))?;
+        })?;
 
-        db.set_state(state)
-            .map_err(|e| SqlError::Storage(e.to_string()))?;
+        db.set_state(state)?;
 
         Ok(QueryResult {
             columns: vec![],
@@ -78,8 +75,7 @@ impl Executor {
         // Log ROLLBACK to WAL
         db.log_operation(&WalRecord::Rollback {
             tx_id: tx_id.to_string(),
-        })
-        .map_err(|e| SqlError::Storage(e.to_string()))?;
+        })?;
 
         Ok(QueryResult {
             columns: vec![],
