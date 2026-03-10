@@ -1,0 +1,52 @@
+# thy-squeal Changelog
+
+## [v0.4.0] - 2026-03-10
+### Added
+- **Prepared Statements**: Full support for `PREPARE`, `EXECUTE`, and `DEALLOCATE` commands.
+- **Parameterized Queries**: Support for `?` and `$1`, `$2` style placeholders in SELECT, INSERT, UPDATE, and DELETE.
+- **Enhanced INSERT**: Added support for specifying target columns in INSERT statements (e.g., `INSERT INTO table (col1, col2) VALUES (...)`).
+- **SQL Dump & Restore**: Capabilities to export the entire database state as a SQL script and restore it.
+- **Information Schema**: Added virtual `information_schema` tables (`tables`, `columns`) for database metadata introspection.
+- **Write-Ahead Logging (WAL)**: Implemented Sled-based WAL for durability and crash recovery.
+- **Transactions**: Full support for ACID transactions with `BEGIN`, `COMMIT`, and `ROLLBACK`.
+
+## [v0.3.0] - 2026-03-07
+### Added
+- **Advanced Indexing**:
+    - B-Tree and Hash indexes.
+    - Composite indexes (multi-column).
+    - JSON Path indexes for nested data.
+    - Functional/Expression-based indexes.
+    - Partial/Conditional indexes.
+    - Unique constraints and indexes.
+- **Complex SQL Support**:
+    - Correlated Subqueries.
+    - INNER and LEFT JOINs.
+    - `GROUP BY` and `HAVING` clauses.
+    - Aggregation functions (`COUNT`, `SUM`, `AVG`, `MIN`, `MAX`).
+    - `DISTINCT` keyword support.
+    - `ORDER BY`, `LIMIT`, and `OFFSET`.
+    - `WHERE` clause with complex logical operations.
+- **Full-Text Search**: Integrated Tantivy-powered search with a custom `SEARCH` command.
+- **Query Observability**: `EXPLAIN` command for query plan visualization.
+
+### Refactored
+- Significant codebase modularization:
+    - Decoupled Expression evaluation from Condition logic.
+    - Separated Grouping from Aggregate functions.
+    - Modularized DML (Insert/Update/Delete) and DDL (Create/Drop) executors.
+    - Moved storage mutation logic into dedicated modules.
+
+## [v0.2.0] - 2026-03-07
+### Added
+- **Pest Parser**: Migration to a robust Pest-based grammar for SQL parsing.
+- **HTTP JSON API**: Implementation of `POST /_query` endpoint using Axum.
+- **Persistence**: Hybrid in-memory storage with Sled-based background snapshotting.
+- **Error Mapping**: Structured mapping of SQL and Storage errors to HTTP responses.
+
+## [v0.1.0] - 2026-03-06
+### Added
+- **Core Engine**: Initial in-memory storage implementation (Database, Table, Row, Value).
+- **Basic SQL**: Simple string-based parser for `CREATE`, `INSERT`, and `SELECT`.
+- **CLI Client**: Interactive REPL for database management.
+- **Foundation**: Project workspace setup and basic project documentation (PRD, Architecture).
