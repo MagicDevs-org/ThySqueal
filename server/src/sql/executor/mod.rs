@@ -23,6 +23,27 @@ use futures::future::BoxFuture;
 
 pub use result::QueryResult;
 
+/// Context for statement execution
+pub struct ExecutionContext {
+    pub params: Vec<Value>,
+    pub transaction_id: Option<String>,
+    pub username: String,
+}
+
+impl ExecutionContext {
+    pub fn new(
+        params: Vec<Value>,
+        transaction_id: Option<String>,
+        username: Option<String>,
+    ) -> Self {
+        Self {
+            params,
+            transaction_id,
+            username: username.unwrap_or_else(|| "root".to_string()),
+        }
+    }
+}
+
 /// A builder-style plan for executing a SELECT query.
 /// Reduces argument count in internal executor functions.
 pub struct SelectQueryPlan<'a> {
