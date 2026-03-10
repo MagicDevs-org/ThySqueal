@@ -1,6 +1,6 @@
 use super::super::super::ast::InsertStmt;
 use super::super::super::error::{SqlError, SqlResult};
-use super::super::super::eval::{Evaluator, evaluate_expression_joined};
+use super::super::super::eval::{EvalContext, Evaluator, evaluate_expression_joined};
 use super::super::{Executor, QueryResult};
 use crate::storage::{Value, WalRecord};
 
@@ -41,6 +41,8 @@ impl Executor {
             )));
         }
 
+        let eval_ctx = EvalContext::new(&[], params, &[], &state);
+
         // Map expressions to table columns
         let mut mapped_values = if let Some(ref col_names) = stmt.columns {
             // Initialize with NULLs
@@ -50,8 +52,7 @@ impl Executor {
                     .column_index(name)
                     .ok_or_else(|| SqlError::ColumnNotFound(format!("{}.{}", table_name, name)))?;
 
-                let mut val =
-                    evaluate_expression_joined(self, &stmt.values[i], &[], params, &[], &state)?;
+                let mut val = evaluate_expression_joined(self, &stmt.values[i], &eval_ctx)?;
                 let target_type = &table.columns[col_idx].data_type;
                 val = val.cast(target_type).map_err(|e| {
                     SqlError::TypeMismatch(format!(
@@ -66,7 +67,7 @@ impl Executor {
             // Position-based mapping
             let mut vals = Vec::new();
             for (i, expr) in stmt.values.iter().enumerate() {
-                let mut val = evaluate_expression_joined(self, expr, &[], params, &[], &state)?;
+                let mut val = evaluate_expression_joined(self, expr, &eval_ctx)?;
                 let target_type = &table.columns[i].data_type;
                 val = val.cast(target_type).map_err(|e| {
                     SqlError::TypeMismatch(format!(

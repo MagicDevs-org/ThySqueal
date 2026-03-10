@@ -1,6 +1,8 @@
 use super::super::super::ast::UpdateStmt;
 use super::super::super::error::{SqlError, SqlResult};
-use super::super::super::eval::{Evaluator, evaluate_condition_joined, evaluate_expression_joined};
+use super::super::super::eval::{
+    EvalContext, Evaluator, evaluate_condition_joined, evaluate_expression_joined,
+};
 use super::super::{Executor, QueryResult};
 use crate::storage::{Value, WalRecord};
 
@@ -31,9 +33,11 @@ impl Executor {
         let mut row_updates = Vec::new();
 
         for row in &table.rows {
-            let context = [(table, None, row)];
+            let context_list = [(table, None, row)];
+            let eval_ctx = EvalContext::new(&context_list, params, &[], &state);
+
             let matched = if let Some(ref cond) = stmt.where_clause {
-                evaluate_condition_joined(self, cond, &context, params, &[], &state)?
+                evaluate_condition_joined(self, cond, &eval_ctx)?
             } else {
                 true
             };
@@ -44,8 +48,7 @@ impl Executor {
                     let col_idx = table
                         .column_index(col_name)
                         .ok_or_else(|| SqlError::ColumnNotFound(col_name.clone()))?;
-                    let mut val =
-                        evaluate_expression_joined(self, expr, &context, params, &[], &state)?;
+                    let mut val = evaluate_expression_joined(self, expr, &eval_ctx)?;
 
                     // Perform type casting for UPDATE
                     let target_type = &table.columns[col_idx].data_type;

@@ -1,6 +1,6 @@
 use super::super::ast::{self, SelectStmt};
 use super::super::error::{SqlError, SqlResult};
-use super::super::eval::{evaluate_condition_joined, evaluate_expression_joined};
+use super::super::eval::{EvalContext, evaluate_condition_joined, evaluate_expression_joined};
 use super::{Executor, QueryResult, SelectQueryPlan};
 use crate::storage::info_schema::get_info_schema_tables;
 use crate::storage::{DatabaseState, Row, Table};
@@ -157,7 +157,7 @@ impl Executor {
                 for existing_ctx in joined_rows {
                     let mut found_match = false;
                     for new_row in &join_table.rows {
-                        let eval_ctx: Vec<(&Table, Option<&str>, &Row)> = existing_ctx
+                        let eval_ctx_list: Vec<(&Table, Option<&str>, &Row)> = existing_ctx
                             .iter()
                             .map(|(t, a, r)| (*t, a.as_deref(), r))
                             .chain(std::iter::once((
@@ -167,14 +167,10 @@ impl Executor {
                             )))
                             .collect();
 
-                        if evaluate_condition_joined(
-                            self,
-                            &join.on,
-                            &eval_ctx,
-                            params,
-                            outer_contexts,
-                            db_state,
-                        )? {
+                        let eval_ctx =
+                            EvalContext::new(&eval_ctx_list, params, outer_contexts, db_state);
+
+                        if evaluate_condition_joined(self, &join.on, &eval_ctx)? {
                             let mut next_ctx = existing_ctx.clone();
                             next_ctx.push((join_table, join_alias.clone(), new_row.clone()));
                             next_joined_rows.push(next_ctx);
@@ -195,16 +191,11 @@ impl Executor {
             let mut matched_rows = Vec::new();
             if let Some(ref where_cond) = stmt.where_clause {
                 for ctx in joined_rows {
-                    let eval_ctx: Vec<(&Table, Option<&str>, &Row)> =
+                    let eval_ctx_list: Vec<(&Table, Option<&str>, &Row)> =
                         ctx.iter().map(|(t, a, r)| (*t, a.as_deref(), r)).collect();
-                    if evaluate_condition_joined(
-                        self,
-                        where_cond,
-                        &eval_ctx,
-                        params,
-                        outer_contexts,
-                        db_state,
-                    )? {
+                    let eval_ctx =
+                        EvalContext::new(&eval_ctx_list, params, outer_contexts, db_state);
+                    if evaluate_condition_joined(self, where_cond, &eval_ctx)? {
                         matched_rows.push(ctx);
                     }
                 }
@@ -229,34 +220,27 @@ impl Executor {
             if !stmt.order_by.is_empty() {
                 let mut err = None;
                 matched_rows.sort_by(|a, b| {
-                    let eval_a: Vec<(&Table, Option<&str>, &Row)> =
+                    let eval_ctx_list_a: Vec<(&Table, Option<&str>, &Row)> =
                         a.iter().map(|(t, al, r)| (*t, al.as_deref(), r)).collect();
-                    let eval_b: Vec<(&Table, Option<&str>, &Row)> =
+                    let eval_ctx_list_b: Vec<(&Table, Option<&str>, &Row)> =
                         b.iter().map(|(t, al, r)| (*t, al.as_deref(), r)).collect();
 
+                    let eval_ctx_a =
+                        EvalContext::new(&eval_ctx_list_a, params, outer_contexts, db_state);
+                    let eval_ctx_b =
+                        EvalContext::new(&eval_ctx_list_b, params, outer_contexts, db_state);
+
                     for item in &stmt.order_by {
-                        let val_a = match evaluate_expression_joined(
-                            self,
-                            &item.expr,
-                            &eval_a,
-                            params,
-                            outer_contexts,
-                            db_state,
-                        ) {
+                        let val_a = match evaluate_expression_joined(self, &item.expr, &eval_ctx_a)
+                        {
                             Ok(v) => v,
                             Err(e) => {
                                 err = Some(e);
                                 return std::cmp::Ordering::Equal;
                             }
                         };
-                        let val_b = match evaluate_expression_joined(
-                            self,
-                            &item.expr,
-                            &eval_b,
-                            params,
-                            outer_contexts,
-                            db_state,
-                        ) {
+                        let val_b = match evaluate_expression_joined(self, &item.expr, &eval_ctx_b)
+                        {
                             Ok(v) => v,
                             Err(e) => {
                                 err = Some(e);
@@ -299,8 +283,9 @@ impl Executor {
 
             let mut projected_rows = Vec::new();
             for ctx in final_rows {
-                let eval_ctx: Vec<(&Table, Option<&str>, &Row)> =
+                let eval_ctx_list: Vec<(&Table, Option<&str>, &Row)> =
                     ctx.iter().map(|(t, a, r)| (*t, a.as_deref(), r)).collect();
+                let eval_ctx = EvalContext::new(&eval_ctx_list, params, outer_contexts, db_state);
                 let mut row_values = Vec::new();
                 for col in &stmt.columns {
                     match &col.expr {
@@ -310,14 +295,8 @@ impl Executor {
                             }
                         }
                         _ => {
-                            row_values.push(evaluate_expression_joined(
-                                self,
-                                &col.expr,
-                                &eval_ctx,
-                                params,
-                                outer_contexts,
-                                db_state,
-                            )?);
+                            row_values
+                                .push(evaluate_expression_joined(self, &col.expr, &eval_ctx)?);
                         }
                     }
                 }

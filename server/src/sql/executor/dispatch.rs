@@ -350,14 +350,8 @@ impl Executor {
                     db.state().clone()
                 };
 
-                let val = crate::sql::eval::evaluate_expression_joined(
-                    self,
-                    p,
-                    &[],
-                    &params,
-                    &[],
-                    &state,
-                )?;
+                let eval_ctx = crate::sql::eval::EvalContext::new(&[], &params, &[], &state);
+                let val = crate::sql::eval::evaluate_expression_joined(self, p, &eval_ctx)?;
                 exec_params.push(val);
             }
         } else {

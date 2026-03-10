@@ -4,7 +4,9 @@ use super::super::row::Row;
 use super::super::value::Value;
 use super::Table;
 use crate::sql::ast::{Condition, Expression};
-use crate::sql::eval::{Evaluator, evaluate_condition_joined, evaluate_expression_joined};
+use crate::sql::eval::{
+    EvalContext, Evaluator, evaluate_condition_joined, evaluate_expression_joined,
+};
 use crate::storage::DatabaseState;
 use std::collections::HashMap;
 
@@ -51,15 +53,14 @@ impl Table {
         for row in &self.rows {
             // Check partial index condition
             if let Some(ref c) = cond {
-                let context = [(table_ref, None, row)];
-                if !evaluate_condition_joined(evaluator, c, &context, &[], &[], db_state).map_err(
-                    |e| {
-                        StorageError::PersistenceError(format!(
-                            "Index where clause evaluation error: {:?}",
-                            e
-                        ))
-                    },
-                )? {
+                let context_list = [(table_ref, None, row)];
+                let eval_ctx = EvalContext::new(&context_list, &[], &[], db_state);
+                if !evaluate_condition_joined(evaluator, c, &eval_ctx).map_err(|e| {
+                    StorageError::PersistenceError(format!(
+                        "Index where clause evaluation error: {:?}",
+                        e
+                    ))
+                })? {
                     continue;
                 }
             }
@@ -94,16 +95,16 @@ impl Table {
             id: "".to_string(),
             values: values.to_vec(),
         };
-        let context = [(self, None, &row)];
+        let context_list = [(self, None, &row)];
+        let eval_ctx = EvalContext::new(&context_list, &[], &[], db_state);
 
         for expr in expressions {
-            let val = evaluate_expression_joined(evaluator, expr, &context, &[], &[], db_state)
-                .map_err(|e| {
-                    StorageError::PersistenceError(format!(
-                        "Index expression evaluation error: {:?}",
-                        e
-                    ))
-                })?;
+            let val = evaluate_expression_joined(evaluator, expr, &eval_ctx).map_err(|e| {
+                StorageError::PersistenceError(format!(
+                    "Index expression evaluation error: {:?}",
+                    e
+                ))
+            })?;
             key.push(val);
         }
         Ok(key)

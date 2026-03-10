@@ -1,4 +1,4 @@
-use crate::sql::eval::{Evaluator, evaluate_condition_joined};
+use crate::sql::eval::{EvalContext, Evaluator, evaluate_condition_joined};
 use crate::storage::DatabaseState;
 use uuid::Uuid;
 
@@ -74,15 +74,14 @@ impl Table {
         for index in self.indexes.values() {
             // Check partial condition
             if let Some(cond) = index.where_clause() {
-                let context = [(table_ref, None, &row)];
-                if !evaluate_condition_joined(evaluator, &cond, &context, &[], &[], db_state)
-                    .map_err(|e| {
-                        StorageError::PersistenceError(format!(
-                            "Index where clause evaluation error: {:?}",
-                            e
-                        ))
-                    })?
-                {
+                let context_list = [(table_ref, None, &row)];
+                let eval_ctx = EvalContext::new(&context_list, &[], &[], db_state);
+                if !evaluate_condition_joined(evaluator, &cond, &eval_ctx).map_err(|e| {
+                    StorageError::PersistenceError(format!(
+                        "Index where clause evaluation error: {:?}",
+                        e
+                    ))
+                })? {
                     continue;
                 }
             }
@@ -105,15 +104,14 @@ impl Table {
         for index in self.indexes.values() {
             // Check partial condition
             if let Some(cond) = index.where_clause() {
-                let context = [(table_ref, None, &row)];
-                if !evaluate_condition_joined(evaluator, &cond, &context, &[], &[], db_state)
-                    .map_err(|e| {
-                        StorageError::PersistenceError(format!(
-                            "Index where clause evaluation error: {:?}",
-                            e
-                        ))
-                    })?
-                {
+                let context_list = [(table_ref, None, &row)];
+                let eval_ctx = EvalContext::new(&context_list, &[], &[], db_state);
+                if !evaluate_condition_joined(evaluator, &cond, &eval_ctx).map_err(|e| {
+                    StorageError::PersistenceError(format!(
+                        "Index where clause evaluation error: {:?}",
+                        e
+                    ))
+                })? {
                     index_keys.push(None);
                     continue;
                 }
@@ -177,15 +175,14 @@ impl Table {
             for index in self.indexes.values() {
                 // Check if new row matches partial condition
                 if let Some(cond) = index.where_clause() {
-                    let context = [(table_ref, None, &new_row)];
-                    if !evaluate_condition_joined(evaluator, &cond, &context, &[], &[], db_state)
-                        .map_err(|e| {
-                            StorageError::PersistenceError(format!(
-                                "Index where clause evaluation error: {:?}",
-                                e
-                            ))
-                        })?
-                    {
+                    let context_list = [(table_ref, None, &new_row)];
+                    let eval_ctx = EvalContext::new(&context_list, &[], &[], db_state);
+                    if !evaluate_condition_joined(evaluator, &cond, &eval_ctx).map_err(|e| {
+                        StorageError::PersistenceError(format!(
+                            "Index where clause evaluation error: {:?}",
+                            e
+                        ))
+                    })? {
                         continue;
                     }
                 }
@@ -215,28 +212,26 @@ impl Table {
             for index in self.indexes.values() {
                 let cond = index.where_clause();
                 let old_match = if let Some(ref c) = cond {
-                    let context = [(table_ref, None, &old_row)];
-                    evaluate_condition_joined(evaluator, c, &context, &[], &[], db_state).map_err(
-                        |e| {
-                            StorageError::PersistenceError(format!(
-                                "Index where clause evaluation error: {:?}",
-                                e
-                            ))
-                        },
-                    )?
+                    let context_list = [(table_ref, None, &old_row)];
+                    let eval_ctx = EvalContext::new(&context_list, &[], &[], db_state);
+                    evaluate_condition_joined(evaluator, c, &eval_ctx).map_err(|e| {
+                        StorageError::PersistenceError(format!(
+                            "Index where clause evaluation error: {:?}",
+                            e
+                        ))
+                    })?
                 } else {
                     true
                 };
                 let new_match = if let Some(ref c) = cond {
-                    let context = [(table_ref, None, &new_row)];
-                    evaluate_condition_joined(evaluator, c, &context, &[], &[], db_state).map_err(
-                        |e| {
-                            StorageError::PersistenceError(format!(
-                                "Index where clause evaluation error: {:?}",
-                                e
-                            ))
-                        },
-                    )?
+                    let context_list = [(table_ref, None, &new_row)];
+                    let eval_ctx = EvalContext::new(&context_list, &[], &[], db_state);
+                    evaluate_condition_joined(evaluator, c, &eval_ctx).map_err(|e| {
+                        StorageError::PersistenceError(format!(
+                            "Index where clause evaluation error: {:?}",
+                            e
+                        ))
+                    })?
                 } else {
                     true
                 };
@@ -305,15 +300,14 @@ impl Table {
             for index in self.indexes.values() {
                 // Check partial condition
                 if let Some(cond) = index.where_clause() {
-                    let context = [(table_ref, None, &row)];
-                    if !evaluate_condition_joined(evaluator, &cond, &context, &[], &[], db_state)
-                        .map_err(|e| {
-                            StorageError::PersistenceError(format!(
-                                "Index where clause evaluation error: {:?}",
-                                e
-                            ))
-                        })?
-                    {
+                    let context_list = [(table_ref, None, &row)];
+                    let eval_ctx = EvalContext::new(&context_list, &[], &[], db_state);
+                    if !evaluate_condition_joined(evaluator, &cond, &eval_ctx).map_err(|e| {
+                        StorageError::PersistenceError(format!(
+                            "Index where clause evaluation error: {:?}",
+                            e
+                        ))
+                    })? {
                         index_to_remove.push(None);
                         continue;
                     }

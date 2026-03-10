@@ -1,6 +1,6 @@
 use super::super::super::ast;
 use super::super::super::error::{SqlError, SqlResult};
-use super::super::super::eval::evaluate_expression_joined;
+use super::super::super::eval::{EvalContext, evaluate_expression_joined};
 use super::super::Executor;
 use crate::storage::{DatabaseState, Row, Table, Value};
 
@@ -18,15 +18,9 @@ impl Executor {
                     Ok(Value::Int(contexts.len() as i64))
                 } else {
                     let mut count = 0;
-                    for ctx in contexts {
-                        let val = evaluate_expression_joined(
-                            self,
-                            &fc.args[0],
-                            ctx,
-                            &[],
-                            outer_contexts,
-                            db_state,
-                        )?;
+                    for ctx_list in contexts {
+                        let eval_ctx = EvalContext::new(ctx_list, &[], outer_contexts, db_state);
+                        let val = evaluate_expression_joined(self, &fc.args[0], &eval_ctx)?;
                         if val != Value::Null {
                             count += 1;
                         }
@@ -38,15 +32,9 @@ impl Executor {
                 let mut sum_f = 0.0;
                 let mut sum_i = 0;
                 let mut is_float = false;
-                for ctx in contexts {
-                    let val = evaluate_expression_joined(
-                        self,
-                        &fc.args[0],
-                        ctx,
-                        &[],
-                        outer_contexts,
-                        db_state,
-                    )?;
+                for ctx_list in contexts {
+                    let eval_ctx = EvalContext::new(ctx_list, &[], outer_contexts, db_state);
+                    let val = evaluate_expression_joined(self, &fc.args[0], &eval_ctx)?;
                     match val {
                         Value::Int(i) => {
                             sum_i += i;
@@ -72,15 +60,9 @@ impl Executor {
             }
             ast::AggregateType::Min => {
                 let mut min_val: Option<Value> = None;
-                for ctx in contexts {
-                    let val = evaluate_expression_joined(
-                        self,
-                        &fc.args[0],
-                        ctx,
-                        &[],
-                        outer_contexts,
-                        db_state,
-                    )?;
+                for ctx_list in contexts {
+                    let eval_ctx = EvalContext::new(ctx_list, &[], outer_contexts, db_state);
+                    let val = evaluate_expression_joined(self, &fc.args[0], &eval_ctx)?;
                     if val == Value::Null {
                         continue;
                     }
@@ -92,15 +74,9 @@ impl Executor {
             }
             ast::AggregateType::Max => {
                 let mut max_val: Option<Value> = None;
-                for ctx in contexts {
-                    let val = evaluate_expression_joined(
-                        self,
-                        &fc.args[0],
-                        ctx,
-                        &[],
-                        outer_contexts,
-                        db_state,
-                    )?;
+                for ctx_list in contexts {
+                    let eval_ctx = EvalContext::new(ctx_list, &[], outer_contexts, db_state);
+                    let val = evaluate_expression_joined(self, &fc.args[0], &eval_ctx)?;
                     if val == Value::Null {
                         continue;
                     }
@@ -113,15 +89,9 @@ impl Executor {
             ast::AggregateType::Avg => {
                 let mut sum = 0.0;
                 let mut count = 0;
-                for ctx in contexts {
-                    let val = evaluate_expression_joined(
-                        self,
-                        &fc.args[0],
-                        ctx,
-                        &[],
-                        outer_contexts,
-                        db_state,
-                    )?;
+                for ctx_list in contexts {
+                    let eval_ctx = EvalContext::new(ctx_list, &[], outer_contexts, db_state);
+                    let val = evaluate_expression_joined(self, &fc.args[0], &eval_ctx)?;
                     match val {
                         Value::Int(i) => {
                             sum += i as f64;

@@ -1,6 +1,6 @@
 use super::super::super::ast;
 use super::super::super::error::{SqlError, SqlResult};
-use super::super::super::eval::{Evaluator, evaluate_expression_joined};
+use super::super::super::eval::{EvalContext, Evaluator, evaluate_expression_joined};
 use super::super::select::JoinedContext;
 use super::super::{Executor, QueryResult, SelectQueryPlan};
 use crate::storage::{DatabaseState, Row, Table, Value};
@@ -53,15 +53,15 @@ impl Executor {
                         )?);
                     }
                     _ => {
-                        if let Some(first_row_ctx) = eval_contexts.first() {
-                            row_values.push(evaluate_expression_joined(
-                                self,
-                                &col.expr,
-                                first_row_ctx,
+                        if let Some(first_row_ctx_list) = eval_contexts.first() {
+                            let eval_ctx = EvalContext::new(
+                                first_row_ctx_list,
                                 params,
                                 outer_contexts,
                                 db_state,
-                            )?);
+                            );
+                            row_values
+                                .push(evaluate_expression_joined(self, &col.expr, &eval_ctx)?);
                         } else {
                             row_values.push(Value::Null);
                         }
@@ -90,18 +90,12 @@ impl Executor {
             let mut groups: std::collections::HashMap<Vec<Value>, Vec<JoinedContext<'_>>> =
                 std::collections::HashMap::new();
             for ctx in matched_rows {
-                let eval_ctx: Vec<(&Table, Option<&str>, &Row)> =
+                let eval_ctx_list: Vec<(&Table, Option<&str>, &Row)> =
                     ctx.iter().map(|(t, a, r)| (*t, a.as_deref(), r)).collect();
+                let eval_ctx = EvalContext::new(&eval_ctx_list, params, outer_contexts, db_state);
                 let mut group_key = Vec::new();
                 for gb_expr in &stmt.group_by {
-                    group_key.push(evaluate_expression_joined(
-                        self,
-                        gb_expr,
-                        &eval_ctx,
-                        params,
-                        outer_contexts,
-                        db_state,
-                    )?);
+                    group_key.push(evaluate_expression_joined(self, gb_expr, &eval_ctx)?);
                 }
                 groups.entry(group_key).or_default().push(ctx);
             }
@@ -141,14 +135,15 @@ impl Executor {
                                 )?);
                             }
                             _ => {
-                                if let Some(first_ctx) = group_eval_contexts.first() {
-                                    row_values.push(evaluate_expression_joined(
-                                        self,
-                                        &col.expr,
-                                        first_ctx,
+                                if let Some(first_ctx_list) = group_eval_contexts.first() {
+                                    let eval_ctx = EvalContext::new(
+                                        first_ctx_list,
                                         params,
                                         outer_contexts,
                                         db_state,
+                                    );
+                                    row_values.push(evaluate_expression_joined(
+                                        self, &col.expr, &eval_ctx,
                                     )?);
                                 } else {
                                     row_values.push(Value::Null);
@@ -313,15 +308,10 @@ impl Executor {
                 self.eval_aggregate_joined(fc, contexts, outer_contexts, db_state)
             }
             ast::Expression::ScalarFunc(_sf) => {
-                if let Some(first_ctx) = contexts.first() {
-                    evaluate_expression_joined(
-                        self,
-                        expr,
-                        first_ctx,
-                        params,
-                        outer_contexts,
-                        db_state,
-                    )
+                if let Some(first_ctx_list) = contexts.first() {
+                    let eval_ctx =
+                        EvalContext::new(first_ctx_list, params, outer_contexts, db_state);
+                    evaluate_expression_joined(self as &dyn Evaluator, expr, &eval_ctx)
                 } else {
                     Ok(Value::Null)
                 }
@@ -348,29 +338,19 @@ impl Executor {
                 }
             }
             ast::Expression::Column(_) | ast::Expression::BinaryOp(_, _, _) => {
-                if let Some(first_ctx) = contexts.first() {
-                    evaluate_expression_joined(
-                        self,
-                        expr,
-                        first_ctx,
-                        params,
-                        outer_contexts,
-                        db_state,
-                    )
+                if let Some(first_ctx_list) = contexts.first() {
+                    let eval_ctx =
+                        EvalContext::new(first_ctx_list, params, outer_contexts, db_state);
+                    evaluate_expression_joined(self as &dyn Evaluator, expr, &eval_ctx)
                 } else {
                     Ok(Value::Null)
                 }
             }
             ast::Expression::Placeholder(_) => {
-                if let Some(first_ctx) = contexts.first() {
-                    evaluate_expression_joined(
-                        self,
-                        expr,
-                        first_ctx,
-                        params,
-                        outer_contexts,
-                        db_state,
-                    )
+                if let Some(first_ctx_list) = contexts.first() {
+                    let eval_ctx =
+                        EvalContext::new(first_ctx_list, params, outer_contexts, db_state);
+                    evaluate_expression_joined(self as &dyn Evaluator, expr, &eval_ctx)
                 } else {
                     Ok(Value::Null)
                 }

@@ -1,14 +1,14 @@
 use super::super::super::ast::DeleteStmt;
 use super::super::super::error::{SqlError, SqlResult};
-use super::super::super::eval::{Evaluator, evaluate_condition_joined};
+use super::super::super::eval::{EvalContext, Evaluator, evaluate_condition_joined};
 use super::super::{Executor, QueryResult};
-use crate::storage::{Value, WalRecord};
+use crate::storage::WalRecord;
 
 impl Executor {
     pub(crate) async fn exec_delete(
         &self,
         stmt: DeleteStmt,
-        params: &[Value],
+        params: &[crate::storage::Value],
         tx_id: Option<&str>,
     ) -> SqlResult<QueryResult> {
         let table_name = stmt.table.clone();
@@ -31,9 +31,11 @@ impl Executor {
         let mut row_ids_to_delete = Vec::new();
 
         for row in &table.rows {
-            let context = [(table, None, row)];
+            let context_list = [(table, None, row)];
+            let eval_ctx = EvalContext::new(&context_list, params, &[], &state);
+
             let matched = if let Some(ref cond) = stmt.where_clause {
-                evaluate_condition_joined(self, cond, &context, params, &[], &state)?
+                evaluate_condition_joined(self, cond, &eval_ctx)?
             } else {
                 true
             };

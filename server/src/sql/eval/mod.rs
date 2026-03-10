@@ -11,6 +11,30 @@ use futures::future::BoxFuture;
 pub use condition::evaluate_condition_joined;
 pub use expression::evaluate_expression_joined;
 
+/// Context for expression and condition evaluation
+pub struct EvalContext<'a> {
+    pub contexts: &'a [(&'a Table, Option<&'a str>, &'a Row)],
+    pub params: &'a [Value],
+    pub outer_contexts: &'a [(&'a Table, Option<&'a str>, &'a Row)],
+    pub db_state: &'a DatabaseState,
+}
+
+impl<'a> EvalContext<'a> {
+    pub fn new(
+        contexts: &'a [(&'a Table, Option<&'a str>, &'a Row)],
+        params: &'a [Value],
+        outer_contexts: &'a [(&'a Table, Option<&'a str>, &'a Row)],
+        db_state: &'a DatabaseState,
+    ) -> Self {
+        Self {
+            contexts,
+            params,
+            outer_contexts,
+            db_state,
+        }
+    }
+}
+
 /// Trait for evaluating expressions, implemented by Executor and RecoveryEvaluator
 pub trait Evaluator: Send + Sync {
     fn exec_select_internal<'a>(
@@ -53,14 +77,9 @@ pub fn evaluate_condition(
     row: &Row,
     db_state: &DatabaseState,
 ) -> SqlResult<bool> {
-    evaluate_condition_joined(
-        executor,
-        cond,
-        &[(table, table_alias, row)],
-        params,
-        &[],
-        db_state,
-    )
+    let contexts = [(table, table_alias, row)];
+    let ctx = EvalContext::new(&contexts, params, &[], db_state);
+    evaluate_condition_joined(executor, cond, &ctx)
 }
 
 #[allow(dead_code)]
@@ -73,12 +92,7 @@ pub fn evaluate_expression(
     row: &Row,
     db_state: &DatabaseState,
 ) -> SqlResult<Value> {
-    evaluate_expression_joined(
-        executor,
-        expr,
-        &[(table, table_alias, row)],
-        params,
-        &[],
-        db_state,
-    )
+    let contexts = [(table, table_alias, row)];
+    let ctx = EvalContext::new(&contexts, params, &[], db_state);
+    evaluate_expression_joined(executor, expr, &ctx)
 }
