@@ -17,6 +17,7 @@ pub struct Table {
     pub rows: Vec<Row>,
     pub indexes: HashMap<String, TableIndex>, // index_name -> TableIndex
     pub search_index: Option<Arc<Mutex<SearchIndex>>>,
+    pub auto_inc_counters: HashMap<usize, u64>, // col_idx -> next_val
 }
 
 #[derive(Serialize, Deserialize)]
@@ -25,6 +26,8 @@ struct TableSerde {
     columns: Vec<Column>,
     rows: Vec<Row>,
     indexes: HashMap<String, TableIndex>,
+    #[serde(default)]
+    auto_inc_counters: HashMap<usize, u64>,
 }
 
 impl From<TableSerde> for Table {
@@ -35,6 +38,7 @@ impl From<TableSerde> for Table {
             rows: s.rows,
             indexes: s.indexes,
             search_index: None,
+            auto_inc_counters: s.auto_inc_counters,
         }
     }
 }
@@ -46,6 +50,7 @@ impl From<&Table> for TableSerde {
             columns: t.columns.clone(),
             rows: t.rows.clone(),
             indexes: t.indexes.clone(),
+            auto_inc_counters: t.auto_inc_counters.clone(),
         }
     }
 }
@@ -76,6 +81,7 @@ impl Clone for Table {
             rows: self.rows.clone(),
             indexes: self.indexes.clone(),
             search_index: self.search_index.clone(),
+            auto_inc_counters: self.auto_inc_counters.clone(),
         }
     }
 }
@@ -93,12 +99,30 @@ impl std::fmt::Debug for Table {
 
 impl Table {
     pub fn new(name: String, columns: Vec<Column>) -> Self {
+        let mut auto_inc_counters = HashMap::new();
+        for (i, col) in columns.iter().enumerate() {
+            if col.is_auto_increment {
+                auto_inc_counters.insert(i, 1);
+            }
+        }
+
         Self {
             name,
             columns,
             rows: Vec::new(),
             indexes: HashMap::new(),
             search_index: None,
+            auto_inc_counters,
+        }
+    }
+
+    pub fn generate_auto_inc(&mut self, col_idx: usize) -> Option<u64> {
+        if let Some(counter) = self.auto_inc_counters.get_mut(&col_idx) {
+            let val = *counter;
+            *counter += 1;
+            Some(val)
+        } else {
+            None
         }
     }
 

@@ -6,9 +6,9 @@ pub fn get_info_schema_tables(db_state: &DatabaseState) -> HashMap<String, Table
 
     // 1. information_schema.tables
     let tables_cols = vec![
-        Column { name: "table_name".to_string(), data_type: DataType::Text },
-        Column { name: "table_type".to_string(), data_type: DataType::Text },
-        Column { name: "row_count".to_string(), data_type: DataType::Int },
+        Column { name: "table_name".to_string(), data_type: DataType::Text, is_auto_increment: false },
+        Column { name: "table_type".to_string(), data_type: DataType::Text, is_auto_increment: false },
+        Column { name: "row_count".to_string(), data_type: DataType::Int, is_auto_increment: false },
     ];
     let mut tables_table = Table::new("tables".to_string(), tables_cols);
     for (name, table) in &db_state.tables {
@@ -38,10 +38,11 @@ pub fn get_info_schema_tables(db_state: &DatabaseState) -> HashMap<String, Table
 
     // 2. information_schema.columns
     let columns_cols = vec![
-        Column { name: "table_name".to_string(), data_type: DataType::Text },
-        Column { name: "column_name".to_string(), data_type: DataType::Text },
-        Column { name: "data_type".to_string(), data_type: DataType::Text },
-        Column { name: "ordinal_position".to_string(), data_type: DataType::Int },
+        Column { name: "table_name".to_string(), data_type: DataType::Text, is_auto_increment: false },
+        Column { name: "column_name".to_string(), data_type: DataType::Text, is_auto_increment: false },
+        Column { name: "data_type".to_string(), data_type: DataType::Text, is_auto_increment: false },
+        Column { name: "ordinal_position".to_string(), data_type: DataType::Int, is_auto_increment: false },
+        Column { name: "is_auto_increment".to_string(), data_type: DataType::Bool, is_auto_increment: false },
     ];
     let mut columns_table = Table::new("columns".to_string(), columns_cols);
     for (t_name, table) in &db_state.tables {
@@ -53,6 +54,7 @@ pub fn get_info_schema_tables(db_state: &DatabaseState) -> HashMap<String, Table
                     Value::Text(col.name.clone()),
                     Value::Text(format!("{:?}", col.data_type).to_uppercase()),
                     Value::Int((i + 1) as i64),
+                    Value::Bool(col.is_auto_increment),
                 ],
             });
         }
@@ -61,10 +63,10 @@ pub fn get_info_schema_tables(db_state: &DatabaseState) -> HashMap<String, Table
 
     // 3. information_schema.indexes
     let indexes_cols = vec![
-        Column { name: "table_name".to_string(), data_type: DataType::Text },
-        Column { name: "index_name".to_string(), data_type: DataType::Text },
-        Column { name: "is_unique".to_string(), data_type: DataType::Bool },
-        Column { name: "index_type".to_string(), data_type: DataType::Text },
+        Column { name: "table_name".to_string(), data_type: DataType::Text, is_auto_increment: false },
+        Column { name: "index_name".to_string(), data_type: DataType::Text, is_auto_increment: false },
+        Column { name: "is_unique".to_string(), data_type: DataType::Bool, is_auto_increment: false },
+        Column { name: "index_type".to_string(), data_type: DataType::Text, is_auto_increment: false },
     ];
     let mut indexes_table = Table::new("indexes".to_string(), indexes_cols);
     for (t_name, table) in &db_state.tables {

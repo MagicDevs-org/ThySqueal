@@ -46,9 +46,22 @@ The parser is decomposed into submodules for maintainability:
 - `DELETE FROM ... WHERE ...`
 
 ### Data Definition Language (DDL)
-- `CREATE TABLE ... (columns, types)`
+- `CREATE TABLE ... (columns, types [AUTO_INCREMENT | PRIMARY KEY])`
 - `DROP TABLE`
 - `CREATE [UNIQUE] INDEX [name] ON [table] (expr1, expr2, ...) [USING BTREE|HASH] [WHERE condition]`
+
+**Example Table with Auto-Increment:**
+```sql
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    name TEXT
+);
+-- or
+CREATE TABLE users (
+    id INT AUTO_INCREMENT,
+    name TEXT
+);
+```
 
 ### Transaction Control
 - `BEGIN` / `START TRANSACTION`

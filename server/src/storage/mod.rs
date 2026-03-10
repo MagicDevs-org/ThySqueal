@@ -132,6 +132,7 @@ impl Database {
         self.save()
     }
 
+    #[allow(dead_code)]
     pub fn get_table(&self, name: &str) -> Option<&Table> {
         self.state.get_table(name)
     }

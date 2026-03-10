@@ -22,17 +22,41 @@ pub fn parse_create_table(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStm
         }
         let mut col_inner = col_def.into_inner();
         let col_name = expect_identifier(
-            col_inner.find(|p| p.as_rule() == Rule::identifier),
+            col_inner.next(), // identifier is first
             "column name",
         )?;
         let type_str = col_inner
-            .find(|p| p.as_rule() == Rule::data_type)
+            .next()
             .ok_or_else(|| SqlError::Parse("Missing column type".to_string()))?
             .as_str()
             .to_uppercase();
+        
+        let mut is_auto_increment = false;
+        if type_str == "SERIAL" {
+            is_auto_increment = true;
+        }
+
+        // Parse attributes
+        for attr in col_inner {
+            if attr.as_rule() == Rule::column_attribute {
+                let attr_str = attr.as_str().to_uppercase();
+                if attr_str == "AUTO_INCREMENT" {
+                    is_auto_increment = true;
+                }
+                // PRIMARY KEY can be handled here later
+            }
+        }
+
+        let data_type = if type_str == "SERIAL" {
+            DataType::Int
+        } else {
+            DataType::from_str(&type_str)
+        };
+
         columns.push(Column {
             name: col_name,
-            data_type: DataType::from_str(&type_str),
+            data_type,
+            is_auto_increment,
         });
     }
 

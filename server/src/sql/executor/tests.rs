@@ -3,3 +3,4 @@ pub mod index;
 pub mod joins;
 pub mod subqueries;
 pub mod prepared;
+pub mod compatibility;

@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 pub struct Column {
     pub name: String,
     pub data_type: DataType,
+    #[serde(default)]
+    pub is_auto_increment: bool,
 }
 
 #[allow(dead_code)]

@@ -150,7 +150,7 @@ thy-squeal/                          # Cargo workspace
 - [x] REPL with history and HTTP execution
 - [ ] **ALTER TABLE**: Support for schema evolution
 - [ ] **Constraints**: Primary & Foreign Keys
-- [ ] **AUTO_INCREMENT**: Automated ID generation
+- [x] **AUTO_INCREMENT**: Automated ID generation
 - [ ] JavaScript REPL (QuickJS)
 
 ### Phase 6: Production (v1.0)

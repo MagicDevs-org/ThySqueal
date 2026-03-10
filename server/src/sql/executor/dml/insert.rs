@@ -42,7 +42,7 @@ impl Executor {
         }
 
         // Map expressions to table columns
-        let mapped_values = if let Some(ref col_names) = stmt.columns {
+        let mut mapped_values = if let Some(ref col_names) = stmt.columns {
             // Initialize with NULLs
             let mut vals = vec![Value::Null; table.columns.len()];
             for (i, name) in col_names.iter().enumerate() {
@@ -79,6 +79,27 @@ impl Executor {
         };
 
         drop(db); // Release read lock before mutation
+
+        // Generate auto-increment values
+        self.mutate_state(tx_id, |state| {
+            let table = state
+                .get_table_mut(&table_name)
+                .ok_or_else(|| SqlError::TableNotFound(table_name.clone()))?;
+            
+            let mut to_generate = Vec::new();
+            for (i, col) in table.columns.iter().enumerate() {
+                if col.is_auto_increment && matches!(&mapped_values[i], Value::Null) {
+                    to_generate.push(i);
+                }
+            }
+
+            for i in to_generate {
+                if let Some(next_val) = table.generate_auto_inc(i) {
+                    mapped_values[i] = Value::Int(next_val as i64);
+                }
+            }
+            Ok(())
+        }).await?;
 
         // Log to WAL
         {
