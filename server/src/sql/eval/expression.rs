@@ -66,15 +66,18 @@ pub fn evaluate_expression_joined(
             binary::evaluate_binary_op(l, op, r)
         }
         Expression::ScalarFunc(sf) => {
-            let val = evaluate_expression_joined(
-                executor,
-                &sf.arg,
-                contexts,
-                params,
-                outer_contexts,
-                db_state,
-            )?;
-            function::evaluate_scalar_func(&sf.name, val)
+            let mut eval_args = Vec::new();
+            for arg in &sf.args {
+                eval_args.push(evaluate_expression_joined(
+                    executor,
+                    arg,
+                    contexts,
+                    params,
+                    outer_contexts,
+                    db_state,
+                )?);
+            }
+            function::evaluate_scalar_func(&sf.name, &eval_args)
         }
         Expression::FunctionCall(_) => Err(SqlError::Runtime(
             "Aggregate functions must be evaluated at the top level".to_string(),

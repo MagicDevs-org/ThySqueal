@@ -19,60 +19,70 @@ impl Executor {
         tx_id: Option<&'a str>,
     ) -> BoxFuture<'a, SqlResult<QueryResult>> {
         async move {
-            // Check for information_schema
-            let info_schema_tables;
-            let target_table = if stmt.table.starts_with("information_schema.") {
+            // 1. Resolve base table and initial rows
+            let info_schema_storage;
+            let dual_table_storage;
+
+            let (base_table, initial_rows): (&Table, Vec<Row>) = if stmt.table.is_empty() {
+                dual_table_storage = Table::new("dual".to_string(), vec![]);
+                let rows = vec![Row {
+                    id: "dual".to_string(),
+                    values: vec![],
+                }];
+                (&dual_table_storage, rows)
+            } else if stmt.table.starts_with("information_schema.") {
                 let table_name = stmt.table.strip_prefix("information_schema.").unwrap();
-                info_schema_tables = get_info_schema_tables(db_state);
-                info_schema_tables
+                info_schema_storage = get_info_schema_tables(db_state);
+                let t = info_schema_storage
                     .get(table_name)
-                    .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?
+                    .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+                (t, t.rows.clone())
             } else {
-                db_state
+                let t = db_state
                     .get_table(&stmt.table)
-                    .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?
-            };
+                    .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
 
-            let base_table = target_table;
-            let base_alias_owned = stmt.table_alias.clone();
-
-            // 2. Identify candidate rows (Optimization: use index if possible)
-            let initial_rows: Vec<&Row> = if stmt.joins.is_empty() {
-                let mut result_rows = None;
-                if let Some(ast::Condition::Comparison(
-                    left_expr,
-                    ast::ComparisonOp::Eq,
-                    ast::Expression::Literal(val),
-                )) = &stmt.where_clause
-                {
-                    for index in base_table.indexes.values() {
-                        let exprs = index.expressions();
-                        if exprs.len() == 1 && &exprs[0] == left_expr {
-                            let key = vec![val.clone()];
-                            if let Some(row_ids) = index.get(&key) {
-                                result_rows = Some(
-                                    base_table
-                                        .rows
-                                        .iter()
-                                        .filter(|r| row_ids.contains(&r.id))
-                                        .collect(),
-                                );
-                            } else {
-                                result_rows = Some(vec![]); // Value not in index
+                // Identify candidate rows (Optimization: use index if possible)
+                let rows = if stmt.joins.is_empty() {
+                    let mut result_rows = None;
+                    if let Some(ast::Condition::Comparison(
+                        left_expr,
+                        ast::ComparisonOp::Eq,
+                        ast::Expression::Literal(val),
+                    )) = &stmt.where_clause
+                    {
+                        for index in t.indexes.values() {
+                            let exprs = index.expressions();
+                            if exprs.len() == 1 && &exprs[0] == left_expr {
+                                let key = vec![val.clone()];
+                                if let Some(row_ids) = index.get(&key) {
+                                    result_rows = Some(
+                                        t.rows
+                                            .iter()
+                                            .filter(|r| row_ids.contains(&r.id))
+                                            .cloned()
+                                            .collect(),
+                                    );
+                                } else {
+                                    result_rows = Some(vec![]); // Value not in index
+                                }
+                                break;
                             }
-                            break;
                         }
                     }
-                }
-                result_rows.unwrap_or_else(|| base_table.rows.iter().collect())
-            } else {
-                base_table.rows.iter().collect()
+                    result_rows.unwrap_or_else(|| t.rows.clone())
+                } else {
+                    t.rows.clone()
+                };
+                (t, rows)
             };
+
+            let base_alias_owned = stmt.table_alias.clone();
 
             // Context is now Vec<(&Table, Option<String>, Row)>
             let mut joined_rows: Vec<JoinedContext> = initial_rows
                 .into_iter()
-                .map(|r| vec![(base_table, base_alias_owned.clone(), r.clone())])
+                .map(|r| vec![(base_table, base_alias_owned.clone(), r)])
                 .collect();
 
             // 3. Process JOINS

@@ -154,3 +154,41 @@ async fn test_alter_table() {
         .unwrap_err();
     assert!(matches!(err, crate::sql::error::SqlError::TableNotFound(_)));
 }
+
+#[tokio::test]
+async fn test_sql_functions() {
+    let db = Database::new();
+    let executor = Arc::new(Executor::new(db));
+
+    // CONCAT
+    let result = executor
+        .execute("SELECT CONCAT('Hello', ' ', 'World')", vec![], None)
+        .await
+        .unwrap();
+    assert_eq!(result.rows[0][0], Value::Text("Hello World".to_string()));
+
+    // COALESCE
+    let result = executor
+        .execute(
+            "SELECT COALESCE(NULL, NULL, 'Found', 'Not this')",
+            vec![],
+            None,
+        )
+        .await
+        .unwrap();
+    assert_eq!(result.rows[0][0], Value::Text("Found".to_string()));
+
+    // REPLACE
+    let result = executor
+        .execute("SELECT REPLACE('banana', 'a', 'o')", vec![], None)
+        .await
+        .unwrap();
+    assert_eq!(result.rows[0][0], Value::Text("bonono".to_string()));
+
+    // NOW (just check it returns a DateTime)
+    let result = executor
+        .execute("SELECT NOW()", vec![], None)
+        .await
+        .unwrap();
+    assert!(matches!(result.rows[0][0], Value::DateTime(_)));
+}

@@ -33,7 +33,9 @@ impl Expression {
                 }
             }
             Expression::ScalarFunc(sf) => {
-                sf.arg.resolve_placeholders(counter);
+                for arg in &mut sf.args {
+                    arg.resolve_placeholders(counter);
+                }
             }
             Expression::Subquery(s) => {
                 s.resolve_placeholders(counter);
@@ -55,7 +57,8 @@ impl Expression {
                 format!("{:?}({})", fc.name, args.join(", ")).to_uppercase()
             }
             Expression::ScalarFunc(sf) => {
-                format!("{:?}({})", sf.name, sf.arg.to_sql()).to_uppercase()
+                let args: Vec<String> = sf.args.iter().map(|a| a.to_sql()).collect();
+                format!("{:?}({})", sf.name, args.join(", ")).to_uppercase()
             }
             Expression::Star => "*".to_string(),
             Expression::Subquery(_) => "(SELECT ...)".to_string(),
@@ -72,7 +75,7 @@ pub struct FunctionCall {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ScalarFunction {
     pub name: ScalarFuncType,
-    pub arg: Box<Expression>,
+    pub args: Vec<Expression>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -81,6 +84,10 @@ pub enum ScalarFuncType {
     Upper,
     Length,
     Abs,
+    Now,
+    Concat,
+    Coalesce,
+    Replace,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

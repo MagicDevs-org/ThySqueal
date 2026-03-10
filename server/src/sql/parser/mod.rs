@@ -4,8 +4,6 @@ pub mod expr;
 pub mod select;
 pub mod utils;
 
-pub use expr::parse_any_expression;
-
 use super::ast::SqlStmt;
 use super::error::{SqlError, SqlResult};
 use pest::Parser;

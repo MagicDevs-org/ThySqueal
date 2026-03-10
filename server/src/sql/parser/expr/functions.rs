@@ -61,15 +61,15 @@ pub fn parse_scalar_func(pair: pest::iterators::Pair<Rule>) -> SqlResult<Express
         .next()
         .ok_or_else(|| SqlError::Parse("Missing scalar function name".to_string()))?;
     let name = parse_scalar_func_type(name_pair)?;
-    let arg_pair = inner
-        .next()
-        .ok_or_else(|| SqlError::Parse("Missing scalar function argument".to_string()))?;
-    let arg = parse_expression(arg_pair)?;
 
-    Ok(Expression::ScalarFunc(ScalarFunction {
-        name,
-        arg: Box::new(arg),
-    }))
+    let mut args = Vec::new();
+    for arg_pair in inner {
+        if arg_pair.as_rule() == Rule::expression {
+            args.push(parse_expression(arg_pair)?);
+        }
+    }
+
+    Ok(Expression::ScalarFunc(ScalarFunction { name, args }))
 }
 
 pub fn parse_scalar_func_type(pair: pest::iterators::Pair<Rule>) -> SqlResult<ScalarFuncType> {
@@ -79,6 +79,10 @@ pub fn parse_scalar_func_type(pair: pest::iterators::Pair<Rule>) -> SqlResult<Sc
         "UPPER" => Ok(ScalarFuncType::Upper),
         "LENGTH" => Ok(ScalarFuncType::Length),
         "ABS" => Ok(ScalarFuncType::Abs),
+        "NOW" => Ok(ScalarFuncType::Now),
+        "CONCAT" => Ok(ScalarFuncType::Concat),
+        "COALESCE" => Ok(ScalarFuncType::Coalesce),
+        "REPLACE" => Ok(ScalarFuncType::Replace),
         _ => Err(SqlError::Parse(format!(
             "Unknown scalar function: {}",
             name

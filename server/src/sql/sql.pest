@@ -19,7 +19,7 @@ expression_list = { expression ~ ("," ~ expression)* }
 
 // SELECT statement
 select_stmt = { select_stmt_inner }
-select_stmt_inner = { KW_SELECT ~ distinct? ~ select_columns ~ KW_FROM ~ table_name_with_alias ~ join_clause* ~ where_clause? ~ group_by_clause? ~ having_clause? ~ order_by_clause? ~ limit_clause? }
+select_stmt_inner = { KW_SELECT ~ distinct? ~ select_columns ~ (KW_FROM ~ table_name_with_alias ~ join_clause* ~ where_clause? ~ group_by_clause? ~ having_clause? ~ order_by_clause? ~ limit_clause?)? }
 
 table_name_with_alias = { table_name ~ alias? }
 
@@ -118,8 +118,8 @@ aggregate_func = { agg_type ~ "(" ~ ( star | expression ) ~ ")" }
 agg_type = { KW_COUNT | KW_SUM | KW_AVG | KW_MIN | KW_MAX }
 star = { "*" }
 
-scalar_func = { scalar_func_name ~ "(" ~ expression ~ ")" }
-scalar_func_name = { ^"LOWER" | ^"UPPER" | ^"LENGTH" | ^"ABS" }
+scalar_func = { scalar_func_name ~ "(" ~ (expression ~ ("," ~ expression)*)? ~ ")" }
+scalar_func_name = { ^"LOWER" | ^"UPPER" | ^"LENGTH" | ^"ABS" | ^"NOW" | ^"CONCAT" | ^"COALESCE" | ^"REPLACE" }
 
 literal = { string_literal | number_literal | boolean_literal | KW_NULL }
 
