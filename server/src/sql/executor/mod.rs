@@ -45,6 +45,27 @@ impl Executor {
         let stmt = parse(sql)?;
         self.exec_stmt(stmt, params, transaction_id).await
     }
+
+    pub(crate) fn refresh_materialized_views(&self, state: &mut DatabaseState) -> SqlResult<()> {
+        let views = state.materialized_views.clone();
+        for (name, query) in views {
+            let res =
+                futures::executor::block_on(self.exec_select_internal(query, &[], &[], state))?;
+
+            if let Some(table) = state.tables.get_mut(&name) {
+                table.rows = res
+                    .rows
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, values)| Row {
+                        id: format!("mv_{}_{}", name, i),
+                        values,
+                    })
+                    .collect();
+            }
+        }
+        Ok(())
+    }
 }
 
 impl Evaluator for Executor {

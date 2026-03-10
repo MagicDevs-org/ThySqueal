@@ -43,7 +43,14 @@ async fn test_info_schema() {
     assert_eq!(r.rows[0][1].as_bool(), Some(true));
 
     // 4. Test schemata
-    let res = executor.execute("SELECT schema_name FROM information_schema.schemata", vec![], None).await.unwrap();
+    let res = executor
+        .execute(
+            "SELECT schema_name FROM information_schema.schemata",
+            vec![],
+            None,
+        )
+        .await
+        .unwrap();
     assert_eq!(res.rows[0][0].as_text(), Some("default"));
 
     // 5. Test statistics

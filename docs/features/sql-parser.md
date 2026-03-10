@@ -46,10 +46,22 @@ The parser is decomposed into submodules for maintainability:
 - `DELETE FROM ... WHERE ...`
 
 ### Data Definition Language (DDL)
-- `CREATE TABLE ... (columns, types [AUTO_INCREMENT | PRIMARY KEY], [PRIMARY KEY (cols)], [FOREIGN KEY (cols) REFERENCES table(cols)])`
-- `ALTER TABLE table [ADD COLUMN col def | DROP COLUMN col | RENAME COLUMN col TO new | RENAME TO new_table]`
+- `CREATE TABLE ...`
+- `CREATE MATERIALIZED VIEW name AS subquery`
+- `ALTER TABLE table ...`
 - `DROP TABLE`
-- `CREATE [UNIQUE] INDEX [name] ON [table] (expr1, expr2, ...) [USING BTREE|HASH] [WHERE condition]`
+- `CREATE [UNIQUE] INDEX ...`
+
+**Example Materialized View:**
+```sql
+CREATE MATERIALIZED VIEW user_activity_summary AS
+SELECT user_id, COUNT(*) AS total_actions
+FROM activity_log
+GROUP BY user_id;
+
+-- The view refreshes automatically when activity_log is modified.
+SELECT * FROM user_activity_summary;
+```
 
 **Example Table with Constraints:**
 ```sql

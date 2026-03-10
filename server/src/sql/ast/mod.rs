@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SqlStmt {
     CreateTable(CreateTableStmt),
+    CreateMaterializedView(CreateMaterializedViewStmt),
     AlterTable(AlterTableStmt),
     DropTable(DropTableStmt),
     CreateIndex(CreateIndexStmt),
@@ -38,6 +39,7 @@ impl SqlStmt {
             SqlStmt::Delete(d) => d.resolve_placeholders(&mut counter),
             SqlStmt::Explain(s) => s.resolve_placeholders(&mut counter),
             SqlStmt::CreateIndex(ci) => ci.resolve_placeholders(&mut counter),
+            SqlStmt::CreateMaterializedView(mv) => mv.query.resolve_placeholders(&mut counter),
             SqlStmt::Insert(i) => i.resolve_placeholders(&mut counter),
             // No placeholders in these statements
             SqlStmt::CreateTable(_)

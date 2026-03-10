@@ -152,6 +152,7 @@ thy-squeal/                          # Cargo workspace
 - [x] **Constraints**: Primary & Foreign Keys
 - [x] **AUTO_INCREMENT**: Automated ID generation
 - [x] **CTEs**: Common Table Expressions (WITH clause)
+- [x] **Materialized Views**: Automatically refreshing pre-calculated query results
 - [ ] JavaScript REPL (QuickJS)
 
 ### Phase 6: Production (v1.0)

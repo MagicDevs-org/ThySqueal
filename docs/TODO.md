@@ -58,7 +58,7 @@
 - [x] **CTEs (WITH clause)**: Common Table Expressions for complex query readability
 - [x] **Information Schema Expansion**: `statistics`, `key_column_usage`, `schemata` tables
 - [ ] Secondary Index optimization (using index only if selective)
-- [ ] Materialized Views
+- [x] Materialized Views
 - [ ] User Authentication & RBAC
 - [ ] Distributed Mode (Raft consensus)
 - [ ] JavaScript Query Interface (QuickJS)

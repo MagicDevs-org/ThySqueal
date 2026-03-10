@@ -23,6 +23,11 @@ pub enum WalRecord {
         primary_key: Option<Vec<String>>,
         foreign_keys: Vec<crate::sql::ast::ForeignKey>,
     },
+    CreateMaterializedView {
+        tx_id: Option<String>,
+        name: String,
+        query: Box<crate::sql::ast::SelectStmt>,
+    },
     AlterTable {
         tx_id: Option<String>,
         table: String,

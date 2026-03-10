@@ -32,6 +32,7 @@ pub fn replay_logs(state: &mut DatabaseState, logs: Vec<WalRecord>) -> Result<()
                 // Check if it's part of a transaction
                 let tx_id_opt = match &r {
                     WalRecord::CreateTable { tx_id, .. } => tx_id,
+                    WalRecord::CreateMaterializedView { tx_id, .. } => tx_id,
                     WalRecord::AlterTable { tx_id, .. } => tx_id,
                     WalRecord::DropTable { tx_id, .. } => tx_id,
                     WalRecord::Insert { tx_id, .. } => tx_id,
@@ -72,6 +73,13 @@ pub fn apply_record(
                 name.clone(),
                 Table::new(name, columns, primary_key, foreign_keys),
             );
+        }
+        WalRecord::CreateMaterializedView { name, query, .. } => {
+            // We need a proper Database instance or just update the state manually.
+            // Since Database::create_materialized_view uses executor, we'd need more.
+            // For now, let's assume snapshots capture the data and WAL replay just needs the metadata for subsequent changes.
+            // However, mutations will trigger refresh.
+            state.materialized_views.insert(name, *query);
         }
         WalRecord::AlterTable { table, action, .. } => {
             use crate::sql::ast::AlterAction;

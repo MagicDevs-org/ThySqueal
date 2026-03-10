@@ -85,6 +85,8 @@ impl Executor {
                 table
                     .update(self as &dyn Evaluator, &id, values, &db_state_copy)
                     .map_err(|e| SqlError::Storage(e.to_string()))?;
+
+                self.refresh_materialized_views(state)?;
                 Ok(())
             })
             .await?;

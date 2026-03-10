@@ -1,4 +1,6 @@
-use super::super::super::ast::{CreateIndexStmt, CreateTableStmt, IndexType, SqlStmt};
+use super::super::super::ast::{
+    CreateIndexStmt, CreateMaterializedViewStmt, CreateTableStmt, IndexType, SqlStmt,
+};
 use super::super::super::error::{SqlError, SqlResult};
 use super::super::super::parser::Rule;
 use super::super::utils::expect_identifier;
@@ -101,6 +103,32 @@ pub fn parse_create_table(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStm
         primary_key,
         foreign_keys,
     }))
+}
+
+pub fn parse_create_materialized_view(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
+    let mut inner = pair.into_inner();
+    // Skip KW_CREATE, KW_MATERIALIZED, KW_VIEW
+    let _ = inner.next();
+    let _ = inner.next();
+    let _ = inner.next();
+
+    let name = inner
+        .next()
+        .map(|p| p.as_str().trim().to_string())
+        .ok_or_else(|| SqlError::Parse("Missing view name".to_string()))?;
+
+    // Skip KW_AS
+    let _ = inner.next();
+
+    let select_pair = inner
+        .next()
+        .ok_or_else(|| SqlError::Parse("Missing SELECT in CREATE MATERIALIZED VIEW".to_string()))?;
+
+    let query = super::super::select::parse_select_inner(select_pair)?;
+
+    Ok(SqlStmt::CreateMaterializedView(
+        CreateMaterializedViewStmt { name, query },
+    ))
 }
 
 pub fn parse_column_def(pair: pest::iterators::Pair<Rule>) -> SqlResult<Column> {

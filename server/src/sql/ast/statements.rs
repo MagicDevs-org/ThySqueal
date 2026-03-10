@@ -62,6 +62,12 @@ pub struct CreateTableStmt {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CreateMaterializedViewStmt {
+    pub name: String,
+    pub query: SelectStmt,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ForeignKey {
     pub columns: Vec<String>,
     pub ref_table: String,

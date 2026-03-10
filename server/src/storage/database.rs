@@ -2,6 +2,7 @@ use super::error::StorageError;
 use super::persistence::{Persister, WalRecord};
 use super::row::{Column, Row};
 use super::table::Table;
+use super::types::DataType;
 use super::value::Value;
 use super::wal;
 use crate::sql::eval::Evaluator;
@@ -11,6 +12,8 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DatabaseState {
     pub tables: HashMap<String, Table>,
+    #[serde(default)]
+    pub materialized_views: HashMap<String, crate::sql::ast::SelectStmt>,
 }
 
 impl DatabaseState {
@@ -48,7 +51,10 @@ impl Database {
     ) -> Result<Self, StorageError> {
         let tables = persister.load_tables().unwrap_or_default();
         let mut db = Self {
-            state: DatabaseState { tables },
+            state: DatabaseState {
+                tables,
+                materialized_views: HashMap::new(),
+            },
             persister: Some(persister),
             _data_dir: Some(data_dir.clone()),
         };
@@ -88,6 +94,52 @@ impl Database {
         } else {
             Ok(())
         }
+    }
+
+    pub fn create_materialized_view(
+        &mut self,
+        executor: &dyn Evaluator,
+        name: String,
+        query: crate::sql::ast::SelectStmt,
+    ) -> Result<(), StorageError> {
+        if self.state.tables.contains_key(&name) {
+            return Err(StorageError::DuplicateKey(name));
+        }
+
+        // 1. Execute query to get initial data
+        let res = futures::executor::block_on(executor.exec_select_internal(
+            query.clone(),
+            &[],
+            &[],
+            &self.state,
+        ))
+        .map_err(|e| StorageError::PersistenceError(e.to_string()))?;
+
+        // 2. Create a virtual table for the view
+        let mut cols = Vec::new();
+        for col_name in &res.columns {
+            cols.push(Column {
+                name: col_name.clone(),
+                data_type: DataType::Text, // Default for MV
+                is_auto_increment: false,
+            });
+        }
+
+        let mut table = Table::new(name.clone(), cols, None, vec![]);
+        table.rows = res
+            .rows
+            .into_iter()
+            .enumerate()
+            .map(|(i, values)| Row {
+                id: format!("mv_{}_{}", name, i),
+                values,
+            })
+            .collect();
+
+        // 3. Store view metadata
+        self.state.materialized_views.insert(name.clone(), query);
+        self.state.tables.insert(name, table);
+        self.save()
     }
 
     pub fn create_table(
@@ -164,6 +216,7 @@ impl Database {
         self.state.get_table(name)
     }
 
+    #[allow(dead_code)]
     pub fn get_table_mut(&mut self, name: &str) -> Option<&mut Table> {
         self.state.get_table_mut(name)
     }

@@ -123,6 +123,8 @@ impl Executor {
             table
                 .insert(self as &dyn Evaluator, mapped_values, &db_state_copy)
                 .map_err(|e| SqlError::Storage(e.to_string()))?;
+
+            self.refresh_materialized_views(state)?;
             Ok(())
         })
         .await?;

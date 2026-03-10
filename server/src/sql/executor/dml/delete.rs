@@ -65,6 +65,8 @@ impl Executor {
                 table
                     .delete(self as &dyn Evaluator, &id, &db_state_copy)
                     .map_err(|e| SqlError::Storage(e.to_string()))?;
+
+                self.refresh_materialized_views(state)?;
                 Ok(())
             })
             .await?;

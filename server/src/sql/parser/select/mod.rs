@@ -84,10 +84,13 @@ pub fn parse_select_inner(pair: pest::iterators::Pair<Rule>) -> SqlResult<Select
                         }
                         Rule::join_clause => joins.push(parse_join(from_p)?),
                         Rule::where_clause => {
-                            where_clause = Some(parse_condition(from_p.into_inner().nth(1).unwrap())?)
+                            where_clause =
+                                Some(parse_condition(from_p.into_inner().nth(1).unwrap())?)
                         }
                         Rule::group_by_clause => group_by = parse_group_by(from_p)?,
-                        Rule::having_clause => having = Some(parse_condition(from_p.into_inner().nth(1).unwrap())?),
+                        Rule::having_clause => {
+                            having = Some(parse_condition(from_p.into_inner().nth(1).unwrap())?)
+                        }
                         Rule::order_by_clause => order_by = parse_order_by(from_p)?,
                         Rule::limit_clause => limit = Some(parse_limit(from_p)?),
                         _ => {}

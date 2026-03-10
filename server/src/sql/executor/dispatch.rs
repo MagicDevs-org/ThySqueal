@@ -21,6 +21,10 @@ impl Executor {
                     self.exec_create_table(ct, transaction_id.as_deref())
                         .await?
                 }
+                SqlStmt::CreateMaterializedView(mv) => {
+                    self.exec_create_materialized_view(mv, transaction_id.as_deref())
+                        .await?
+                }
                 SqlStmt::AlterTable(at) => {
                     self.exec_alter_table(at, transaction_id.as_deref()).await?
                 }

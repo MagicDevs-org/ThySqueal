@@ -1,7 +1,9 @@
 use super::super::ast::{
-    AlterAction, AlterTableStmt, CreateIndexStmt, CreateTableStmt, DropTableStmt, IndexType,
+    AlterAction, AlterTableStmt, CreateIndexStmt, CreateMaterializedViewStmt, CreateTableStmt,
+    DropTableStmt, IndexType,
 };
 use super::super::error::{SqlError, SqlResult};
+use super::super::eval::Evaluator;
 use super::{Executor, QueryResult};
 use crate::storage::{Table, WalRecord};
 
@@ -45,6 +47,84 @@ impl Executor {
             let mut db = self.db.write().await;
             db.create_table(name, columns, primary_key, foreign_keys)
                 .map_err(|e| SqlError::Storage(e.to_string()))?;
+        }
+
+        Ok(QueryResult {
+            columns: vec![],
+            rows: vec![],
+            rows_affected: 0,
+            transaction_id: tx_id.map(|s| s.to_string()),
+        })
+    }
+
+    pub(crate) async fn exec_create_materialized_view(
+        &self,
+        stmt: CreateMaterializedViewStmt,
+        tx_id: Option<&str>,
+    ) -> SqlResult<QueryResult> {
+        // Log to WAL
+        {
+            let db = self.db.read().await;
+            db.log_operation(&WalRecord::CreateMaterializedView {
+                tx_id: tx_id.map(|s| s.to_string()),
+                name: stmt.name.clone(),
+                query: Box::new(stmt.query.clone()),
+            })
+            .map_err(|e| SqlError::Storage(e.to_string()))?;
+        }
+
+        if let Some(id) = tx_id {
+            self.mutate_state(Some(id), |state| {
+                if state.tables.contains_key(&stmt.name) {
+                    return Err(SqlError::Storage(format!(
+                        "Table {} already exists",
+                        stmt.name
+                    )));
+                }
+
+                let res = futures::executor::block_on(self.exec_select_internal(
+                    stmt.query.clone(),
+                    &[],
+                    &[],
+                    state,
+                ))
+                .map_err(|e: SqlError| SqlError::Storage(e.to_string()))?;
+
+                let mut cols = Vec::new();
+                for col_name in &res.columns {
+                    cols.push(crate::storage::Column {
+                        name: col_name.clone(),
+                        data_type: crate::storage::DataType::Text,
+                        is_auto_increment: false,
+                    });
+                }
+
+                let mut table = Table::new(stmt.name.clone(), cols, None, vec![]);
+                table.rows = res
+                    .rows
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, values)| crate::storage::Row {
+                        id: format!("mv_{}_{}", stmt.name, i),
+                        values,
+                    })
+                    .collect();
+
+                state
+                    .materialized_views
+                    .insert(stmt.name.clone(), stmt.query);
+                state.tables.insert(stmt.name, table);
+                Ok(())
+            })
+            .await?;
+        } else {
+            let mut db = self.db.write().await;
+            db.create_materialized_view(
+                self as &dyn crate::sql::eval::Evaluator,
+                stmt.name,
+                stmt.query,
+            )
+            .map_err(|e| SqlError::Storage(e.to_string()))?;
         }
 
         Ok(QueryResult {
