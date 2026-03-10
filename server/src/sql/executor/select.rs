@@ -1,9 +1,9 @@
 use super::super::ast::{self, SelectStmt};
 use super::super::error::{SqlError, SqlResult};
 use super::super::eval::{evaluate_condition_joined, evaluate_expression_joined};
-use super::{Executor, QueryResult};
+use super::{Executor, QueryResult, SelectQueryPlan};
 use crate::storage::info_schema::get_info_schema_tables;
-use crate::storage::{DatabaseState, Row, Table, Value};
+use crate::storage::{DatabaseState, Row, Table};
 use futures::FutureExt;
 use futures::future::BoxFuture;
 use std::collections::HashMap;
@@ -13,31 +13,30 @@ pub type JoinedContext<'a> = Vec<(&'a Table, Option<String>, Row)>;
 impl Executor {
     pub fn exec_select_recursive<'a>(
         &'a self,
-        stmt: SelectStmt,
-        outer_contexts: &'a [(&'a Table, Option<&'a str>, &'a Row)],
-        params: &'a [Value],
-        db_state: &'a DatabaseState,
-        tx_id: Option<&'a str>,
+        plan: SelectQueryPlan<'a>,
     ) -> BoxFuture<'a, SqlResult<QueryResult>> {
         async move {
+            let stmt = plan.stmt;
+            let outer_contexts = plan.outer_contexts;
+            let params = plan.params;
+            let db_state = plan.db_state;
+            let tx_id = plan.tx_id;
+
             // 0. Resolve CTEs
             let mut cte_tables = HashMap::new();
             if let Some(with) = &stmt.with_clause {
                 for cte in &with.ctes {
-                    let res = self
-                        .exec_select_recursive(
-                            cte.query.clone(),
-                            outer_contexts,
-                            params,
-                            db_state,
-                            tx_id,
-                        )
-                        .await?;
+                    let sub_plan = SelectQueryPlan::new(cte.query.clone(), db_state)
+                        .with_outer_contexts(outer_contexts)
+                        .with_params(params)
+                        .with_transaction(tx_id);
+
+                    let res = self.exec_select_recursive(sub_plan).await?;
                     let mut cols = Vec::new();
                     for name in &res.columns {
                         cols.push(crate::storage::Column {
                             name: name.clone(),
-                            data_type: crate::storage::DataType::Text, // Default for CTE results
+                            data_type: crate::storage::DataType::Text,
                             is_auto_increment: false,
                         });
                     }
@@ -80,7 +79,6 @@ impl Executor {
                     .get_table(&stmt.table)
                     .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
 
-                // Identify candidate rows (Optimization: use index if possible)
                 let rows = if stmt.joins.is_empty() {
                     let mut best_index = None;
                     let mut best_estimated_rows = t.rows.len();
@@ -94,7 +92,6 @@ impl Executor {
                         for (idx_name, index) in &t.indexes {
                             let exprs = index.expressions();
                             if exprs.len() == 1 && &exprs[0] == left_expr {
-                                // Estimate selectivity for this specific key
                                 let key = vec![val.clone()];
                                 let estimated = if let Some(ids) = index.get(&key) {
                                     ids.len()
@@ -110,8 +107,6 @@ impl Executor {
                         }
                     }
 
-                    // Selectivity threshold: Only use index if it filters out enough rows (e.g. < 30%)
-                    // Or if it's very small anyway.
                     let selectivity_threshold = (t.rows.len() as f64 * 0.3) as usize;
 
                     if let Some((_name, index, key)) = best_index
@@ -137,7 +132,6 @@ impl Executor {
 
             let base_alias_owned = stmt.table_alias.clone();
 
-            // Context is now Vec<(&Table, Option<String>, Row)>
             let mut joined_rows: Vec<JoinedContext> = initial_rows
                 .into_iter()
                 .map(|r| vec![(base_table, base_alias_owned.clone(), r)])
@@ -163,7 +157,6 @@ impl Executor {
                 for existing_ctx in joined_rows {
                     let mut found_match = false;
                     for new_row in &join_table.rows {
-                        // Prepare context for evaluation
                         let eval_ctx: Vec<(&Table, Option<&str>, &Row)> = existing_ctx
                             .iter()
                             .map(|(t, a, r)| (*t, a.as_deref(), r))
@@ -198,7 +191,7 @@ impl Executor {
                 joined_rows = next_joined_rows;
             }
 
-            // 4. Apply WHERE (again, to catch complex conditions or those not optimized by index)
+            // 4. Apply WHERE
             let mut matched_rows = Vec::new();
             if let Some(ref where_cond) = stmt.where_clause {
                 for ctx in joined_rows {
@@ -226,16 +219,13 @@ impl Executor {
                 .any(|c| matches!(c.expr, ast::Expression::FunctionCall(_)));
 
             if has_aggregates || !stmt.group_by.is_empty() {
+                let group_plan = SelectQueryPlan::new(stmt, db_state)
+                    .with_outer_contexts(outer_contexts)
+                    .with_params(params)
+                    .with_transaction(tx_id);
+
                 return self
-                    .exec_select_with_grouping_owned(
-                        stmt,
-                        matched_rows,
-                        outer_contexts,
-                        params,
-                        db_state,
-                        tx_id,
-                        &cte_tables,
-                    )
+                    .exec_select_with_grouping_owned(group_plan, matched_rows, &cte_tables)
                     .await;
             }
 

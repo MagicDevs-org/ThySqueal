@@ -3,7 +3,6 @@ use super::super::ast::{
     DropTableStmt, IndexType,
 };
 use super::super::error::{SqlError, SqlResult};
-use super::super::eval::Evaluator;
 use super::{Executor, QueryResult};
 use crate::storage::{Table, WalRecord};
 
@@ -82,13 +81,9 @@ impl Executor {
                     )));
                 }
 
-                let res = futures::executor::block_on(self.exec_select_internal(
-                    stmt.query.clone(),
-                    &[],
-                    &[],
-                    state,
-                ))
-                .map_err(|e: SqlError| SqlError::Storage(e.to_string()))?;
+                let plan = super::SelectQueryPlan::new(stmt.query.clone(), state);
+                let res = futures::executor::block_on(self.exec_select_recursive(plan))
+                    .map_err(|e: SqlError| SqlError::Storage(e.to_string()))?;
 
                 let mut cols = Vec::new();
                 for col_name in &res.columns {

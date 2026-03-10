@@ -1,24 +1,24 @@
-use super::super::super::ast::{self, SelectStmt};
+use super::super::super::ast;
 use super::super::super::error::{SqlError, SqlResult};
 use super::super::super::eval::{Evaluator, evaluate_expression_joined};
-use super::super::Executor;
-use super::super::QueryResult;
 use super::super::select::JoinedContext;
+use super::super::{Executor, QueryResult, SelectQueryPlan};
 use crate::storage::{DatabaseState, Row, Table, Value};
 use std::collections::HashMap;
 
 impl Executor {
-    #[allow(clippy::too_many_arguments)]
     pub(crate) async fn exec_select_with_grouping_owned(
         &self,
-        stmt: SelectStmt,
+        plan: SelectQueryPlan<'_>,
         matched_rows: Vec<JoinedContext<'_>>,
-        outer_contexts: &[(&Table, Option<&str>, &Row)],
-        params: &[Value],
-        db_state: &DatabaseState,
-        tx_id: Option<&str>,
         cte_tables: &HashMap<String, Table>,
     ) -> SqlResult<QueryResult> {
+        let stmt = &plan.stmt;
+        let outer_contexts = plan.outer_contexts;
+        let params = plan.params;
+        let db_state = plan.db_state;
+        let tx_id = plan.tx_id;
+
         let base_table = if let Some(t) = cte_tables.get(&stmt.table) {
             t
         } else if stmt.table.starts_with("information_schema.") {
@@ -168,7 +168,7 @@ impl Executor {
 
         Ok(QueryResult {
             columns: self.get_result_column_names(
-                &stmt,
+                stmt,
                 base_table,
                 &stmt.joins,
                 db_state,

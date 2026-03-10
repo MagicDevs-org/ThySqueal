@@ -23,6 +23,46 @@ use futures::future::BoxFuture;
 
 pub use result::QueryResult;
 
+/// A builder-style plan for executing a SELECT query.
+/// Reduces argument count in internal executor functions.
+pub struct SelectQueryPlan<'a> {
+    pub stmt: super::ast::SelectStmt,
+    pub outer_contexts: &'a [(&'a Table, Option<&'a str>, &'a Row)],
+    pub params: &'a [Value],
+    pub db_state: &'a DatabaseState,
+    pub tx_id: Option<&'a str>,
+}
+
+impl<'a> SelectQueryPlan<'a> {
+    pub fn new(stmt: super::ast::SelectStmt, db_state: &'a DatabaseState) -> Self {
+        Self {
+            stmt,
+            outer_contexts: &[],
+            params: &[],
+            db_state,
+            tx_id: None,
+        }
+    }
+
+    pub fn with_outer_contexts(
+        mut self,
+        contexts: &'a [(&'a Table, Option<&'a str>, &'a Row)],
+    ) -> Self {
+        self.outer_contexts = contexts;
+        self
+    }
+
+    pub fn with_params(mut self, params: &'a [Value]) -> Self {
+        self.params = params;
+        self
+    }
+
+    pub fn with_transaction(mut self, tx_id: Option<&'a str>) -> Self {
+        self.tx_id = tx_id;
+        self
+    }
+}
+
 pub struct Executor {
     pub(crate) db: tokio::sync::RwLock<Database>,
     pub(crate) transactions: DashMap<String, DatabaseState>,
@@ -96,11 +136,11 @@ impl Executor {
         )))
     }
 
-    pub(crate) fn refresh_materialized_views(&self, state: &mut DatabaseState) -> SqlResult<()> {
+    pub fn refresh_materialized_views(&self, state: &mut DatabaseState) -> SqlResult<()> {
         let views = state.materialized_views.clone();
         for (name, query) in views {
-            let res =
-                futures::executor::block_on(self.exec_select_internal(query, &[], &[], state))?;
+            let plan = SelectQueryPlan::new(query, state);
+            let res = futures::executor::block_on(self.exec_select_recursive(plan))?;
 
             if let Some(table) = state.tables.get_mut(&name) {
                 table.rows = res
@@ -126,6 +166,9 @@ impl Evaluator for Executor {
         params: &'a [Value],
         db_state: &'a DatabaseState,
     ) -> BoxFuture<'a, SqlResult<QueryResult>> {
-        self.exec_select_recursive(stmt, outer_contexts, params, db_state, None)
+        let plan = SelectQueryPlan::new(stmt, db_state)
+            .with_outer_contexts(outer_contexts)
+            .with_params(params);
+        self.exec_select_recursive(plan)
     }
 }

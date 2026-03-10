@@ -2,7 +2,7 @@ use super::super::ast::SqlStmt;
 use super::super::error::{SqlError, SqlResult};
 use super::super::parser::parse;
 
-use super::{Executor, QueryResult};
+use super::{Executor, QueryResult, SelectQueryPlan};
 use crate::storage::{Privilege, Value};
 use futures::future::{BoxFuture, FutureExt};
 
@@ -106,8 +106,12 @@ impl Executor {
                         if !table.is_empty() && !table.starts_with("information_schema.") {
                             self.check_privilege(&user, Some(&table), Privilege::Select, &state)?;
                         }
-                        self.exec_select_recursive(s, &[], &params, &state, Some(id))
-                            .await?
+
+                        let plan = SelectQueryPlan::new(s, &state)
+                            .with_params(&params)
+                            .with_transaction(Some(id));
+
+                        self.exec_select_recursive(plan).await?
                     } else {
                         let db = self.db.read().await;
                         if !table.is_empty() && !table.starts_with("information_schema.") {
@@ -118,8 +122,10 @@ impl Executor {
                                 db.state(),
                             )?;
                         }
-                        self.exec_select_recursive(s, &[], &params, db.state(), None)
-                            .await?
+
+                        let plan = SelectQueryPlan::new(s, db.state()).with_params(&params);
+
+                        self.exec_select_recursive(plan).await?
                     }
                 }
                 SqlStmt::Explain(s) => {
