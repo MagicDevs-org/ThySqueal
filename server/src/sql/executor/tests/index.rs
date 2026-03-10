@@ -195,3 +195,64 @@ async fn test_partial_index() {
         .await;
     assert!(res.is_err());
 }
+
+#[tokio::test]
+async fn test_index_selectivity() {
+    let db = Database::new();
+    let executor = Arc::new(Executor::new(db));
+
+    executor
+        .execute("CREATE TABLE test (val INT)", vec![], None)
+        .await
+        .unwrap();
+    executor
+        .execute("CREATE INDEX idx_val ON test (val)", vec![], None)
+        .await
+        .unwrap();
+
+    // Insert 100 rows: 50 rows with val=1, 50 rows with val=2..51
+    for i in 0..50 {
+        executor
+            .execute("INSERT INTO test VALUES (1)", vec![], None)
+            .await
+            .unwrap();
+        executor
+            .execute(
+                &format!("INSERT INTO test VALUES ({})", i + 2),
+                vec![],
+                None,
+            )
+            .await
+            .unwrap();
+    }
+
+    // Check statistics via info_schema
+    let stats = executor.execute("SELECT cardinality, total_rows FROM information_schema.statistics WHERE table_name = 'test'", vec![], None).await.unwrap();
+    println!("DEBUG STATS: {:?}", stats.rows);
+
+    // val=1 is NOT selective (50% of rows). Should use Full Table Scan.
+    let res = executor
+        .execute("EXPLAIN SELECT * FROM test WHERE val = 1", vec![], None)
+        .await
+        .unwrap();
+    println!("EXPLAIN non-selective: {:?}", res.rows);
+    assert!(
+        res.rows[0][1]
+            .as_text()
+            .unwrap()
+            .contains("Full Table Scan")
+    );
+
+    // val=10 is highly selective (1% of rows). Should use Index.
+    let res = executor
+        .execute("EXPLAIN SELECT * FROM test WHERE val = 10", vec![], None)
+        .await
+        .unwrap();
+    println!("EXPLAIN selective: {:?}", res.rows);
+    assert!(
+        res.rows[0][1]
+            .as_text()
+            .unwrap()
+            .contains("Index Lookup (BTree)")
+    );
+}

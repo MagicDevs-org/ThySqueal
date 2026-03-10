@@ -177,6 +177,16 @@ pub fn get_info_schema_tables(db_state: &DatabaseState) -> HashMap<String, Table
             data_type: DataType::Text,
             is_auto_increment: false,
         },
+        Column {
+            name: "cardinality".to_string(),
+            data_type: DataType::Int,
+            is_auto_increment: false,
+        },
+        Column {
+            name: "total_rows".to_string(),
+            data_type: DataType::Int,
+            is_auto_increment: false,
+        },
     ];
     let mut stats_table = Table::new("statistics".to_string(), stats_cols, None, vec![]);
     for (t_name, table) in &db_state.tables {
@@ -186,6 +196,9 @@ pub fn get_info_schema_tables(db_state: &DatabaseState) -> HashMap<String, Table
                 crate::storage::TableIndex::BTree { .. } => "BTREE",
                 crate::storage::TableIndex::Hash { .. } => "HASH",
             };
+
+            let cardinality = index.key_count();
+            let total_rows = index.total_rows();
 
             // Extract column names from index expressions if possible
             for (i, expr) in index.expressions().iter().enumerate() {
@@ -199,11 +212,13 @@ pub fn get_info_schema_tables(db_state: &DatabaseState) -> HashMap<String, Table
                     values: vec![
                         Value::Text("default".to_string()),
                         Value::Text(t_name.clone()),
-                        Value::Int(non_unique),
+                        Value::Int(non_unique as i64),
                         Value::Text(idx_name.clone()),
                         Value::Int((i + 1) as i64),
                         Value::Text(col_name),
                         Value::Text(idx_type.to_string()),
+                        Value::Int(cardinality as i64),
+                        Value::Int(total_rows as i64),
                     ],
                 });
             }

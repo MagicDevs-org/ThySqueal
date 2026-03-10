@@ -23,19 +23,38 @@ impl Executor {
             && let Some(ast::Condition::Comparison(
                 left_expr,
                 ast::ComparisonOp::Eq,
-                ast::Expression::Literal(_),
+                ast::Expression::Literal(val),
             )) = &stmt.where_clause
         {
+            let mut best_index_found = None;
+            let mut best_estimated_rows = table.rows.len();
+
             for (name, index) in &table.indexes {
                 let exprs = index.expressions();
                 if exprs.len() == 1 && &exprs[0] == left_expr {
-                    scan_type = match index {
-                        TableIndex::BTree { .. } => "Index Lookup (BTree)".to_string(),
-                        TableIndex::Hash { .. } => "Index Lookup (Hash)".to_string(),
+                    let key = vec![val.clone()];
+                    let estimated = if let Some(ids) = index.get(&key) {
+                        ids.len()
+                    } else {
+                        0
                     };
-                    index_name = name.clone();
-                    break;
+
+                    if estimated < best_estimated_rows {
+                        best_estimated_rows = estimated;
+                        best_index_found = Some((name, index));
+                    }
                 }
+            }
+
+            let selectivity_threshold = (table.rows.len() as f64 * 0.3) as usize;
+            if let Some((name, index)) = best_index_found
+                && (best_estimated_rows < selectivity_threshold || table.rows.len() < 10)
+            {
+                scan_type = match index {
+                    TableIndex::BTree { .. } => "Index Lookup (BTree)".to_string(),
+                    TableIndex::Hash { .. } => "Index Lookup (Hash)".to_string(),
+                };
+                index_name = name.clone();
             }
         }
         plan.push(vec![

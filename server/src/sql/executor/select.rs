@@ -82,33 +82,53 @@ impl Executor {
 
                 // Identify candidate rows (Optimization: use index if possible)
                 let rows = if stmt.joins.is_empty() {
-                    let mut result_rows = None;
+                    let mut best_index = None;
+                    let mut best_estimated_rows = t.rows.len();
+
                     if let Some(ast::Condition::Comparison(
                         left_expr,
                         ast::ComparisonOp::Eq,
                         ast::Expression::Literal(val),
                     )) = &stmt.where_clause
                     {
-                        for index in t.indexes.values() {
+                        for (idx_name, index) in &t.indexes {
                             let exprs = index.expressions();
                             if exprs.len() == 1 && &exprs[0] == left_expr {
+                                // Estimate selectivity for this specific key
                                 let key = vec![val.clone()];
-                                if let Some(row_ids) = index.get(&key) {
-                                    result_rows = Some(
-                                        t.rows
-                                            .iter()
-                                            .filter(|r| row_ids.contains(&r.id))
-                                            .cloned()
-                                            .collect(),
-                                    );
+                                let estimated = if let Some(ids) = index.get(&key) {
+                                    ids.len()
                                 } else {
-                                    result_rows = Some(vec![]);
+                                    0
+                                };
+
+                                if estimated < best_estimated_rows {
+                                    best_estimated_rows = estimated;
+                                    best_index = Some((idx_name, index, key));
                                 }
-                                break;
                             }
                         }
                     }
-                    result_rows.unwrap_or_else(|| t.rows.clone())
+
+                    // Selectivity threshold: Only use index if it filters out enough rows (e.g. < 30%)
+                    // Or if it's very small anyway.
+                    let selectivity_threshold = (t.rows.len() as f64 * 0.3) as usize;
+
+                    if let Some((_name, index, key)) = best_index
+                        && (best_estimated_rows < selectivity_threshold || t.rows.len() < 10)
+                    {
+                        if let Some(row_ids) = index.get(&key) {
+                            t.rows
+                                .iter()
+                                .filter(|r| row_ids.contains(&r.id))
+                                .cloned()
+                                .collect()
+                        } else {
+                            vec![]
+                        }
+                    } else {
+                        t.rows.clone()
+                    }
                 } else {
                     t.rows.clone()
                 };

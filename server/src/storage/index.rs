@@ -94,4 +94,18 @@ impl TableIndex {
             TableIndex::Hash { data, .. } => data.get(key),
         }
     }
+
+    pub fn key_count(&self) -> usize {
+        match self {
+            TableIndex::BTree { data, .. } => data.len(),
+            TableIndex::Hash { data, .. } => data.len(),
+        }
+    }
+
+    pub fn total_rows(&self) -> usize {
+        match self {
+            TableIndex::BTree { data, .. } => data.values().map(|v| v.len()).sum(),
+            TableIndex::Hash { data, .. } => data.values().map(|v| v.len()).sum(),
+        }
+    }
 }
