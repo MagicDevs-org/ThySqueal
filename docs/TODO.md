@@ -68,3 +68,10 @@
 - [ ] **Advanced Schema Evolution**: Type changes and constraint modifications
 - [ ] **Query Optimizer Phase 2**: Cost-based Join ordering
 - [ ] JavaScript Query Interface (QuickJS)
+
+## High-Impact Refactorings
+- [ ] **Command Pattern Dispatcher**: Split `exec_stmt` into specialized `StatementExecutor` structs.
+- [ ] **Session Management**: Introduce a `Session` struct to encapsulate user, transaction, and settings state.
+- [ ] **Evaluator Decomposition**: Split monolithic evaluators into specialized, chainable components.
+- [ ] **Storage Decoupling**: Separate `Table` into `TableSchema`, `TableData`, and `TableIndexes`.
+- [ ] **Error Handling Unification**: Streamline `SqlError` and `StorageError` hierarchy.
