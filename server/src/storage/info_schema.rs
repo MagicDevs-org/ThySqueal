@@ -22,7 +22,7 @@ pub fn get_info_schema_tables(db_state: &DatabaseState) -> HashMap<String, Table
             is_auto_increment: false,
         },
     ];
-    let mut tables_table = Table::new("tables".to_string(), tables_cols);
+    let mut tables_table = Table::new("tables".to_string(), tables_cols, None, vec![]);
     for (name, table) in &db_state.tables {
         tables_table.rows.push(Row {
             id: name.clone(),
@@ -88,7 +88,7 @@ pub fn get_info_schema_tables(db_state: &DatabaseState) -> HashMap<String, Table
             is_auto_increment: false,
         },
     ];
-    let mut columns_table = Table::new("columns".to_string(), columns_cols);
+    let mut columns_table = Table::new("columns".to_string(), columns_cols, None, vec![]);
     for (t_name, table) in &db_state.tables {
         for (i, col) in table.columns.iter().enumerate() {
             columns_table.rows.push(Row {
@@ -128,7 +128,7 @@ pub fn get_info_schema_tables(db_state: &DatabaseState) -> HashMap<String, Table
             is_auto_increment: false,
         },
     ];
-    let mut indexes_table = Table::new("indexes".to_string(), indexes_cols);
+    let mut indexes_table = Table::new("indexes".to_string(), indexes_cols, None, vec![]);
     for (t_name, table) in &db_state.tables {
         for (idx_name, index) in &table.indexes {
             let (is_unique, idx_type) = match index {

@@ -1,6 +1,6 @@
 use super::error::StorageError;
 use super::persistence::{Persister, WalRecord};
-use super::row::Column;
+use super::row::{Column, Row};
 use super::table::Table;
 use super::value::Value;
 use super::wal;
@@ -90,24 +90,66 @@ impl Database {
         }
     }
 
-    pub fn create_table(&mut self, name: String, columns: Vec<Column>) -> Result<(), StorageError> {
+    pub fn create_table(
+        &mut self,
+        name: String,
+        columns: Vec<Column>,
+        primary_key: Option<Vec<String>>,
+        foreign_keys: Vec<crate::sql::ast::ForeignKey>,
+    ) -> Result<(), StorageError> {
         if self.state.tables.contains_key(&name) {
             return Err(StorageError::DuplicateKey(name));
         }
 
-        let mut table = Table::new(name.clone(), columns);
+        let mut table = Table::new(name.clone(), columns, primary_key, foreign_keys);
 
-        if let Some(ref data_dir) = self._data_dir {
-            let search_path = format!("{}/search_{}", data_dir, name);
+        if let Some(ref ref_data_dir) = self._data_dir {
+            let search_path = format!("{}/search_{}", ref_data_dir, name);
             table
                 .setup_search_index(&search_path)
                 .map_err(|e| StorageError::PersistenceError(e.to_string()))?;
+        }
+
+        // Auto-create PRIMARY index if PK is specified
+        if let Some(ref pk_cols) = table.primary_key {
+            let expressions: Vec<crate::sql::ast::Expression> = pk_cols
+                .iter()
+                .map(|c| crate::sql::ast::Expression::Column(c.clone()))
+                .collect();
+
+            // Dummy evaluator for index creation on empty table
+            struct DummyEvaluator;
+            impl crate::sql::eval::Evaluator for DummyEvaluator {
+                fn exec_select_internal<'a>(
+                    &'a self,
+                    _: crate::sql::ast::SelectStmt,
+                    _: &'a [(&'a Table, Option<&'a str>, &'a Row)],
+                    _: &'a [Value],
+                    _: &'a DatabaseState,
+                ) -> futures::future::BoxFuture<
+                    'a,
+                    crate::sql::error::SqlResult<crate::sql::executor::QueryResult>,
+                > {
+                    unreachable!()
+                }
+            }
+
+            table.create_index(
+                &DummyEvaluator,
+                "PRIMARY".to_string(),
+                expressions,
+                true,
+                false,
+                None,
+                &self.state,
+            )?;
         }
 
         self.state.tables.insert(name, table);
         self.save()
     }
 
+    #[allow(dead_code)]
     pub fn drop_table(&mut self, name: &str) -> Result<(), StorageError> {
         self.state
             .tables

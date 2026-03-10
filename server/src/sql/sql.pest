@@ -49,12 +49,18 @@ set_item = { identifier ~ "=" ~ expression }
 delete_stmt = { KW_DELETE ~ KW_FROM ~ table_name ~ where_clause? }
 
 // CREATE TABLE statement
-create_table_stmt = { KW_CREATE ~ KW_TABLE ~ table_name ~ "(" ~ column_defs ~ ")" }
+create_table_stmt = { KW_CREATE ~ KW_TABLE ~ table_name ~ "(" ~ create_definitions ~ ")" }
+
+create_definitions = { create_definition ~ ("," ~ create_definition)* }
+create_definition = { column_def | primary_key_def | foreign_key_def }
+
+primary_key_def = { KW_PRIMARY ~ KW_KEY ~ "(" ~ identifier_list ~ ")" }
+foreign_key_def = { KW_FOREIGN ~ KW_KEY ~ "(" ~ identifier_list ~ ")" ~ KW_REFERENCES ~ table_name ~ "(" ~ identifier_list ~ ")" }
 
 column_defs = { column_def ~ ("," ~ column_def)* }
 column_def = { identifier ~ data_type ~ column_attribute* }
 
-column_attribute = { KW_AUTO_INCREMENT | (KW_PRIMARY ~ KW_KEY) }
+column_attribute = { KW_AUTO_INCREMENT | (KW_PRIMARY ~ KW_KEY ~ ("(" ~ identifier_list ~ ")")?) }
 
 data_type = { "INTEGER" | "BIGINT" | "SMALLINT" | "INT" | "DOUBLE" | "REAL" | "FLOAT" | "BOOLEAN" | "BOOL" | "DATETIME" | "DATE" | "VARCHAR" | "TEXT" | "BLOB" | "JSON" | "SERIAL" }
 
@@ -141,7 +147,7 @@ keyword = {
     KW_DISTINCT | KW_AS | KW_AND | KW_OR | KW_NOT | KW_NULL | KW_IS | KW_TRUE | KW_FALSE |
     KW_COUNT | KW_SUM | KW_AVG | KW_MIN | KW_MAX | KW_IN | KW_BEGIN | KW_COMMIT | KW_ROLLBACK | KW_START | KW_TRANSACTION |
     KW_PREPARE | KW_EXECUTE | KW_DEALLOCATE | KW_USING | KW_AUTO_INCREMENT | KW_PRIMARY | KW_KEY |
-    KW_ALTER | KW_ADD | KW_COLUMN | KW_RENAME | KW_TO
+    KW_ALTER | KW_ADD | KW_COLUMN | KW_RENAME | KW_TO | KW_FOREIGN | KW_REFERENCES
 }
 
 // Keywords (reserved)
@@ -199,6 +205,8 @@ KW_USING    = @{ ^"USING" ~ !id_char }
 KW_AUTO_INCREMENT = @{ ^"AUTO_INCREMENT" ~ !id_char }
 KW_PRIMARY  = @{ ^"PRIMARY" ~ !id_char }
 KW_KEY      = @{ ^"KEY" ~ !id_char }
+KW_FOREIGN  = @{ ^"FOREIGN" ~ !id_char }
+KW_REFERENCES = @{ ^"REFERENCES" ~ !id_char }
 KW_ALTER    = @{ ^"ALTER" ~ !id_char }
 KW_ADD      = @{ ^"ADD" ~ !id_char }
 KW_COLUMN   = @{ ^"COLUMN" ~ !id_char }

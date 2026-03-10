@@ -11,34 +11,39 @@ impl Executor {
         stmt: CreateTableStmt,
         tx_id: Option<&str>,
     ) -> SqlResult<QueryResult> {
+        let name = stmt.name.clone();
+        let columns = stmt.columns.clone();
+        let primary_key = stmt.primary_key.clone();
+        let foreign_keys = stmt.foreign_keys.clone();
+
         // Log to WAL
         {
             let db = self.db.read().await;
             db.log_operation(&WalRecord::CreateTable {
                 tx_id: tx_id.map(|s| s.to_string()),
-                name: stmt.name.clone(),
-                columns: stmt.columns.clone(),
+                name: name.clone(),
+                columns: columns.clone(),
+                primary_key: primary_key.clone(),
+                foreign_keys: foreign_keys.clone(),
             })
             .map_err(|e| SqlError::Storage(e.to_string()))?;
         }
 
         if let Some(id) = tx_id {
             self.mutate_state(Some(id), |state| {
-                if state.get_table(&stmt.name).is_some() {
-                    return Err(SqlError::Storage(format!(
-                        "Table {} already exists",
-                        stmt.name
-                    )));
+                if state.get_table(&name).is_some() {
+                    return Err(SqlError::Storage(format!("Table {} already exists", name)));
                 }
-                state
-                    .tables
-                    .insert(stmt.name.clone(), Table::new(stmt.name, stmt.columns));
+                state.tables.insert(
+                    name.clone(),
+                    Table::new(name, columns, primary_key, foreign_keys),
+                );
                 Ok(())
             })
             .await?;
         } else {
             let mut db = self.db.write().await;
-            db.create_table(stmt.name, stmt.columns)
+            db.create_table(name, columns, primary_key, foreign_keys)
                 .map_err(|e| SqlError::Storage(e.to_string()))?;
         }
 
@@ -65,19 +70,14 @@ impl Executor {
             .map_err(|e| SqlError::Storage(e.to_string()))?;
         }
 
-        if let Some(id) = tx_id {
-            self.mutate_state(Some(id), |state| {
-                state
-                    .tables
-                    .remove(&stmt.name)
-                    .ok_or_else(|| SqlError::TableNotFound(stmt.name.clone()))?;
-                Ok(())
-            })
-            .await?;
-        } else {
-            let mut db = self.db.write().await;
-            db.drop_table(&stmt.name)?;
-        }
+        self.mutate_state(tx_id, |state| {
+            state
+                .tables
+                .remove(&stmt.name)
+                .ok_or_else(|| SqlError::TableNotFound(stmt.name.clone()))?;
+            Ok(())
+        })
+        .await?;
 
         Ok(QueryResult {
             columns: vec![],
@@ -156,8 +156,6 @@ impl Executor {
         stmt: CreateIndexStmt,
         tx_id: Option<&str>,
     ) -> SqlResult<QueryResult> {
-        let use_hash = stmt.index_type == IndexType::Hash;
-
         // Log to WAL
         {
             let db = self.db.read().await;
@@ -167,26 +165,27 @@ impl Executor {
                 name: stmt.name.clone(),
                 expressions: stmt.expressions.clone(),
                 unique: stmt.unique,
-                use_hash,
+                use_hash: matches!(stmt.index_type, IndexType::Hash),
                 where_clause: stmt.where_clause.clone(),
             })
             .map_err(|e| SqlError::Storage(e.to_string()))?;
         }
 
         self.mutate_state(tx_id, |state| {
-            let db_state = state.clone();
+            let db_state_copy = state.clone();
             let table = state
                 .get_table_mut(&stmt.table)
                 .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+
             table
                 .create_index(
-                    self,
+                    self as &dyn crate::sql::eval::Evaluator,
                     stmt.name,
                     stmt.expressions,
                     stmt.unique,
-                    use_hash,
+                    matches!(stmt.index_type, IndexType::Hash),
                     stmt.where_clause,
-                    &db_state,
+                    &db_state_copy,
                 )
                 .map_err(|e| SqlError::Storage(e.to_string()))?;
             Ok(())

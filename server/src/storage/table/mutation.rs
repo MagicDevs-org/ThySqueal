@@ -29,7 +29,48 @@ impl Table {
         };
         let table_ref: &Table = self;
 
-        // 1. Check unique constraints/indexes before inserting
+        // 1. Check Foreign Key constraints
+        for fk in &self.foreign_keys {
+            let mut local_values = Vec::new();
+            for col_name in &fk.columns {
+                let idx = self.column_index(col_name).ok_or_else(|| {
+                    StorageError::ColumnNotFound(format!("{}.{}", self.name, col_name))
+                })?;
+                local_values.push(values[idx].clone());
+            }
+
+            let ref_table = db_state
+                .get_table(&fk.ref_table)
+                .ok_or_else(|| StorageError::TableNotFound(fk.ref_table.clone()))?;
+
+            // Search for matching row in ref_table
+            let mut found = false;
+            for ref_row in &ref_table.rows {
+                let mut matches = true;
+                for (i, ref_col_name) in fk.ref_columns.iter().enumerate() {
+                    let ref_idx = ref_table.column_index(ref_col_name).ok_or_else(|| {
+                        StorageError::ColumnNotFound(format!("{}.{}", fk.ref_table, ref_col_name))
+                    })?;
+                    if ref_row.values[ref_idx] != local_values[i] {
+                        matches = false;
+                        break;
+                    }
+                }
+                if matches {
+                    found = true;
+                    break;
+                }
+            }
+
+            if !found {
+                return Err(StorageError::PersistenceError(format!(
+                    "Foreign key constraint violation: referenced row not found in {}",
+                    fk.ref_table
+                )));
+            }
+        }
+
+        // 2. Check unique constraints/indexes before inserting
         for index in self.indexes.values() {
             // Check partial condition
             if let Some(cond) = index.where_clause() {

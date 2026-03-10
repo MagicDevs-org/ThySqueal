@@ -20,6 +20,8 @@ pub enum WalRecord {
         tx_id: Option<String>,
         name: String,
         columns: Vec<Column>,
+        primary_key: Option<Vec<String>>,
+        foreign_keys: Vec<crate::sql::ast::ForeignKey>,
     },
     AlterTable {
         tx_id: Option<String>,

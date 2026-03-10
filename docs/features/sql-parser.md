@@ -46,21 +46,23 @@ The parser is decomposed into submodules for maintainability:
 - `DELETE FROM ... WHERE ...`
 
 ### Data Definition Language (DDL)
-- `CREATE TABLE ... (columns, types [AUTO_INCREMENT | PRIMARY KEY])`
+- `CREATE TABLE ... (columns, types [AUTO_INCREMENT | PRIMARY KEY], [PRIMARY KEY (cols)], [FOREIGN KEY (cols) REFERENCES table(cols)])`
 - `ALTER TABLE table [ADD COLUMN col def | DROP COLUMN col | RENAME COLUMN col TO new | RENAME TO new_table]`
 - `DROP TABLE`
 - `CREATE [UNIQUE] INDEX [name] ON [table] (expr1, expr2, ...) [USING BTREE|HASH] [WHERE condition]`
 
-**Example Table with Auto-Increment:**
+**Example Table with Constraints:**
 ```sql
-CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
+CREATE TABLE groups (
+    id INT PRIMARY KEY (id),
     name TEXT
 );
--- or
+
 CREATE TABLE users (
-    id INT AUTO_INCREMENT,
-    name TEXT
+    id SERIAL PRIMARY KEY,
+    group_id INT,
+    name TEXT,
+    FOREIGN KEY (group_id) REFERENCES groups(id)
 );
 ```
 

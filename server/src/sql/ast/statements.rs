@@ -57,6 +57,15 @@ impl DeleteStmt {
 pub struct CreateTableStmt {
     pub name: String,
     pub columns: Vec<Column>,
+    pub primary_key: Option<Vec<String>>,
+    pub foreign_keys: Vec<ForeignKey>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ForeignKey {
+    pub columns: Vec<String>,
+    pub ref_table: String,
+    pub ref_columns: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

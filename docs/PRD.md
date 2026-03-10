@@ -149,7 +149,7 @@ thy-squeal/                          # Cargo workspace
 - [x] Client CLI (Clap)
 - [x] REPL with history and HTTP execution
 - [x] **ALTER TABLE**: Support for schema evolution
-- [ ] **Constraints**: Primary & Foreign Keys
+- [x] **Constraints**: Primary & Foreign Keys
 - [x] **AUTO_INCREMENT**: Automated ID generation
 - [ ] JavaScript REPL (QuickJS)
 

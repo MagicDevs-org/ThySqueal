@@ -2,9 +2,10 @@
 
 ## [v0.5.0] - 2026-03-10
 ### Added
+- **Constraints**: Support for `PRIMARY KEY` and `FOREIGN KEY` (Referential Integrity). Automatic unique index creation for PKs.
+- **Standard SQL Functions**: Added variadic function support and implemented `CONCAT`, `COALESCE`, `NOW`, and `REPLACE`.
+- **SELECT without FROM**: Support for dual-less selects (e.g., `SELECT NOW()`).
 - **ALTER TABLE**: Support for schema evolution via `ADD COLUMN`, `DROP COLUMN`, `RENAME COLUMN`, and `RENAME TO` (table renaming).
-- **AUTO_INCREMENT / SERIAL**: Automated ID generation for integer columns. Support for `SERIAL` shorthand and `AUTO_INCREMENT` column attribute.
-- **Enhanced information_schema**: Added `is_auto_increment` column to `information_schema.columns`.
 
 ### Refactored
 - **Architectural Modularization**: Deep decomposition of the codebase for better maintainability:

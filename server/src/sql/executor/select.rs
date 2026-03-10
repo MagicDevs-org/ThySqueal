@@ -24,7 +24,7 @@ impl Executor {
             let dual_table_storage;
 
             let (base_table, initial_rows): (&Table, Vec<Row>) = if stmt.table.is_empty() {
-                dual_table_storage = Table::new("dual".to_string(), vec![]);
+                dual_table_storage = Table::new("dual".to_string(), vec![], None, vec![]);
                 let rows = vec![Row {
                     id: "dual".to_string(),
                     values: vec![],

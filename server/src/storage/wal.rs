@@ -61,8 +61,17 @@ pub fn apply_record(
     record: WalRecord,
 ) -> Result<(), StorageError> {
     match record {
-        WalRecord::CreateTable { name, columns, .. } => {
-            state.tables.insert(name.clone(), Table::new(name, columns));
+        WalRecord::CreateTable {
+            name,
+            columns,
+            primary_key,
+            foreign_keys,
+            ..
+        } => {
+            state.tables.insert(
+                name.clone(),
+                Table::new(name, columns, primary_key, foreign_keys),
+            );
         }
         WalRecord::AlterTable { table, action, .. } => {
             use crate::sql::ast::AlterAction;

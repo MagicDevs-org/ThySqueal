@@ -19,6 +19,8 @@ pub struct Table {
     pub indexes: HashMap<String, TableIndex>, // index_name -> TableIndex
     pub search_index: Option<Arc<Mutex<SearchIndex>>>,
     pub auto_inc_counters: HashMap<usize, u64>, // col_idx -> next_val
+    pub primary_key: Option<Vec<String>>,
+    pub foreign_keys: Vec<crate::sql::ast::ForeignKey>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -29,6 +31,10 @@ struct TableSerde {
     indexes: HashMap<String, TableIndex>,
     #[serde(default)]
     auto_inc_counters: HashMap<usize, u64>,
+    #[serde(default)]
+    primary_key: Option<Vec<String>>,
+    #[serde(default)]
+    foreign_keys: Vec<crate::sql::ast::ForeignKey>,
 }
 
 impl From<TableSerde> for Table {
@@ -40,6 +46,8 @@ impl From<TableSerde> for Table {
             indexes: s.indexes,
             search_index: None,
             auto_inc_counters: s.auto_inc_counters,
+            primary_key: s.primary_key,
+            foreign_keys: s.foreign_keys,
         }
     }
 }
@@ -52,6 +60,8 @@ impl From<&Table> for TableSerde {
             rows: t.rows.clone(),
             indexes: t.indexes.clone(),
             auto_inc_counters: t.auto_inc_counters.clone(),
+            primary_key: t.primary_key.clone(),
+            foreign_keys: t.foreign_keys.clone(),
         }
     }
 }
@@ -83,6 +93,8 @@ impl Clone for Table {
             indexes: self.indexes.clone(),
             search_index: self.search_index.clone(),
             auto_inc_counters: self.auto_inc_counters.clone(),
+            primary_key: self.primary_key.clone(),
+            foreign_keys: self.foreign_keys.clone(),
         }
     }
 }
@@ -94,12 +106,19 @@ impl std::fmt::Debug for Table {
             .field("columns", &self.columns)
             .field("rows", &self.rows)
             .field("indexes", &self.indexes)
+            .field("primary_key", &self.primary_key)
+            .field("foreign_keys", &self.foreign_keys)
             .finish()
     }
 }
 
 impl Table {
-    pub fn new(name: String, columns: Vec<Column>) -> Self {
+    pub fn new(
+        name: String,
+        columns: Vec<Column>,
+        primary_key: Option<Vec<String>>,
+        foreign_keys: Vec<crate::sql::ast::ForeignKey>,
+    ) -> Self {
         let mut auto_inc_counters = HashMap::new();
         for (i, col) in columns.iter().enumerate() {
             if col.is_auto_increment {
@@ -114,6 +133,8 @@ impl Table {
             indexes: HashMap::new(),
             search_index: None,
             auto_inc_counters,
+            primary_key,
+            foreign_keys,
         }
     }
 

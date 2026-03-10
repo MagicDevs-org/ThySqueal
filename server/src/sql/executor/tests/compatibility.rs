@@ -192,3 +192,47 @@ async fn test_sql_functions() {
         .unwrap();
     assert!(matches!(result.rows[0][0], Value::DateTime(_)));
 }
+
+#[tokio::test]
+async fn test_constraints() {
+    let db = Database::new();
+    let executor = Arc::new(Executor::new(db));
+
+    executor
+        .execute(
+            "CREATE TABLE groups (id INT PRIMARY KEY (id), name TEXT)",
+            vec![],
+            None,
+        )
+        .await
+        .unwrap();
+
+    executor
+        .execute("INSERT INTO groups VALUES (1, 'Admin')", vec![], None)
+        .await
+        .unwrap();
+
+    // 1. PRIMARY KEY uniqueness
+    let err = executor
+        .execute("INSERT INTO groups VALUES (1, 'Duplicate')", vec![], None)
+        .await
+        .unwrap_err();
+    assert!(err.to_string().contains("Duplicate key"));
+
+    executor
+        .execute("CREATE TABLE users (id INT, group_id INT, FOREIGN KEY (group_id) REFERENCES groups(id))", vec![], None)
+        .await
+        .unwrap();
+
+    // 2. FOREIGN KEY existence
+    executor
+        .execute("INSERT INTO users VALUES (101, 1)", vec![], None)
+        .await
+        .unwrap(); // Works
+
+    let err = executor
+        .execute("INSERT INTO users VALUES (102, 999)", vec![], None)
+        .await
+        .unwrap_err(); // Fails
+    assert!(err.to_string().contains("Foreign key constraint violation"));
+}
