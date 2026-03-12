@@ -1,4 +1,4 @@
-use super::super::super::ast::BinaryOp;
+use super::super::super::squeal::BinaryOp;
 use super::super::super::error::{SqlError, SqlResult};
 use crate::storage::Value;
 

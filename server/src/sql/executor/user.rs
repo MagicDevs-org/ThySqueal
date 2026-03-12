@@ -1,4 +1,4 @@
-use super::super::ast::{CreateUserStmt, DropUserStmt, GrantStmt, RevokeStmt};
+use super::super::squeal::{CreateUser, DropUser, Grant, Revoke};
 use super::super::error::{SqlError, SqlResult};
 use super::{Executor, QueryResult};
 use crate::storage::User;
@@ -7,14 +7,11 @@ use std::collections::HashMap;
 impl Executor {
     pub(crate) async fn exec_create_user(
         &self,
-        stmt: CreateUserStmt,
+        stmt: CreateUser,
         tx_id: Option<&str>,
     ) -> SqlResult<QueryResult> {
         let hashed = bcrypt::hash(&stmt.password, bcrypt::DEFAULT_COST)
             .map_err(|e| SqlError::Runtime(format!("Bcrypt error: {}", e)))?;
-
-        // Log to WAL (we should add a WalRecord for this)
-        // For now skip WAL for users or add it. Let's add it.
 
         self.mutate_state(tx_id, |state| {
             if state.users.contains_key(&stmt.username) {
@@ -46,7 +43,7 @@ impl Executor {
 
     pub(crate) async fn exec_drop_user(
         &self,
-        stmt: DropUserStmt,
+        stmt: DropUser,
         tx_id: Option<&str>,
     ) -> SqlResult<QueryResult> {
         self.mutate_state(tx_id, |state| {
@@ -68,7 +65,7 @@ impl Executor {
 
     pub(crate) async fn exec_grant(
         &self,
-        stmt: GrantStmt,
+        stmt: Grant,
         tx_id: Option<&str>,
     ) -> SqlResult<QueryResult> {
         self.mutate_state(tx_id, |state| {
@@ -105,7 +102,7 @@ impl Executor {
 
     pub(crate) async fn exec_revoke(
         &self,
-        stmt: RevokeStmt,
+        stmt: Revoke,
         tx_id: Option<&str>,
     ) -> SqlResult<QueryResult> {
         self.mutate_state(tx_id, |state| {

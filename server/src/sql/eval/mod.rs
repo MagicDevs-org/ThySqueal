@@ -2,7 +2,7 @@ pub mod column;
 pub mod condition;
 pub mod expression;
 
-use super::ast::{Condition, Expression};
+use super::squeal::{Condition, Expression, Select};
 use super::error::{SqlError, SqlResult};
 use crate::storage::{DatabaseState, Row, Table, Value};
 use futures::FutureExt;
@@ -39,7 +39,7 @@ impl<'a> EvalContext<'a> {
 pub trait Evaluator: Send + Sync {
     fn exec_select_internal<'a>(
         &'a self,
-        stmt: super::ast::SelectStmt,
+        stmt: Select,
         outer_contexts: &'a [(&'a Table, Option<&'a str>, &'a Row)],
         params: &'a [Value],
         db_state: &'a DatabaseState,
@@ -53,7 +53,7 @@ pub struct RecoveryEvaluator;
 impl Evaluator for RecoveryEvaluator {
     fn exec_select_internal<'a>(
         &'a self,
-        _stmt: super::ast::SelectStmt,
+        _stmt: Select,
         _outer_contexts: &'a [(&'a Table, Option<&'a str>, &'a Row)],
         _params: &'a [Value],
         _db_state: &'a DatabaseState,

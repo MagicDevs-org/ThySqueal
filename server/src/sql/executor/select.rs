@@ -1,4 +1,4 @@
-use super::super::ast::{self, SelectStmt};
+use super::super::squeal::{self, Select};
 use super::super::error::{SqlError, SqlResult};
 use super::super::eval::{EvalContext, evaluate_condition_joined, evaluate_expression_joined};
 use super::{Executor, QueryResult, SelectQueryPlan};
@@ -83,15 +83,15 @@ impl Executor {
                     let mut best_index = None;
                     let mut best_estimated_rows = t.data.rows.len();
 
-                    if let Some(ast::Condition::Comparison(
+                    if let Some(squeal::Condition::Comparison(
                         left_expr,
-                        ast::ComparisonOp::Eq,
-                        ast::Expression::Literal(val),
+                        squeal::ComparisonOp::Eq,
+                        squeal::Expression::Literal(val),
                     )) = &stmt.where_clause
                     {
                         for (idx_name, index) in &t.indexes.secondary {
                             let exprs = index.expressions();
-                            if exprs.len() == 1 && &exprs[0] == left_expr {
+                            if exprs.len() == 1 && &squeal::Expression::from(exprs[0].clone()) == left_expr {
                                 let key = vec![val.clone()];
                                 let estimated = if let Some(ids) = index.get(&key) {
                                     ids.len()
@@ -179,7 +179,7 @@ impl Executor {
                         }
                     }
 
-                    if !found_match && join.join_type == ast::JoinType::Left {
+                    if !found_match && join.join_type == squeal::JoinType::Left {
                         let mut next_ctx = existing_ctx.clone();
                         next_ctx.push((join_table, join_alias.clone(), join_table.null_row()));
                         next_joined_rows.push(next_ctx);
@@ -208,7 +208,7 @@ impl Executor {
             let has_aggregates = stmt
                 .columns
                 .iter()
-                .any(|c| matches!(c.expr, ast::Expression::FunctionCall(_)));
+                .any(|c| matches!(c.expr, squeal::Expression::FunctionCall(_)));
 
             if has_aggregates || !stmt.group_by.is_empty() {
                 let group_plan = SelectQueryPlan::new(stmt, db_state, session);
@@ -252,7 +252,7 @@ impl Executor {
                         if let Some(ord) = val_a.partial_cmp(&val_b)
                             && ord != std::cmp::Ordering::Equal
                         {
-                            return if item.order == ast::Order::Desc {
+                            return if item.order == squeal::Order::Desc {
                                 ord.reverse()
                             } else {
                                 ord
@@ -290,7 +290,7 @@ impl Executor {
                 let mut row_values = Vec::new();
                 for col in &stmt.columns {
                     match &col.expr {
-                        ast::Expression::Star => {
+                        squeal::Expression::Star => {
                             for (_table, _alias, row) in &ctx {
                                 row_values.extend(row.values.clone());
                             }
@@ -321,9 +321,9 @@ impl Executor {
 
     pub(crate) fn get_result_column_names(
         &self,
-        stmt: &SelectStmt,
+        stmt: &Select,
         base_table: &Table,
-        joins: &[ast::Join],
+        joins: &[squeal::Join],
         db_state: &DatabaseState,
         cte_tables: &HashMap<String, Table>,
     ) -> Vec<String> {
@@ -335,7 +335,7 @@ impl Executor {
             }
 
             match &col.expr {
-                ast::Expression::Star => {
+                squeal::Expression::Star => {
                     names.extend(base_table.schema.columns.iter().map(|c| c.name.clone()));
                     for join in joins {
                         let join_table = if let Some(t) = cte_tables.get(&join.table) {
@@ -349,12 +349,12 @@ impl Executor {
                         }
                     }
                 }
-                ast::Expression::Column(name) => names.push(name.clone()),
-                ast::Expression::FunctionCall(fc) => {
+                squeal::Expression::Column(name) => names.push(name.clone()),
+                squeal::Expression::FunctionCall(fc) => {
                     let name = format!("{:?}", fc.name).to_uppercase();
                     names.push(format!("{}(...)", name));
                 }
-                ast::Expression::ScalarFunc(sf) => {
+                squeal::Expression::ScalarFunc(sf) => {
                     let name = format!("{:?}", sf.name).to_uppercase();
                     names.push(format!("{}(...)", name));
                 }

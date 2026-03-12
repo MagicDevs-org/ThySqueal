@@ -1,4 +1,4 @@
-use super::super::super::ast::ScalarFuncType;
+use super::super::super::squeal::ScalarFuncType;
 use super::super::super::error::{SqlError, SqlResult};
 use crate::storage::Value;
 

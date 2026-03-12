@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::sql::executor::{Executor, QueryResult};
+use crate::sql::squeal::Squeal;
 use crate::storage::Value;
 use axum::{
     Json, Router,
@@ -15,6 +16,13 @@ use tracing::error;
 #[derive(Deserialize)]
 struct QueryRequest {
     sql: String,
+    transaction_id: Option<String>,
+    username: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct JsquealRequest {
+    squeal: Squeal,
     transaction_id: Option<String>,
     username: Option<String>,
 }
@@ -72,6 +80,38 @@ impl HttpServer {
             Ok(result) => (StatusCode::OK, Json(Self::map_result(result, None))),
             Err(e) => {
                 error!("Query error: {:?}", e);
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(Self::map_result(
+                        QueryResult {
+                            columns: vec![],
+                            rows: vec![],
+                            rows_affected: 0,
+                            transaction_id: None,
+                        },
+                        Some(format!("{:?}", e)),
+                    )),
+                )
+            }
+        }
+    }
+
+    async fn jsqueal(
+        State(executor): State<Arc<Executor>>,
+        Json(payload): Json<JsquealRequest>,
+    ) -> impl IntoResponse {
+        match executor
+            .execute_squeal(
+                payload.squeal,
+                vec![],
+                payload.transaction_id,
+                payload.username,
+            )
+            .await
+        {
+            Ok(result) => (StatusCode::OK, Json(Self::map_result(result, None))),
+            Err(e) => {
+                error!("JSqueal error: {:?}", e);
                 (
                     StatusCode::BAD_REQUEST,
                     Json(Self::map_result(
@@ -156,6 +196,7 @@ pub fn create_app(executor: Arc<Executor>, _config: Config) -> Router {
         .route("/", get(HttpServer::root))
         .route("/health", get(HttpServer::health))
         .route("/_query", post(HttpServer::query))
+        .route("/_jsqueal", post(HttpServer::jsqueal))
         .route("/_dump", get(HttpServer::dump))
         .route("/_restore", post(HttpServer::restore))
         .with_state(executor)

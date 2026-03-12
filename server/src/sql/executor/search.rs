@@ -1,4 +1,4 @@
-use super::super::ast;
+use super::super::squeal::Search;
 use super::super::error::{SqlError, SqlResult};
 use super::{Executor, QueryResult};
 use crate::storage::Value;
@@ -6,7 +6,7 @@ use crate::storage::Value;
 impl Executor {
     pub(crate) async fn exec_search(
         &self,
-        stmt: ast::SearchStmt,
+        stmt: Search,
         db_state: &crate::storage::DatabaseState,
         tx_id: Option<&str>,
     ) -> SqlResult<QueryResult> {

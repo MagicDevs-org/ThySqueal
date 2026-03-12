@@ -1,11 +1,11 @@
-use super::super::super::ast::SelectStmt;
+use super::super::super::squeal::Select;
 use super::super::super::error::{SqlError, SqlResult};
 use super::super::Evaluator;
 use crate::storage::{DatabaseState, Row, Table, Value};
 
 pub fn evaluate_subquery(
     executor: &dyn Evaluator,
-    subquery: &SelectStmt,
+    subquery: &Select,
     contexts: &[(&Table, Option<&str>, &Row)],
     params: &[Value],
     outer_contexts: &[(&Table, Option<&str>, &Row)],

@@ -1,16 +1,14 @@
-use crate::sql::ast::{Condition, Expression};
-use crate::storage::error::StorageError;
-use crate::storage::value::Value;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
+use crate::storage::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TableIndex {
     BTree {
         unique: bool,
-        expressions: Vec<serde_json::Value>, // Serialized Expressions
-        where_clause: Option<serde_json::Value>, // Serialized Condition
-        data: BTreeMap<Vec<Value>, Vec<String>>,
+        expressions: Vec<serde_json::Value>, // Squeal::Expression as JSON
+        where_clause: Option<serde_json::Value>, // Squeal::Condition as JSON
+        data: BTreeMap<Vec<Value>, Vec<String>>, // key -> row_ids
     },
     Hash {
         unique: bool,
@@ -21,27 +19,6 @@ pub enum TableIndex {
 }
 
 impl TableIndex {
-    pub fn expressions(&self) -> Vec<Expression> {
-        let expr_jsons = match self {
-            TableIndex::BTree { expressions, .. } => expressions,
-            TableIndex::Hash { expressions, .. } => expressions,
-        };
-        expr_jsons
-            .iter()
-            .map(|j| serde_json::from_value(j.clone()).unwrap())
-            .collect()
-    }
-
-    pub fn where_clause(&self) -> Option<Condition> {
-        let where_json = match self {
-            TableIndex::BTree { where_clause, .. } => where_clause,
-            TableIndex::Hash { where_clause, .. } => where_clause,
-        };
-        where_json
-            .as_ref()
-            .and_then(|j| serde_json::from_value(j.clone()).ok())
-    }
-
     pub fn is_unique(&self) -> bool {
         match self {
             TableIndex::BTree { unique, .. } => *unique,
@@ -49,25 +26,79 @@ impl TableIndex {
         }
     }
 
-    pub fn insert(&mut self, key: Vec<Value>, row_id: String) -> Result<(), StorageError> {
+    pub fn expressions(&self) -> Vec<crate::sql::squeal::Expression> {
+        let exprs = match self {
+            TableIndex::BTree { expressions, .. } => expressions,
+            TableIndex::Hash { expressions, .. } => expressions,
+        };
+        exprs
+            .iter()
+            .map(|v| serde_json::from_value(v.clone()).unwrap())
+            .collect()
+    }
+
+    pub fn where_clause(&self) -> Option<crate::sql::squeal::Condition> {
+        let cond = match self {
+            TableIndex::BTree { where_clause, .. } => where_clause,
+            TableIndex::Hash { where_clause, .. } => where_clause,
+        };
+        cond.as_ref()
+            .map(|v| serde_json::from_value(v.clone()).unwrap())
+    }
+
+    pub fn key_count(&self) -> usize {
         match self {
-            TableIndex::BTree { unique, data, .. } => {
-                if *unique && data.contains_key(&key) {
-                    return Err(StorageError::DuplicateKey(format!("{:?}", key)));
+            TableIndex::BTree { data, .. } => data.len(),
+            TableIndex::Hash { data, .. } => data.len(),
+        }
+    }
+
+    pub fn total_rows(&self) -> usize {
+        match self {
+            TableIndex::BTree { data, .. } => data.values().map(|v| v.len()).sum(),
+            TableIndex::Hash { data, .. } => data.values().map(|v| v.len()).sum(),
+        }
+    }
+
+    pub fn get(&self, key: &[Value]) -> Option<Vec<String>> {
+        match self {
+            TableIndex::BTree { data, .. } => data.get(key).cloned(),
+            TableIndex::Hash { data, .. } => data.get(key).cloned(),
+        }
+    }
+
+    pub fn insert(&mut self, key: Vec<Value>, row_id: String) -> Result<(), super::error::StorageError> {
+        let unique = self.is_unique();
+        match self {
+            TableIndex::BTree { data, .. } => {
+                let entry = data.entry(key.clone()).or_default();
+                if unique && !entry.is_empty() && !entry.contains(&row_id) {
+                    return Err(super::error::StorageError::DuplicateKey(format!(
+                        "{:?}",
+                        key
+                    )));
                 }
-                data.entry(key).or_default().push(row_id);
+                if !entry.contains(&row_id) {
+                    entry.push(row_id);
+                }
             }
-            TableIndex::Hash { unique, data, .. } => {
-                if *unique && data.contains_key(&key) {
-                    return Err(StorageError::DuplicateKey(format!("{:?}", key)));
+            TableIndex::Hash { data, .. } => {
+                let entry = data.entry(key.clone()).or_default();
+                if unique && !entry.is_empty() && !entry.contains(&row_id) {
+                    return Err(super::error::StorageError::DuplicateKey(format!(
+                        "{:?}",
+                        key
+                    )));
                 }
-                data.entry(key).or_default().push(row_id);
+                if !entry.contains(&row_id) {
+                    entry.push(row_id);
+                }
             }
         }
         Ok(())
     }
 
-    pub fn remove(&mut self, key: &Vec<Value>, row_id: &str) {
+    pub fn remove(&mut self, key: &[Value], row_id: &str) {
         match self {
             TableIndex::BTree { data, .. } => {
                 if let Some(ids) = data.get_mut(key) {
@@ -85,27 +116,6 @@ impl TableIndex {
                     }
                 }
             }
-        }
-    }
-
-    pub fn get(&self, key: &Vec<Value>) -> Option<&Vec<String>> {
-        match self {
-            TableIndex::BTree { data, .. } => data.get(key),
-            TableIndex::Hash { data, .. } => data.get(key),
-        }
-    }
-
-    pub fn key_count(&self) -> usize {
-        match self {
-            TableIndex::BTree { data, .. } => data.len(),
-            TableIndex::Hash { data, .. } => data.len(),
-        }
-    }
-
-    pub fn total_rows(&self) -> usize {
-        match self {
-            TableIndex::BTree { data, .. } => data.values().map(|v| v.len()).sum(),
-            TableIndex::Hash { data, .. } => data.values().map(|v| v.len()).sum(),
         }
     }
 }

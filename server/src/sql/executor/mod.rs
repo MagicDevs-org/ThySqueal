@@ -12,8 +12,8 @@ mod tests;
 pub mod tx;
 pub mod user;
 
-use super::ast::SqlStmt;
 use super::error::{SqlError, SqlResult};
+use super::squeal::{Squeal, Select};
 use crate::storage::{Database, DatabaseState, Privilege, Row, Table, Value};
 use dashmap::DashMap;
 use futures::future::BoxFuture;
@@ -55,7 +55,7 @@ impl ExecutionContext {
 /// A builder-style plan for executing a SELECT query.
 /// Reduces argument count in internal executor functions.
 pub struct SelectQueryPlan<'a> {
-    pub stmt: super::ast::SelectStmt,
+    pub stmt: Select,
     pub outer_contexts: &'a [(&'a Table, Option<&'a str>, &'a Row)],
     pub params: &'a [Value],
     pub db_state: &'a DatabaseState,
@@ -64,7 +64,7 @@ pub struct SelectQueryPlan<'a> {
 
 impl<'a> SelectQueryPlan<'a> {
     pub fn new(
-        stmt: super::ast::SelectStmt,
+        stmt: Select,
         db_state: &'a DatabaseState,
         session: Session,
     ) -> Self {
@@ -94,7 +94,7 @@ impl<'a> SelectQueryPlan<'a> {
 pub struct Executor {
     pub(crate) db: tokio::sync::RwLock<Database>,
     pub(crate) transactions: DashMap<String, DatabaseState>,
-    pub(crate) prepared_statements: DashMap<String, SqlStmt>, // name -> stmt
+    pub(crate) prepared_statements: DashMap<String, Squeal>, // name -> stmt
     pub(crate) data_dir: Option<String>,
 }
 
@@ -120,8 +120,20 @@ impl Executor {
         transaction_id: Option<String>,
         username: Option<String>,
     ) -> SqlResult<QueryResult> {
-        let stmt = super::parser::parse(sql)?;
-        self.exec_stmt(stmt, params, transaction_id, username).await
+        // Workflow: SQL string -> AST (Pest) -> Squeal (IR) -> Executor
+        let ast = super::parser::parse(sql)?;
+        let squeal = Squeal::from(ast);
+        self.exec_squeal(squeal, params, transaction_id, username).await
+    }
+
+    pub async fn execute_squeal(
+        &self,
+        squeal: Squeal,
+        params: Vec<Value>,
+        transaction_id: Option<String>,
+        username: Option<String>,
+    ) -> SqlResult<QueryResult> {
+        self.exec_squeal(squeal, params, transaction_id, username).await
     }
 
     pub fn check_privilege(
@@ -165,7 +177,7 @@ impl Executor {
     pub fn refresh_materialized_views(&self, state: &mut DatabaseState) -> SqlResult<()> {
         let views = state.materialized_views.clone();
         for (name, query) in views {
-            let plan = SelectQueryPlan::new(query, state, Session::root());
+            let plan = SelectQueryPlan::new(query.into(), state, Session::root());
             let res = futures::executor::block_on(self.exec_select_recursive(plan))?;
 
             if let Some(table) = state.tables.get_mut(&name) {
@@ -187,7 +199,7 @@ impl Executor {
 impl crate::sql::eval::Evaluator for Executor {
     fn exec_select_internal<'a>(
         &'a self,
-        stmt: super::ast::SelectStmt,
+        stmt: Select,
         outer_contexts: &'a [(&'a Table, Option<&'a str>, &'a Row)],
         params: &'a [Value],
         db_state: &'a DatabaseState,

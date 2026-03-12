@@ -1,6 +1,6 @@
-use super::super::ast::{
-    AlterAction, AlterTableStmt, CreateIndexStmt, CreateMaterializedViewStmt, CreateTableStmt,
-    DropTableStmt, IndexType,
+use super::super::squeal::{
+    AlterAction, AlterTable, CreateIndex, CreateMaterializedView, CreateTable,
+    DropTable, IndexType, Expression
 };
 use super::super::error::{SqlError, SqlResult};
 use super::{Executor, QueryResult, SelectQueryPlan, Session};
@@ -9,7 +9,7 @@ use crate::storage::{Table, WalRecord};
 impl Executor {
     pub(crate) async fn exec_create_table(
         &self,
-        stmt: CreateTableStmt,
+        stmt: CreateTable,
         tx_id: Option<&str>,
     ) -> SqlResult<QueryResult> {
         let name = stmt.name.clone();
@@ -25,7 +25,11 @@ impl Executor {
                 name: name.clone(),
                 columns: columns.clone(),
                 primary_key: primary_key.clone(),
-                foreign_keys: foreign_keys.clone(),
+                foreign_keys: foreign_keys.iter().map(|f| crate::sql::ast::ForeignKey {
+                    columns: f.columns.clone(),
+                    ref_table: f.ref_table.clone(),
+                    ref_columns: f.ref_columns.clone(),
+                }).collect(),
             })?;
         }
 
@@ -44,7 +48,11 @@ impl Executor {
                 name.clone(),
                 columns,
                 primary_key.clone(),
-                foreign_keys.clone(),
+                foreign_keys.iter().map(|f| crate::sql::ast::ForeignKey {
+                    columns: f.columns.clone(),
+                    ref_table: f.ref_table.clone(),
+                    ref_columns: f.ref_columns.clone(),
+                }).collect(),
             );
 
             // Enable search index automatically
@@ -54,9 +62,9 @@ impl Executor {
 
             // If primary key is defined, create a unique B-Tree index for it
             if let Some(ref pk_cols) = primary_key {
-                let pk_exprs: Vec<crate::sql::ast::Expression> = pk_cols
+                let pk_exprs: Vec<Expression> = pk_cols
                     .iter()
-                    .map(|c| crate::sql::ast::Expression::Column(c.clone()))
+                    .map(|c| Expression::Column(c.clone()))
                     .collect();
 
                 table.create_index(
@@ -64,7 +72,7 @@ impl Executor {
                     format!("pk_{}", name),
                     pk_exprs,
                     true,  // unique
-                    false, // btree
+                    false, // btree (hash=false means btree)
                     None,  // no where clause
                     state,
                 )?;
@@ -85,7 +93,7 @@ impl Executor {
 
     pub(crate) async fn exec_create_materialized_view(
         &self,
-        stmt: CreateMaterializedViewStmt,
+        stmt: CreateMaterializedView,
         tx_id: Option<&str>,
     ) -> SqlResult<QueryResult> {
         self.mutate_state(tx_id, |state| {
@@ -139,7 +147,7 @@ impl Executor {
 
     pub(crate) async fn exec_drop_table(
         &self,
-        stmt: DropTableStmt,
+        stmt: DropTable,
         tx_id: Option<&str>,
     ) -> SqlResult<QueryResult> {
         // 1. Log to WAL
@@ -172,7 +180,7 @@ impl Executor {
 
     pub(crate) async fn exec_create_index(
         &self,
-        stmt: CreateIndexStmt,
+        stmt: CreateIndex,
         tx_id: Option<&str>,
     ) -> SqlResult<QueryResult> {
         let table_name = stmt.table.clone();
@@ -185,10 +193,10 @@ impl Executor {
                 tx_id: tx_id.map(|s| s.to_string()),
                 table: table_name.clone(),
                 name: index_name.clone(),
-                expressions: stmt.expressions.clone(),
+                expressions: stmt.expressions.iter().map(|e| e.clone().into()).collect(),
                 unique: stmt.unique,
                 use_hash: matches!(stmt.index_type, IndexType::Hash),
-                where_clause: stmt.where_clause.clone(),
+                where_clause: stmt.where_clause.clone().map(|w| w.into()),
             })?;
         }
 
@@ -222,7 +230,7 @@ impl Executor {
 
     pub(crate) async fn exec_alter_table(
         &self,
-        stmt: AlterTableStmt,
+        stmt: AlterTable,
         tx_id: Option<&str>,
     ) -> SqlResult<QueryResult> {
         // 1. Log to WAL
@@ -231,7 +239,15 @@ impl Executor {
             db.log_operation(&WalRecord::AlterTable {
                 tx_id: tx_id.map(|s| s.to_string()),
                 table: stmt.table.clone(),
-                action: stmt.action.clone(),
+                action: match &stmt.action {
+                    AlterAction::AddColumn(c) => crate::sql::ast::AlterAction::AddColumn(c.clone()),
+                    AlterAction::DropColumn(c) => crate::sql::ast::AlterAction::DropColumn(c.clone()),
+                    AlterAction::RenameColumn { old_name, new_name } => crate::sql::ast::AlterAction::RenameColumn { 
+                        old_name: old_name.clone(), 
+                        new_name: new_name.clone() 
+                    },
+                    AlterAction::RenameTable(t) => crate::sql::ast::AlterAction::RenameTable(t.clone()),
+                },
             })?;
         }
 

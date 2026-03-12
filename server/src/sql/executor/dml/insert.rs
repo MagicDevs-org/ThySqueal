@@ -1,4 +1,4 @@
-use super::super::super::ast::InsertStmt;
+use super::super::super::squeal::Insert;
 use super::super::super::error::{SqlError, SqlResult};
 use super::super::super::eval::{EvalContext, Evaluator, evaluate_expression_joined};
 use super::super::{Executor, QueryResult};
@@ -7,7 +7,7 @@ use crate::storage::{Value, WalRecord};
 impl Executor {
     pub(crate) async fn exec_insert(
         &self,
-        stmt: InsertStmt,
+        stmt: Insert,
         params: &[Value],
         tx_id: Option<&str>,
     ) -> SqlResult<QueryResult> {

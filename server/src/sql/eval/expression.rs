@@ -2,7 +2,7 @@ pub mod binary;
 pub mod function;
 pub mod subquery;
 
-use super::super::ast::Expression;
+use super::super::squeal::Expression;
 use super::super::error::{SqlError, SqlResult};
 use super::column::resolve_column;
 use super::{EvalContext, Evaluator};

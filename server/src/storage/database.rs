@@ -6,6 +6,7 @@ use super::types::DataType;
 use super::value::Value;
 use super::wal;
 use crate::sql::eval::Evaluator;
+use crate::sql::squeal::{Select, Expression};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -33,7 +34,7 @@ pub struct User {
 pub struct DatabaseState {
     pub tables: HashMap<String, Table>,
     #[serde(default)]
-    pub materialized_views: HashMap<String, crate::sql::ast::SelectStmt>,
+    pub materialized_views: HashMap<String, Select>,
     #[serde(default)]
     pub users: HashMap<String, User>,
 }
@@ -141,7 +142,7 @@ impl Database {
         &mut self,
         executor: &dyn Evaluator,
         name: String,
-        query: crate::sql::ast::SelectStmt,
+        query: Select,
     ) -> Result<(), StorageError> {
         if self.state.tables.contains_key(&name) {
             return Err(StorageError::DuplicateKey(name));
@@ -204,9 +205,9 @@ impl Database {
 
         // Auto-create PRIMARY index if PK is specified
         if let Some(ref pk_cols) = table.schema.primary_key.clone() {
-            let expressions: Vec<crate::sql::ast::Expression> = pk_cols
+            let expressions: Vec<Expression> = pk_cols
                 .iter()
-                .map(|c| crate::sql::ast::Expression::Column(c.clone()))
+                .map(|c| Expression::Column(c.clone()))
                 .collect();
 
             // Dummy evaluator for index creation on empty table
@@ -214,7 +215,7 @@ impl Database {
             impl crate::sql::eval::Evaluator for DummyEvaluator {
                 fn exec_select_internal<'a>(
                     &'a self,
-                    _: crate::sql::ast::SelectStmt,
+                    _: Select,
                     _: &'a [(&'a Table, Option<&'a str>, &'a Row)],
                     _: &'a [Value],
                     _: &'a DatabaseState,

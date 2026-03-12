@@ -1,4 +1,4 @@
-use super::super::ast::SqlStmt;
+use super::super::squeal::Squeal;
 use super::super::error::{SqlError, SqlResult};
 use super::super::parser::parse;
 
@@ -7,9 +7,9 @@ use crate::storage::{Privilege, Value};
 use futures::future::{BoxFuture, FutureExt};
 
 impl Executor {
-    pub fn exec_stmt<'a>(
+    pub fn exec_squeal<'a>(
         &'a self,
-        stmt: SqlStmt,
+        stmt: Squeal,
         params: Vec<Value>,
         transaction_id: Option<String>,
         username: Option<String>,
@@ -20,36 +20,36 @@ impl Executor {
 
             let mut res = match stmt {
                 // Transaction control
-                SqlStmt::Begin | SqlStmt::Commit | SqlStmt::Rollback => {
+                Squeal::Begin | Squeal::Commit | Squeal::Rollback => {
                     self.dispatch_tx(stmt, &ctx).await?
                 }
 
                 // DDL (Data Definition)
-                SqlStmt::CreateTable(_)
-                | SqlStmt::DropTable(_)
-                | SqlStmt::AlterTable(_)
-                | SqlStmt::CreateIndex(_)
-                | SqlStmt::CreateMaterializedView(_) => self.dispatch_ddl(stmt, &ctx).await?,
+                Squeal::CreateTable(_)
+                | Squeal::DropTable(_)
+                | Squeal::AlterTable(_)
+                | Squeal::CreateIndex(_)
+                | Squeal::CreateMaterializedView(_) => self.dispatch_ddl(stmt, &ctx).await?,
 
                 // DML (Data Manipulation)
-                SqlStmt::Insert(_) | SqlStmt::Update(_) | SqlStmt::Delete(_) => {
+                Squeal::Insert(_) | Squeal::Update(_) | Squeal::Delete(_) => {
                     self.dispatch_dml(stmt, &ctx).await?
                 }
 
                 // User management
-                SqlStmt::CreateUser(_)
-                | SqlStmt::DropUser(_)
-                | SqlStmt::Grant(_)
-                | SqlStmt::Revoke(_) => self.dispatch_user(stmt, &ctx).await?,
+                Squeal::CreateUser(_)
+                | Squeal::DropUser(_)
+                | Squeal::Grant(_)
+                | Squeal::Revoke(_) => self.dispatch_user(stmt, &ctx).await?,
 
                 // Queries
-                SqlStmt::Select(_) | SqlStmt::Search(_) | SqlStmt::Explain(_) => {
+                Squeal::Select(_) | Squeal::Search(_) | Squeal::Explain(_) => {
                     self.dispatch_query(stmt, &ctx).await?
                 }
 
                 // Prepared statements
-                SqlStmt::Prepare(p) => self.exec_prepare(p).await?,
-                SqlStmt::Execute(e) => {
+                Squeal::Prepare(p) => self.exec_prepare(p).await?,
+                Squeal::Execute(e) => {
                     self.exec_execute(
                         e,
                         ctx.params.clone(),
@@ -58,7 +58,7 @@ impl Executor {
                     )
                     .await?
                 }
-                SqlStmt::Deallocate(name) => self.exec_deallocate(&name).await?,
+                Squeal::Deallocate(name) => self.exec_deallocate(&name).await?,
             };
 
             if res.transaction_id.is_none() {
@@ -70,14 +70,14 @@ impl Executor {
         .boxed()
     }
 
-    async fn dispatch_tx(&self, stmt: SqlStmt, ctx: &ExecutionContext) -> SqlResult<QueryResult> {
+    async fn dispatch_tx(&self, stmt: Squeal, ctx: &ExecutionContext) -> SqlResult<QueryResult> {
         match stmt {
-            SqlStmt::Begin => self.exec_begin().await,
-            SqlStmt::Commit => {
+            Squeal::Begin => self.exec_begin().await,
+            Squeal::Commit => {
                 self.exec_commit(ctx.session.transaction_id.as_deref())
                     .await
             }
-            SqlStmt::Rollback => {
+            Squeal::Rollback => {
                 self.exec_rollback(ctx.session.transaction_id.as_deref())
                     .await
             }
@@ -85,9 +85,9 @@ impl Executor {
         }
     }
 
-    async fn dispatch_ddl(&self, stmt: SqlStmt, ctx: &ExecutionContext) -> SqlResult<QueryResult> {
+    async fn dispatch_ddl(&self, stmt: Squeal, ctx: &ExecutionContext) -> SqlResult<QueryResult> {
         match stmt {
-            SqlStmt::CreateTable(ct) => {
+            Squeal::CreateTable(ct) => {
                 {
                     let db = self.db.read().await;
                     self.check_privilege(
@@ -100,7 +100,7 @@ impl Executor {
                 self.exec_create_table(ct, ctx.session.transaction_id.as_deref())
                     .await
             }
-            SqlStmt::CreateMaterializedView(mv) => {
+            Squeal::CreateMaterializedView(mv) => {
                 {
                     let db = self.db.read().await;
                     self.check_privilege(
@@ -113,7 +113,7 @@ impl Executor {
                 self.exec_create_materialized_view(mv, ctx.session.transaction_id.as_deref())
                     .await
             }
-            SqlStmt::AlterTable(at) => {
+            Squeal::AlterTable(at) => {
                 {
                     let db = self.db.read().await;
                     self.check_privilege(
@@ -126,7 +126,7 @@ impl Executor {
                 self.exec_alter_table(at, ctx.session.transaction_id.as_deref())
                     .await
             }
-            SqlStmt::DropTable(dt) => {
+            Squeal::DropTable(dt) => {
                 {
                     let db = self.db.read().await;
                     self.check_privilege(
@@ -139,7 +139,7 @@ impl Executor {
                 self.exec_drop_table(dt, ctx.session.transaction_id.as_deref())
                     .await
             }
-            SqlStmt::CreateIndex(ci) => {
+            Squeal::CreateIndex(ci) => {
                 {
                     let db = self.db.read().await;
                     self.check_privilege(
@@ -156,9 +156,9 @@ impl Executor {
         }
     }
 
-    async fn dispatch_dml(&self, stmt: SqlStmt, ctx: &ExecutionContext) -> SqlResult<QueryResult> {
+    async fn dispatch_dml(&self, stmt: Squeal, ctx: &ExecutionContext) -> SqlResult<QueryResult> {
         match stmt {
-            SqlStmt::Insert(i) => {
+            Squeal::Insert(i) => {
                 {
                     let db = self.db.read().await;
                     self.check_privilege(
@@ -171,7 +171,7 @@ impl Executor {
                 self.exec_insert(i, &ctx.params, ctx.session.transaction_id.as_deref())
                     .await
             }
-            SqlStmt::Update(u) => {
+            Squeal::Update(u) => {
                 {
                     let db = self.db.read().await;
                     self.check_privilege(
@@ -184,7 +184,7 @@ impl Executor {
                 self.exec_update(u, &ctx.params, ctx.session.transaction_id.as_deref())
                     .await
             }
-            SqlStmt::Delete(d) => {
+            Squeal::Delete(d) => {
                 {
                     let db = self.db.read().await;
                     self.check_privilege(
@@ -201,25 +201,25 @@ impl Executor {
         }
     }
 
-    async fn dispatch_user(&self, stmt: SqlStmt, ctx: &ExecutionContext) -> SqlResult<QueryResult> {
+    async fn dispatch_user(&self, stmt: Squeal, ctx: &ExecutionContext) -> SqlResult<QueryResult> {
         {
             let db = self.db.read().await;
             self.check_privilege(&ctx.session.username, None, Privilege::Grant, db.state())?;
         }
         match stmt {
-            SqlStmt::CreateUser(cu) => {
+            Squeal::CreateUser(cu) => {
                 self.exec_create_user(cu, ctx.session.transaction_id.as_deref())
                     .await
             }
-            SqlStmt::DropUser(du) => {
+            Squeal::DropUser(du) => {
                 self.exec_drop_user(du, ctx.session.transaction_id.as_deref())
                     .await
             }
-            SqlStmt::Grant(g) => {
+            Squeal::Grant(g) => {
                 self.exec_grant(g, ctx.session.transaction_id.as_deref())
                     .await
             }
-            SqlStmt::Revoke(r) => {
+            Squeal::Revoke(r) => {
                 self.exec_revoke(r, ctx.session.transaction_id.as_deref())
                     .await
             }
@@ -229,11 +229,11 @@ impl Executor {
 
     async fn dispatch_query(
         &self,
-        stmt: SqlStmt,
+        stmt: Squeal,
         ctx: &ExecutionContext,
     ) -> SqlResult<QueryResult> {
         match stmt {
-            SqlStmt::Select(s) => {
+            Squeal::Select(s) => {
                 let table = s.table.clone();
                 if let Some(id) = &ctx.session.transaction_id {
                     let state = self
@@ -270,7 +270,7 @@ impl Executor {
                     self.exec_select_recursive(plan).await
                 }
             }
-            SqlStmt::Search(s) => {
+            Squeal::Search(s) => {
                 if let Some(id) = &ctx.session.transaction_id {
                     let state = self
                         .transactions
@@ -294,7 +294,7 @@ impl Executor {
                     self.exec_search(s, db.state(), None).await
                 }
             }
-            SqlStmt::Explain(s) => {
+            Squeal::Explain(s) => {
                 if let Some(id) = &ctx.session.transaction_id {
                     let state = self
                         .transactions
@@ -312,10 +312,11 @@ impl Executor {
 
     pub(crate) async fn exec_prepare(
         &self,
-        stmt: crate::sql::ast::PrepareStmt,
+        stmt: crate::sql::squeal::Prepare,
     ) -> SqlResult<QueryResult> {
         let inner_stmt = parse(&stmt.sql)?;
-        self.prepared_statements.insert(stmt.name, inner_stmt);
+        let squeal = Squeal::from(inner_stmt);
+        self.prepared_statements.insert(stmt.name, squeal);
         Ok(QueryResult {
             columns: vec![],
             rows: vec![],
@@ -326,7 +327,7 @@ impl Executor {
 
     pub(crate) async fn exec_execute(
         &self,
-        stmt: crate::sql::ast::ExecuteStmt,
+        stmt: crate::sql::squeal::Execute,
         params: Vec<Value>,
         transaction_id: Option<String>,
         username: Option<String>,
@@ -358,7 +359,7 @@ impl Executor {
             exec_params = params;
         }
 
-        self.exec_stmt(inner_stmt, exec_params, transaction_id, username)
+        self.exec_squeal(inner_stmt, exec_params, transaction_id, username)
             .await
     }
 

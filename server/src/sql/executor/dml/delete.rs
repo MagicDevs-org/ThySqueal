@@ -1,4 +1,4 @@
-use super::super::super::ast::DeleteStmt;
+use super::super::super::squeal::Delete;
 use super::super::super::error::{SqlError, SqlResult};
 use super::super::super::eval::{EvalContext, Evaluator, evaluate_condition_joined};
 use super::super::{Executor, QueryResult};
@@ -7,7 +7,7 @@ use crate::storage::WalRecord;
 impl Executor {
     pub(crate) async fn exec_delete(
         &self,
-        stmt: DeleteStmt,
+        stmt: Delete,
         params: &[crate::storage::Value],
         tx_id: Option<&str>,
     ) -> SqlResult<QueryResult> {

@@ -1,4 +1,4 @@
-use super::super::super::ast;
+use super::super::super::squeal::{Expression, AggregateType, FunctionCall};
 use super::super::super::error::{SqlError, SqlResult};
 use super::super::super::eval::{EvalContext, evaluate_expression_joined};
 use super::super::Executor;
@@ -7,14 +7,14 @@ use crate::storage::{DatabaseState, Row, Table, Value};
 impl Executor {
     pub(crate) fn eval_aggregate_joined(
         &self,
-        fc: &ast::FunctionCall,
+        fc: &FunctionCall,
         contexts: &[Vec<(&Table, Option<&str>, &Row)>],
         outer_contexts: &[(&Table, Option<&str>, &Row)],
         db_state: &DatabaseState,
     ) -> SqlResult<Value> {
         match fc.name {
-            ast::AggregateType::Count => {
-                if fc.args.len() == 1 && matches!(fc.args[0], ast::Expression::Star) {
+            AggregateType::Count => {
+                if fc.args.len() == 1 && matches!(fc.args[0], Expression::Star) {
                     Ok(Value::Int(contexts.len() as i64))
                 } else {
                     let mut count = 0;
@@ -28,7 +28,7 @@ impl Executor {
                     Ok(Value::Int(count))
                 }
             }
-            ast::AggregateType::Sum => {
+            AggregateType::Sum => {
                 let mut sum_f = 0.0;
                 let mut sum_i = 0;
                 let mut is_float = false;
@@ -58,7 +58,7 @@ impl Executor {
                     Ok(Value::Int(sum_i))
                 }
             }
-            ast::AggregateType::Min => {
+            AggregateType::Min => {
                 let mut min_val: Option<Value> = None;
                 for ctx_list in contexts {
                     let eval_ctx = EvalContext::new(ctx_list, &[], outer_contexts, db_state);
@@ -72,7 +72,7 @@ impl Executor {
                 }
                 Ok(min_val.unwrap_or(Value::Null))
             }
-            ast::AggregateType::Max => {
+            AggregateType::Max => {
                 let mut max_val: Option<Value> = None;
                 for ctx_list in contexts {
                     let eval_ctx = EvalContext::new(ctx_list, &[], outer_contexts, db_state);
@@ -86,7 +86,7 @@ impl Executor {
                 }
                 Ok(max_val.unwrap_or(Value::Null))
             }
-            ast::AggregateType::Avg => {
+            AggregateType::Avg => {
                 let mut sum = 0.0;
                 let mut count = 0;
                 for ctx_list in contexts {

@@ -75,11 +75,7 @@ pub fn apply_record(
             );
         }
         WalRecord::CreateMaterializedView { name, query, .. } => {
-            // We need a proper Database instance or just update the state manually.
-            // Since Database::create_materialized_view uses executor, we'd need more.
-            // For now, let's assume snapshots capture the data and WAL replay just needs the metadata for subsequent changes.
-            // However, mutations will trigger refresh.
-            state.materialized_views.insert(name, *query);
+            state.materialized_views.insert(name, (*query).into());
         }
         WalRecord::AlterTable { table, action, .. } => {
             use crate::sql::ast::AlterAction;
@@ -135,10 +131,10 @@ pub fn apply_record(
                 t.create_index(
                     evaluator,
                     name,
-                    expressions,
+                    expressions.into_iter().map(|e| e.into()).collect(),
                     unique,
                     use_hash,
-                    where_clause,
+                    where_clause.map(|w| w.into()),
                     &db_state,
                 )?;
             }

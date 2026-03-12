@@ -1,4 +1,4 @@
-use super::super::super::ast::UpdateStmt;
+use super::super::super::squeal::Update;
 use super::super::super::error::{SqlError, SqlResult};
 use super::super::super::eval::{
     EvalContext, Evaluator, evaluate_condition_joined, evaluate_expression_joined,
@@ -9,7 +9,7 @@ use crate::storage::{Value, WalRecord};
 impl Executor {
     pub(crate) async fn exec_update(
         &self,
-        stmt: UpdateStmt,
+        stmt: Update,
         params: &[Value],
         tx_id: Option<&str>,
     ) -> SqlResult<QueryResult> {

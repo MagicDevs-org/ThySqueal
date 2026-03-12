@@ -1,4 +1,4 @@
-use super::super::ast::{self, SelectStmt};
+use super::super::squeal::{Select, Condition, ComparisonOp, Expression};
 use super::super::error::{SqlError, SqlResult};
 use super::{Executor, QueryResult};
 use crate::storage::{DatabaseState, TableIndex, Value};
@@ -6,7 +6,7 @@ use crate::storage::{DatabaseState, TableIndex, Value};
 impl Executor {
     pub(crate) async fn exec_explain(
         &self,
-        stmt: SelectStmt,
+        stmt: Select,
         db_state: &DatabaseState,
         tx_id: Option<&str>,
     ) -> SqlResult<QueryResult> {
@@ -20,10 +20,10 @@ impl Executor {
         let mut scan_type = "Full Table Scan".to_string();
         let mut index_name = "None".to_string();
         if stmt.joins.is_empty()
-            && let Some(ast::Condition::Comparison(
+            && let Some(Condition::Comparison(
                 left_expr,
-                ast::ComparisonOp::Eq,
-                ast::Expression::Literal(val),
+                ComparisonOp::Eq,
+                Expression::Literal(val),
             )) = &stmt.where_clause
         {
             let mut best_index_found = None;
@@ -31,7 +31,7 @@ impl Executor {
 
             for (name, index) in &table.indexes.secondary {
                 let exprs = index.expressions();
-                if exprs.len() == 1 && &exprs[0] == left_expr {
+                if exprs.len() == 1 && &Expression::from(exprs[0].clone()) == left_expr {
                     let key = vec![val.clone()];
                     let estimated = if let Some(ids) = index.get(&key) {
                         ids.len()
@@ -85,7 +85,7 @@ impl Executor {
         let has_aggregates = stmt
             .columns
             .iter()
-            .any(|c| matches!(c.expr, ast::Expression::FunctionCall(_)));
+            .any(|c| matches!(c.expr, Expression::FunctionCall(_)));
         if !stmt.group_by.is_empty() || has_aggregates {
             plan.push(vec![
                 Value::Text("AGGREGATE".to_string()),
