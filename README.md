@@ -10,7 +10,8 @@ A lightweight, MySQL-compatible SQL server with dual-protocol support (SQL over 
 - **MySQL Compatible**: Native TCP support on port 3306. Connect via standard `mysql` CLI or GUI tools.
 - **Full-Text Search**: Integrated Tantivy-powered search with `SEARCH` command.
 - **Persistence**: Hybrid in-memory storage with Sled-based snapshotting.
-- **HTTP API**: Axum-based JSON API for easy integration.
+- **HTTP API**: Axum-based JSON API supporting both standard SQL (`POST /_query`) and **JSqueal** JSON-based queries (`POST /_jsqueal`).
+- **Squeal IR**: Unified internal representation for queries, decoupling parser from execution logic.
 - **Backup & Restore**: Export and import full database state as SQL scripts.
 - **REPL**: Interactive CLI client for manual querying and management.
 - **Observability**: Built-in `EXPLAIN` support for query plan visualization.
@@ -21,6 +22,25 @@ A lightweight, MySQL-compatible SQL server with dual-protocol support (SQL over 
 ```bash
 # Start the server (default HTTP port 9200)
 cargo run -p thy-squeal
+```
+
+### JSqueal Example (JSON Query)
+```bash
+curl -X POST http://localhost:9200/_jsqueal -H "Content-Type: application/json" -d '{
+  "squeal": {
+    "Select": {
+      "table": "users",
+      "columns": [{ "expr": "Star" }],
+      "where_clause": {
+        "Comparison": [
+          { "Column": "id" },
+          "Eq",
+          { "Literal": { "Int": 1 } }
+        ]
+      }
+    }
+  }
+}'
 ```
 
 ### Run Client

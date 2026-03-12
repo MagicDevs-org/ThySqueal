@@ -7,25 +7,31 @@ This document reflects the current architecture of **thy-squeal**, reaching beyo
 ## Current Architecture (Summary)
 
 ```
-Client (CLI/REPL)  →  POST /_query  →  Executor::execute(sql)
+Client (CLI/REPL)  →  POST /_query (SQL)  →  Parser (Pest)
                                               ↓
-                              Pest-based SQL Parser (sql/parser/)
+Client (App/API)   →  POST /_jsqueal (JSON) →  Squeal IR
                                               ↓
-                              SQL Executor (sql/executor/)
+                                         SQL Executor
                                               ↓
-                              Storage Engine (storage/)
+                                         Storage Engine
 ```
 
 ---
 
 ## Architectural Pillars
 
-### 1. Modular SQL Engine
+### 1. Squeal IR (Internal Representation)
+**Outcome**: Unified, strongly-typed query model.
+- **Decoupling**: Separates the surface query language (SQL or JSON) from the execution logic.
+- **Expressiveness**: Captures all SQL operations in a structured, serializable format.
+- **Optimizability**: Provides a clean layer for future query optimizations.
+
+### 2. Modular SQL Engine
 **Outcome**: Clean separation of parsing, evaluation, and execution.
-- **Parser**: Split into statement-specific modules (`ddl`, `dml`, `select`) and expression parsing (`expr/`).
+- **Parser**: Maps SQL strings to the internal `Squeal` IR.
+- **JSqueal**: Direct JSON-to-IR mapping via Axum endpoint.
 - **Evaluator**: Dedicated modules for column resolution, condition filtering, and expression evaluation.
-- **Executor**: Highly decomposed into command-specific handlers, including specialized logic for aggregation, joins, and search.
-- **Prepared Statements**: Efficient server-side query caching within the `Executor` via AST storage.
+- **Executor**: Processes `Squeal` IR via specialized command handlers (ddl, dml, select).
 
 ---
 
@@ -52,23 +58,19 @@ server/src/
 ├── config.rs        # Configuration Management
 ├── http.rs          # Axum HTTP API Handlers
 ├── sql/             # SQL Engine
-│   ├── ast.rs       # Abstract Syntax Tree
+│   ├── ast/         # Abstract Syntax Tree (Decomposed)
+│   ├── squeal/      # Internal Representation (IR)
 │   ├── eval/        # Runtime Evaluation (Modular)
-│   │   ├── column.rs
-│   │   ├── condition.rs
-│   │   └── expression.rs
 │   ├── executor/    # Statement Execution (Modular)
 │   │   ├── aggregate/    # Grouping/Aggregates
 │   │   ├── dml/          # Insert/Update/Delete
-│   │   ├── select.rs     # SELECT logic
-│   │   └── tests/        # Unit tests by feature
+│   │   └── select.rs     # SELECT logic
 │   └── parser/      # Pest Parser (Modular)
-└── storage/         # Storage Engine
+└── storage/         # Storage Engine (Decoupled from AST)
     ├── mod.rs       # Database Entry Point
-    ├── table.rs     # Table Metadata
-    ├── row.rs       # Data Structures
+    ├── table/       # Modular Table Logic
+    ├── row.rs       # Data Structures (Column, ForeignKey)
     ├── index.rs     # Indexing Logic
-    ├── mutation.rs  # Update/Delete logic
     ├── wal.rs       # WAL Management
     └── info_schema.rs # Metadata Tables
 ```

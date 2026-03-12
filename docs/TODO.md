@@ -62,7 +62,7 @@
 - [x] User Authentication & RBAC
 
 ## Phase 6: Production & Distributed (v1.0) - 🏗 IN PROGRESS
-- [ ] **JSqueal**: JSON-based query language (direct AST mapping, bypassing Pest parser)
+- [x] **JSqueal**: JSON-based query language (direct IR mapping, bypassing Pest parser)
 - [ ] **Distributed Mode**: Multi-node replication via Raft consensus
 - [ ] **Telemetry**: Prometheus metrics and OpenTelemetry tracing
 - [ ] **Encryption**: TLS support for HTTP and MySQL TCP protocols
@@ -71,6 +71,7 @@
 - [ ] JavaScript Query Interface (QuickJS)
 
 ## High-Impact Refactorings - ✅ COMPLETE
+- [x] **Squeal IR**: Introduce an internal query representation layer to decouple parser from executor.
 - [x] **Command Pattern Dispatcher**: Split `exec_stmt` into specialized `StatementExecutor` structs.
 - [x] **Session Management**: Introduce a `Session` struct to encapsulate user, transaction, and settings state.
 - [x] **Evaluator Decomposition**: Split monolithic evaluators into specialized, chainable components.

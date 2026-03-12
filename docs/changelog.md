@@ -1,5 +1,16 @@
 # thy-squeal Changelog
 
+## [v0.6.0] - 2026-03-12
+### Added
+- **Squeal IR (Internal Representation)**: Introduced a unified, strongly-typed internal query representation. This layer decouples the surface syntax (SQL or JSON) from the execution engine, providing a more robust foundation for optimization and cross-protocol support.
+- **JSqueal (JSON Query Language)**: Added a structured JSON-based query interface accessible via `POST /_jsqueal`. This allows for programmatic query construction and bypassing the SQL parsing stage.
+- **Bidirectional IR Conversions**: Full support for converting between SQL AST and Squeal IR, ensuring consistency across all query paths.
+
+### Refactored
+- **Storage Decoupling**: Deep refactoring of the storage engine (`Database`, `Table`, `WalRecord`, `TableIndex`) to natively use Squeal IR instead of the SQL AST. This eliminates circular dependencies and allows the storage layer to operate independently of the parser.
+- **Unified Schema Types**: Unified `ForeignKey` and `Column` definitions into `crate::storage`, simplifying type management across the AST, IR, and persistence layers.
+- **HTTP Handler Modernization**: Updated the Axum-based HTTP server to support the new unified execution pipeline.
+
 ## [v0.5.0] - 2026-03-10
 ### Added
 - **Authentication & RBAC**: Implementation of `CREATE USER`, `DROP USER`, `GRANT`, and `REVOKE`. Secure password hashing via `bcrypt`. Fine-grained permission enforcement for all SQL operations.
