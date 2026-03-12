@@ -15,6 +15,10 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 
 ## 2. Architecture Overview
 
+### Query Lifecycle
+1. **SQL Workflow**: `SQL string` -> `AST (Pest)` -> `Squeal (IR)` -> `Executor`
+2. **JSqueal Workflow**: `JSON` -> `Squeal (IR)` -> `Executor`
+
 ### Binary Distribution
 | Binary | Port | Purpose |
 |--------|------|---------|
@@ -40,7 +44,19 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 - **Data Export/Import**: `.dump` and `.restore` commands (SQL script format)
 - **Information Schema**: Metadata querying (tables, columns, statistics)
 
-#### 3.1.2 Performance & Reliability
+#### 3.1.2 Squeal - Internal Query Representation
+- **Unified IR**: A strongly-typed internal representation that decouples the query logic from the surface syntax (SQL or JSON).
+- **Extensible**: Designed to easily add new query operations without modifying multiple parsers.
+- **Optimizable**: The IR can be transformed for query optimization before execution.
+
+#### 3.1.3 JSqueal - JSON Query Language
+- **JSON Interface**: A structured JSON representation for SQL queries, mapping directly to Squeal IR.
+- **Direct IR Mapping**: Maps JSON query structures directly to Squeal IR for execution.
+- **Protocol Agnostic**: Accessible via both HTTP JSON API (`POST /_jsqueal`) and standard MySQL protocol (if extended).
+- **Equivalent Expressiveness**: Supports all core SQL features via the shared Squeal layer.
+- **Validation**: Strict JSON schema validation for query structures.
+
+#### 3.1.3 Performance & Reliability
 - **Indexes**: B-Tree, Hash, Composite, JSON Path, Functional, and Partial indexes
 - **Explain Plan**: Visualizing query execution strategy
 - **Transactions**: ACID compliance with Snapshot Isolation
@@ -145,6 +161,7 @@ thy-squeal/                          # Cargo workspace
 - [x] **User Authentication & RBAC**: Secure access control
 
 ### Phase 6: Production & Distributed (v1.0) - 🏗 IN PROGRESS
+- [ ] **JSqueal**: JSON-based query language (direct AST mapping, bypassing Pest parser)
 - [ ] **JavaScript Query Interface**: QuickJS integration
 - [ ] **Distributed Mode**: multi-node replication (Raft)
 - [ ] **Telemetry**: Prometheus/OpenTelemetry metrics

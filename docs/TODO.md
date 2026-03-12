@@ -62,6 +62,7 @@
 - [x] User Authentication & RBAC
 
 ## Phase 6: Production & Distributed (v1.0) - 🏗 IN PROGRESS
+- [ ] **JSqueal**: JSON-based query language (direct AST mapping, bypassing Pest parser)
 - [ ] **Distributed Mode**: Multi-node replication via Raft consensus
 - [ ] **Telemetry**: Prometheus metrics and OpenTelemetry tracing
 - [ ] **Encryption**: TLS support for HTTP and MySQL TCP protocols
