@@ -61,7 +61,15 @@
 - [x] Materialized Views
 - [x] User Authentication & RBAC
 
-## Phase 6: Production & Distributed (v1.0) - 🏗 IN PROGRESS
+## Phase 6: Key-Value Storage (v0.6) - 🏗 IN PROGRESS
+- [ ] **Redis Protocol Compatibility**: Support for RESP protocol on port 6379
+- [ ] **Core Commands**: GET, SET, DEL, EXISTS, EXPIRE, TTL
+- [ ] **Data Structures**: Lists, Sets, Hashes, Sorted Sets, **Streams (XADD, XREAD, etc.)**
+- [ ] **Persistence**: RDB-style snapshots and AOF (Append Only File) integration with existing WAL
+- [ ] **Pub/Sub**: Basic message queuing and notification system
+- [ ] **SQL Integration**: Querying Key-Value data via SQL virtual tables
+
+## Phase 7: Production & Distributed (v1.0) - 🏗 IN PROGRESS
 - [x] **JSqueal**: JSON-based query language (direct IR mapping, bypassing Pest parser)
 - [ ] **Distributed Mode**: Multi-node replication via Raft consensus
 - [ ] **Telemetry**: Prometheus metrics and OpenTelemetry tracing

@@ -68,7 +68,7 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 #### 3.2.1 Redis Protocol Compatibility
 - **RESP Support**: Implementation of Redis Serialization Protocol.
 - **Core Commands**: Support for standard commands (GET, SET, DEL, EXPIRE, TTL, etc.).
-- **Data Structures**: Support for Strings, Lists, Sets, Hashes, and Sorted Sets.
+- **Data Structures**: Support for Strings, Lists, Sets, Hashes, Sorted Sets, and **Streams (XADD, XREAD, etc.)**.
 
 #### 3.2.2 Unified Storage Engine
 - **Shared Persistence**: KV operations utilize the same WAL and snapshotting mechanism as the SQL engine.
@@ -177,7 +177,7 @@ thy-squeal/                          # Cargo workspace
 ### Phase 6: Key-Value Storage (v0.6) - 🏗 IN PROGRESS
 - [ ] **Redis Protocol Compatibility**: Support for RESP protocol on port 6379
 - [ ] **Core Commands**: GET, SET, DEL, EXISTS, EXPIRE, TTL
-- [ ] **Data Structures**: Lists, Sets, Hashes, Sorted Sets
+- [ ] **Data Structures**: Lists, Sets, Hashes, Sorted Sets, **Streams (XADD, XREAD, etc.)**
 - [ ] **Persistence**: RDB-style snapshots and AOF (Append Only File) integration with existing WAL
 - [ ] **Pub/Sub**: Basic message queuing and notification system
 - [ ] **SQL Integration**: Querying Key-Value data via SQL virtual tables
