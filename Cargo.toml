@@ -5,7 +5,7 @@ members = ["server", "client"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-authors = ["thy-squeal"]
+authors = ["Azat Murtazin <murtazin.azat@gmail.com>"]
 license = "MIT"
 
 [workspace.dependencies]

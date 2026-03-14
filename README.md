@@ -1,4 +1,4 @@
-# thy-squeal
+# ThySqueal
 
 A lightweight, MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JSON API), featuring full-text search, dynamic caching, and Redis-like key-value capabilities.
 
@@ -19,12 +19,14 @@ A lightweight, MySQL-compatible SQL server with dual-protocol support (SQL over 
 ## Quick Start
 
 ### Build and Run Server
+
 ```bash
 # Start the server (default HTTP port 9200)
 cargo run -p thy-squeal
 ```
 
 ### JSqueal Example (JSON Query)
+
 ```bash
 curl -X POST http://localhost:9200/_jsqueal -H "Content-Type: application/json" -d '{
   "squeal": {
@@ -44,6 +46,7 @@ curl -X POST http://localhost:9200/_jsqueal -H "Content-Type: application/json" 
 ```
 
 ### Run Client
+
 ```bash
 # Start the interactive REPL
 cargo run -p thy-squeal-client
@@ -56,6 +59,7 @@ cargo run -p thy-squeal-client -- --import backup.sql
 ```
 
 ### Example Queries
+
 ```sql
 -- Create a table
 CREATE TABLE users (id INT, name TEXT, email TEXT);
