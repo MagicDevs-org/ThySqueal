@@ -56,12 +56,24 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 - **Equivalent Expressiveness**: Supports all core SQL features via the shared Squeal layer.
 - **Validation**: Strict JSON schema validation for query structures.
 
-#### 3.1.3 Performance & Reliability
+#### 3.1.4 Performance & Reliability
 - **Indexes**: B-Tree, Hash, Composite, JSON Path, Functional, and Partial indexes
 - **Explain Plan**: Visualizing query execution strategy
 - **Transactions**: ACID compliance with Snapshot Isolation
 - **Write-Ahead Logging (WAL)**: Guaranteed durability for every write
 - **Schema Evolution**: `ALTER TABLE` support for non-destructive schema changes
+
+### 3.2 Key-Value Store ( Redis-like )
+
+#### 3.2.1 Redis Protocol Compatibility
+- **RESP Support**: Implementation of Redis Serialization Protocol.
+- **Core Commands**: Support for standard commands (GET, SET, DEL, EXPIRE, TTL, etc.).
+- **Data Structures**: Support for Strings, Lists, Sets, Hashes, and Sorted Sets.
+
+#### 3.2.2 Unified Storage Engine
+- **Shared Persistence**: KV operations utilize the same WAL and snapshotting mechanism as the SQL engine.
+- **SQL Interoperability**: Virtual tables to expose KV namespaces as SQL-queryable datasets.
+- **Atomicity**: Atomic operations across both SQL and KV domains.
 
 ---
 
@@ -126,10 +138,10 @@ thy-squeal/                          # Cargo workspace
 
 ### Phase 2: HTTP API (v0.2) - ✅ COMPLETE
 - [x] HTTP JSON API (basic Axum server running)
-- [x] POST /_query endpoint
-- [x] GET /, GET /health
+- [x] `POST /_query` endpoint
+- [x] `GET /`, `GET /health`
 - [x] Transaction ID support in HTTP API
-- [ ] GET /_stats (Storage/cache statistics)
+- [ ] `GET /_stats` (Storage/cache statistics)
 - [ ] CRUD endpoints for tables (REST)
 
 ### Phase 3: Advanced SQL (v0.3) - ✅ COMPLETE
@@ -149,6 +161,7 @@ thy-squeal/                          # Cargo workspace
 - [x] **Explain Plan**: Query execution transparency
 - [x] **SQL Dump/Restore**: Export/Import SQL scripts
 - [x] **MySQL Protocol Compatibility**: Native TCP support (Port 3306)
+
 ### Phase 5: Compatibility & Ecosystem (v0.5) - ✅ COMPLETE
 - [x] Parameterized Queries (Prepared statements)
 - [x] Client CLI (Clap)
@@ -160,7 +173,15 @@ thy-squeal/                          # Cargo workspace
 - [x] **Materialized Views**: Automatically refreshing pre-calculated query results
 - [x] **User Authentication & RBAC**: Secure access control
 
-### Phase 6: Production & Distributed (v1.0) - 🏗 IN PROGRESS
+### Phase 6: Key-Value Storage (v0.6) - 🏗 IN PROGRESS
+- [ ] **Redis Protocol Compatibility**: Support for RESP protocol on port 6379
+- [ ] **Core Commands**: GET, SET, DEL, EXISTS, EXPIRE, TTL
+- [ ] **Data Structures**: Lists, Sets, Hashes, Sorted Sets
+- [ ] **Persistence**: RDB-style snapshots and AOF (Append Only File) integration with existing WAL
+- [ ] **Pub/Sub**: Basic message queuing and notification system
+- [ ] **SQL Integration**: Querying Key-Value data via SQL virtual tables
+
+### Phase 7: Production & Distributed (v1.0) - 🏗 IN PROGRESS
 - [ ] **JSqueal**: JSON-based query language (direct AST mapping, bypassing Pest parser)
 - [ ] **JavaScript Query Interface**: QuickJS integration
 - [ ] **Distributed Mode**: multi-node replication (Raft)
