@@ -257,4 +257,30 @@ mod tests {
             .unwrap();
         assert_eq!(by_score.len(), 2);
     }
+
+    #[tokio::test]
+    async fn test_kv_stream() {
+        use std::collections::HashMap;
+
+        let db = Arc::new(RwLock::new(Database::new()));
+        let executor = Arc::new(Executor::new(db));
+
+        let mut fields1 = HashMap::new();
+        fields1.insert("field1".to_string(), Value::Text("value1".to_string()));
+        
+        let id1 = executor.kv_stream_add("mystream".to_string(), None, fields1, None).await.unwrap();
+        assert_eq!(id1, "1");
+
+        let mut fields2 = HashMap::new();
+        fields2.insert("field2".to_string(), Value::Text("value2".to_string()));
+        
+        let id2 = executor.kv_stream_add("mystream".to_string(), None, fields2, None).await.unwrap();
+        assert_eq!(id2, "2");
+
+        let range = executor.kv_stream_range("mystream", "-", "+", None, None).await.unwrap();
+        assert_eq!(range.len(), 2);
+
+        let len = executor.kv_stream_len("mystream", None).await.unwrap();
+        assert_eq!(len, 2);
+    }
 }

@@ -30,6 +30,7 @@ pub struct User {
     pub table_privileges: HashMap<String, Vec<Privilege>>, // table_name -> privileges
 }
 
+#[allow(clippy::type_complexity)]
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DatabaseState {
     pub tables: HashMap<String, Table>,
@@ -48,7 +49,11 @@ pub struct DatabaseState {
     #[serde(default)]
     pub kv_set: HashMap<String, HashSet<String>>,
     #[serde(default)]
-    pub kv_zset: HashMap<String, Vec<(f64, String)>>, // key -> [(score, member), ...] sorted by score
+    pub kv_zset: HashMap<String, Vec<(f64, String)>>,
+    #[serde(default)]
+    pub kv_stream: HashMap<String, Vec<(u64, HashMap<String, Value>)>>, // key -> [(id, fields), ...]
+    #[serde(default)]
+    pub kv_stream_last_id: HashMap<String, u64>, // key -> last auto-generated ID
 }
 
 impl DatabaseState {
@@ -98,6 +103,8 @@ impl Database {
                 kv_list: HashMap::new(),
                 kv_set: HashMap::new(),
                 kv_zset: HashMap::new(),
+                kv_stream: HashMap::new(),
+                kv_stream_last_id: HashMap::new(),
             },
             persister: Some(persister),
             _data_dir: Some(data_dir.clone()),

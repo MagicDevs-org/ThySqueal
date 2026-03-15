@@ -105,6 +105,18 @@ impl Executor {
                     self.exec_kv_zset_range(kv, ctx.session.transaction_id.as_deref())
                         .await?
                 }
+                Squeal::KvStreamAdd(kv) => {
+                    self.exec_kv_stream_add(kv, ctx.session.transaction_id.as_deref())
+                        .await?
+                }
+                Squeal::KvStreamRange(kv) => {
+                    self.exec_kv_stream_range(kv, ctx.session.transaction_id.as_deref())
+                        .await?
+                }
+                Squeal::KvStreamLen(kv) => {
+                    self.exec_kv_stream_len(kv, ctx.session.transaction_id.as_deref())
+                        .await?
+                }
             };
 
             if res.transaction_id.is_none() {

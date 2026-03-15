@@ -947,6 +947,138 @@ impl Executor {
             transaction_id: None,
         })
     }
+
+    pub async fn kv_stream_add(&self, key: String, id: Option<u64>, fields: HashMap<String, Value>, tx_id: Option<&str>) -> SqlResult<String> {
+        let new_id = self.mutate_state(tx_id, |state| {
+            let stream = state.kv_stream.entry(key.clone()).or_insert_with(Vec::new);
+            let last_id = state.kv_stream_last_id.entry(key.clone()).or_insert(0);
+            
+            let new_id = id.unwrap_or(*last_id + 1);
+            *last_id = new_id;
+            
+            stream.push((new_id, fields));
+            Ok(new_id)
+        })
+        .await?;
+
+        Ok(new_id.to_string())
+    }
+
+    pub async fn kv_stream_range(&self, key: &str, start: &str, stop: &str, count: Option<usize>, tx_id: Option<&str>) -> SqlResult<Vec<(String, HashMap<String, Value>)>> {
+        let parse_id = |s: &str| -> SqlResult<u64> {
+            if s == "-" {
+                return Ok(0);
+            }
+            if s == "+" {
+                return Ok(u64::MAX);
+            }
+            s.parse().map_err(|_| SqlError::Runtime("Invalid stream ID".to_string()))
+        };
+
+        let start_id = parse_id(start)?;
+        let stop_id = parse_id(stop)?;
+
+        let stream = if let Some(id) = tx_id {
+            let state = self.transactions.get(id)
+                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+            state.kv_stream.get(key).cloned().unwrap_or_default()
+        } else {
+            let db = self.db.read().await;
+            db.state().kv_stream.get(key).cloned().unwrap_or_default()
+        };
+
+        let mut results = vec![];
+        for (id, fields) in stream {
+            let include = if start == "-" {
+                id <= stop_id
+            } else if stop == "+" {
+                id >= start_id
+            } else {
+                id >= start_id && id <= stop_id
+            };
+            
+            if include {
+                results.push((id.to_string(), fields));
+            }
+        }
+
+        if let Some(c) = count {
+            results.truncate(c);
+        }
+
+        Ok(results)
+    }
+
+    pub async fn kv_stream_len(&self, key: &str, tx_id: Option<&str>) -> SqlResult<usize> {
+        let len = if let Some(id) = tx_id {
+            let state = self.transactions.get(id)
+                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+            state.kv_stream.get(key).map(|s| s.len()).unwrap_or(0)
+        } else {
+            let db = self.db.read().await;
+            db.state().kv_stream.get(key).map(|s| s.len()).unwrap_or(0)
+        };
+        Ok(len)
+    }
+
+    pub async fn exec_kv_stream_add(
+        &self,
+        kv: squeal::KvStreamAdd,
+        tx_id: Option<&str>,
+    ) -> SqlResult<QueryResult> {
+        let id = self.kv_stream_add(kv.key, kv.id, kv.fields, tx_id).await?;
+        Ok(QueryResult {
+            columns: vec!["id".to_string()],
+            rows: vec![vec![Value::Text(id)]],
+            rows_affected: 1,
+            transaction_id: None,
+        })
+    }
+
+    pub async fn exec_kv_stream_range(
+        &self,
+        kv: squeal::KvStreamRange,
+        tx_id: Option<&str>,
+    ) -> SqlResult<QueryResult> {
+        let results = self.kv_stream_range(&kv.key, &kv.start, &kv.stop, kv.count, tx_id).await?;
+        
+        let mut rows = vec![];
+        for (id, fields) in results {
+            let mut row = vec![Value::Text(id)];
+            for (_, v) in fields {
+                row.push(v);
+            }
+            rows.push(row);
+        }
+
+        let mut columns = vec!["id".to_string()];
+        if !rows.is_empty() && rows[0].len() > 1 {
+            for i in 1..rows[0].len() {
+                columns.push(format!("field{}", i - 1));
+            }
+        }
+
+        Ok(QueryResult {
+            columns,
+            rows,
+            rows_affected: 0,
+            transaction_id: None,
+        })
+    }
+
+    pub async fn exec_kv_stream_len(
+        &self,
+        kv: squeal::KvStreamLen,
+        tx_id: Option<&str>,
+    ) -> SqlResult<QueryResult> {
+        let len = self.kv_stream_len(&kv.key, tx_id).await?;
+        Ok(QueryResult {
+            columns: vec!["length".to_string()],
+            rows: vec![vec![Value::Int(len as i64)]],
+            rows_affected: 0,
+            transaction_id: None,
+        })
+    }
 }
 
 impl crate::sql::eval::Evaluator for Executor {

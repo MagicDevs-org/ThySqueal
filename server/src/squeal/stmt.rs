@@ -2,6 +2,7 @@ use super::cond::Condition;
 use super::expr::Expression;
 use crate::storage::{Column, ForeignKey, Privilege, Value};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Squeal Internal Representation (IR) of a query.
 /// This layer decouples the execution engine from the parser AST.
@@ -39,6 +40,9 @@ pub enum Squeal {
     KvSetMembers(KvSetMembers),
     KvZSetAdd(KvZSetAdd),
     KvZSetRange(KvZSetRange),
+    KvStreamAdd(KvStreamAdd),
+    KvStreamRange(KvStreamRange),
+    KvStreamLen(KvStreamLen),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -108,6 +112,26 @@ pub struct KvZSetRange {
     pub start: i64,
     pub stop: i64,
     pub with_scores: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KvStreamAdd {
+    pub key: String,
+    pub id: Option<u64>,
+    pub fields: HashMap<String, Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KvStreamRange {
+    pub key: String,
+    pub start: String,
+    pub stop: String,
+    pub count: Option<usize>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KvStreamLen {
+    pub key: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

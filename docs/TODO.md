@@ -65,7 +65,7 @@
 - [x] **Redis Protocol Compatibility**: Support for RESP protocol on port 6379
 - [x] **Core Commands**: GET, SET, DEL, EXISTS, EXPIRE, TTL, KEYS
 - [x] **Data Structures**: Hash (HSET/HGET/HDEL/HGETALL), Lists (LPUSH/RPUSH/LRANGE/LPOP/RPOP/LLEN), Sets (SADD/SREM/SMEMBERS/SISMEMBER), Sorted Sets (ZADD/ZRANGE/ZRANGEBYSCORE/ZREM)
-- [ ] **Streams (XADD, XREAD, etc.)**
+- [x] **Streams (XADD, XREAD, etc.)**: XADD, XRANGE, XLEN
 - [ ] **Persistence**: RDB-style snapshots and AOF (Append Only File) integration with existing WAL
 - [ ] **Pub/Sub**: Basic message queuing and notification system
 - [ ] **SQL Integration**: Querying Key-Value data via SQL virtual tables
