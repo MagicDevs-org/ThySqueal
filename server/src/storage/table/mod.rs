@@ -10,6 +10,7 @@ use super::error::StorageError;
 use super::index::TableIndex;
 use super::row::{Column, ForeignKey, Row};
 use super::search::SearchIndex;
+use super::types::DataType;
 use super::value::Value;
 
 /// Schema definitions for a table (metadata, columns, constraints)
@@ -238,6 +239,41 @@ impl Table {
 
     pub fn rename_table(&mut self, new_name: String) {
         self.schema.name = new_name;
+    }
+
+    pub fn modify_column_type(
+        &mut self,
+        name: &str,
+        new_type: DataType,
+    ) -> Result<(), StorageError> {
+        let idx = self.column_index(name).ok_or_else(|| {
+            StorageError::ColumnNotFound(format!("{}.{}", self.schema.name, name))
+        })?;
+
+        self.schema.columns[idx].data_type = new_type;
+        Ok(())
+    }
+
+    pub fn set_column_default(
+        &mut self,
+        name: &str,
+        default: Option<Value>,
+    ) -> Result<(), StorageError> {
+        let idx = self.column_index(name).ok_or_else(|| {
+            StorageError::ColumnNotFound(format!("{}.{}", self.schema.name, name))
+        })?;
+
+        self.schema.columns[idx].default_value = default;
+        Ok(())
+    }
+
+    pub fn set_column_not_null(&mut self, name: &str, not_null: bool) -> Result<(), StorageError> {
+        let idx = self.column_index(name).ok_or_else(|| {
+            StorageError::ColumnNotFound(format!("{}.{}", self.schema.name, name))
+        })?;
+
+        self.schema.columns[idx].is_not_null = not_null;
+        Ok(())
     }
 
     pub fn column_index(&self, name: &str) -> Option<usize> {

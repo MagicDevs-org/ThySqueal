@@ -1,6 +1,6 @@
 use super::cond::Condition;
 use super::expr::Expression;
-use crate::storage::{Column, ForeignKey, Privilege, Value};
+use crate::storage::{Column, DataType, ForeignKey, Privilege, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -249,8 +249,28 @@ pub struct AlterTable {
 pub enum AlterAction {
     AddColumn(Column),
     DropColumn(String),
-    RenameColumn { old_name: String, new_name: String },
+    RenameColumn {
+        old_name: String,
+        new_name: String,
+    },
     RenameTable(String),
+    ModifyColumn {
+        name: String,
+        data_type: DataType,
+    },
+    SetDefault {
+        column: String,
+        value: Option<Value>,
+    },
+    DropDefault {
+        column: String,
+    },
+    SetNotNull {
+        column: String,
+    },
+    DropNotNull {
+        column: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

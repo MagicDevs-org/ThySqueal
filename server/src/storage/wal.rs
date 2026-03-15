@@ -93,6 +93,15 @@ pub fn apply_record(
                         t.rename_table(new_name.clone());
                         state.tables.insert(new_name, t);
                     }
+                    AlterAction::ModifyColumn { name, data_type } => {
+                        t.modify_column_type(&name, data_type.clone())?
+                    }
+                    AlterAction::SetDefault { column, value } => {
+                        t.set_column_default(&column, value.clone())?
+                    }
+                    AlterAction::DropDefault { column } => t.set_column_default(&column, None)?,
+                    AlterAction::SetNotNull { column } => t.set_column_not_null(&column, true)?,
+                    AlterAction::DropNotNull { column } => t.set_column_not_null(&column, false)?,
                 }
             }
         }

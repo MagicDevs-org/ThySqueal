@@ -8,6 +8,10 @@ pub struct Column {
     pub data_type: DataType,
     #[serde(default)]
     pub is_auto_increment: bool,
+    #[serde(default)]
+    pub is_not_null: bool,
+    #[serde(default)]
+    pub default_value: Option<Value>,
 }
 
 #[allow(dead_code)]

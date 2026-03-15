@@ -82,11 +82,16 @@ data_type = { "INTEGER" | "BIGINT" | "SMALLINT" | "INT" | "DOUBLE" | "REAL" | "F
 drop_table_stmt = { KW_DROP ~ KW_TABLE ~ table_name }
 
 // ALTER TABLE statement
-alter_table_stmt = { KW_ALTER ~ KW_TABLE ~ table_name ~ (alter_add_column | alter_drop_column | alter_rename_column | alter_rename_table) }
+alter_table_stmt = { KW_ALTER ~ KW_TABLE ~ table_name ~ (alter_add_column | alter_drop_column | alter_rename_column | alter_rename_table | alter_modify_column | alter_set_default | alter_drop_default | alter_set_not_null | alter_drop_not_null) }
 alter_add_column = { KW_ADD ~ KW_COLUMN? ~ column_def }
 alter_drop_column = { KW_DROP ~ KW_COLUMN? ~ identifier }
 alter_rename_column = { KW_RENAME ~ KW_COLUMN? ~ identifier ~ KW_TO ~ identifier }
 alter_rename_table = { KW_RENAME ~ KW_TO ~ table_name }
+alter_modify_column = { KW_MODIFY ~ KW_COLUMN? ~ identifier ~ data_type }
+alter_set_default = { KW_ALTER ~ KW_COLUMN? ~ identifier ~ KW_SET ~ KW_DEFAULT ~ (literal | KW_NULL) }
+alter_drop_default = { KW_ALTER ~ KW_COLUMN? ~ identifier ~ KW_DROP ~ KW_DEFAULT }
+alter_set_not_null = { KW_ALTER ~ KW_COLUMN? ~ identifier ~ KW_SET ~ KW_NOT_NULL }
+alter_drop_not_null = { KW_ALTER ~ KW_COLUMN? ~ identifier ~ KW_DROP ~ KW_NOT_NULL }
 
 // CREATE INDEX statement
 create_index_stmt = { KW_CREATE ~ unique? ~ KW_INDEX ~ identifier ~ KW_ON ~ table_name ~ "(" ~ index_expression_list ~ ")" ~ index_type_clause? ~ where_clause? }
@@ -167,7 +172,8 @@ keyword = {
     KW_COUNT | KW_SUM | KW_AVG | KW_MIN | KW_MAX | KW_IN | KW_BEGIN | KW_COMMIT | KW_ROLLBACK | KW_START | KW_TRANSACTION |
     KW_PREPARE | KW_EXECUTE | KW_DEALLOCATE | KW_USING | KW_AUTO_INCREMENT | KW_PRIMARY | KW_KEY |
     KW_ALTER | KW_ADD | KW_COLUMN | KW_RENAME | KW_TO | KW_FOREIGN | KW_REFERENCES | KW_WITH |
-    KW_MATERIALIZED | KW_VIEW | KW_USER | KW_IDENTIFIED | KW_PRIVILEGES | KW_REVOKE | KW_ALL
+    KW_MATERIALIZED | KW_VIEW | KW_USER | KW_IDENTIFIED | KW_PRIVILEGES | KW_REVOKE | KW_ALL |
+    KW_MODIFY | KW_DEFAULT | KW_NOT_NULL
 }
 
 // Keywords (reserved)
@@ -241,6 +247,9 @@ KW_IDENTIFIED = @{ ^"IDENTIFIED" ~ !id_char }
 KW_PRIVILEGES = @{ ^"PRIVILEGES" ~ !id_char }
 KW_REVOKE   = @{ ^"REVOKE" ~ !id_char }
 KW_ALL      = @{ ^"ALL" ~ !id_char }
+KW_MODIFY   = @{ ^"MODIFY" ~ !id_char }
+KW_DEFAULT  = @{ ^"DEFAULT" ~ !id_char }
+KW_NOT_NULL = @{ ^"NOT_NULL" | "^NOT NULL" ~ !id_char }
 
 id_char = _{ ASCII_ALPHA | ASCII_DIGIT | "_" }
 

@@ -117,6 +117,8 @@ impl Executor {
                     name: col_name.clone(),
                     data_type: crate::storage::DataType::Text,
                     is_auto_increment: false,
+                    is_not_null: false,
+                    default_value: None,
                 });
             }
 
@@ -274,6 +276,36 @@ impl Executor {
                     let mut table = table;
                     table.rename_table(new_name.clone());
                     state.tables.insert(new_name, table);
+                }
+                AlterAction::ModifyColumn { name, data_type } => {
+                    let table = state
+                        .get_table_mut(&stmt.table)
+                        .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+                    table.modify_column_type(&name, data_type.clone())?;
+                }
+                AlterAction::SetDefault { column, value } => {
+                    let table = state
+                        .get_table_mut(&stmt.table)
+                        .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+                    table.set_column_default(&column, value.clone())?;
+                }
+                AlterAction::DropDefault { column } => {
+                    let table = state
+                        .get_table_mut(&stmt.table)
+                        .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+                    table.set_column_default(&column, None)?;
+                }
+                AlterAction::SetNotNull { column } => {
+                    let table = state
+                        .get_table_mut(&stmt.table)
+                        .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+                    table.set_column_not_null(&column, true)?;
+                }
+                AlterAction::DropNotNull { column } => {
+                    let table = state
+                        .get_table_mut(&stmt.table)
+                        .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+                    table.set_column_not_null(&column, false)?;
                 }
             }
             Ok(())

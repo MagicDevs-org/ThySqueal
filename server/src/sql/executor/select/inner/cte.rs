@@ -28,6 +28,8 @@ impl Executor {
                         name: name.clone(),
                         data_type: crate::storage::DataType::Text,
                         is_auto_increment: false,
+                        is_not_null: false,
+                        default_value: None,
                     });
                 }
                 let mut table = Table::new(cte.name.clone(), cols, None, vec![]);

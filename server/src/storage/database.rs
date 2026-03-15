@@ -235,8 +235,10 @@ impl Database {
         for col_name in &res.columns {
             cols.push(Column {
                 name: col_name.clone(),
-                data_type: DataType::Text, // Default for MV
+                data_type: DataType::Text,
                 is_auto_increment: false,
+                is_not_null: false,
+                default_value: None,
             });
         }
 

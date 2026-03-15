@@ -176,6 +176,8 @@ pub fn parse_column_def(pair: pest::iterators::Pair<Rule>) -> SqlResult<Column> 
         name: col_name,
         data_type,
         is_auto_increment,
+        is_not_null: false,
+        default_value: None,
     })
 }
 
