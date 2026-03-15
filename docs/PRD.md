@@ -188,5 +188,5 @@ thy-squeal/                          # Cargo workspace
 - [ ] **Distributed Mode**: multi-node replication (Raft)
 - [ ] **Telemetry**: Prometheus/OpenTelemetry metrics
 - [ ] **Encryption**: TLS for both HTTP and SQL protocols
-- [ ] **Advanced Schema Evolution**: Type changes and constraint modifications
+- [x] **Advanced Schema Evolution**: Type changes and constraint modifications
 

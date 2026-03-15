@@ -68,7 +68,6 @@
 - [x] **Streams (XADD, XREAD, etc.)**: XADD, XRANGE, XLEN
 - [x] **Persistence**: RDB-style snapshots and AOF (Append Only File) integration with existing WAL
 - [x] **Pub/Sub**: Basic message queuing and notification system
-- [ ] **Pub/Sub**: Basic message queuing and notification system
 - [x] **SQL Integration**: Querying Key-Value data via SQL virtual tables
 
 ## Phase 7: Production & Distributed (v1.0) - 🏗 IN PROGRESS
@@ -76,7 +75,7 @@
 - [ ] **Distributed Mode**: Multi-node replication via Raft consensus
 - [ ] **Telemetry**: Prometheus metrics and OpenTelemetry tracing
 - [ ] **Encryption**: TLS support for HTTP and MySQL TCP protocols
-- [ ] **Advanced Schema Evolution**: Type changes and constraint modifications
+- [x] **Advanced Schema Evolution**: Type changes and constraint modifications
 - [ ] **Query Optimizer Phase 2**: Cost-based Join ordering
 - [ ] JavaScript Query Interface (QuickJS)
 
