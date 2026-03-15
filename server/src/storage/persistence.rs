@@ -72,6 +72,11 @@ pub enum WalRecord {
         tx_id: Option<String>,
         key: String,
     },
+    KvExpire {
+        tx_id: Option<String>,
+        key: String,
+        expiry: u64,
+    },
 }
 
 pub trait Persister: Send + Sync {

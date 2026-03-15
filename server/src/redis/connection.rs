@@ -138,6 +138,116 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
                 }
                 RespValue::Integer(count).write(&mut socket).await?;
             }
+            "EXISTS" => {
+                if cmd_array.len() < 2 {
+                    RespValue::Error(
+                        "ERR wrong number of arguments for 'exists' command".to_string(),
+                    )
+                    .write(&mut socket)
+                    .await?;
+                    continue;
+                }
+                let key = match &cmd_array[1] {
+                    RespValue::BulkString(Some(b)) => String::from_utf8_lossy(b).to_string(),
+                    _ => {
+                        RespValue::Error("ERR invalid key type".to_string())
+                            .write(&mut socket)
+                            .await?;
+                        continue;
+                    }
+                };
+                let exists = executor.kv_exists(&key, None).await?;
+                RespValue::Integer(if exists { 1 } else { 0 })
+                    .write(&mut socket)
+                    .await?;
+            }
+            "EXPIRE" => {
+                if cmd_array.len() < 3 {
+                    RespValue::Error(
+                        "ERR wrong number of arguments for 'expire' command".to_string(),
+                    )
+                    .write(&mut socket)
+                    .await?;
+                    continue;
+                }
+                let key = match &cmd_array[1] {
+                    RespValue::BulkString(Some(b)) => String::from_utf8_lossy(b).to_string(),
+                    _ => {
+                        RespValue::Error("ERR invalid key type".to_string())
+                            .write(&mut socket)
+                            .await?;
+                        continue;
+                    }
+                };
+                let seconds = match &cmd_array[2] {
+                    RespValue::BulkString(Some(b)) => {
+                        let s = String::from_utf8_lossy(b).to_string();
+                        s.parse::<u64>().map_err(|e| anyhow::anyhow!("{}", e))
+                    }
+                    RespValue::SimpleString(s) => {
+                        s.parse::<u64>().map_err(|e| anyhow::anyhow!("{}", e))
+                    }
+                    RespValue::Integer(i) => Ok(*i as u64),
+                    _ => Err(anyhow::anyhow!("invalid number")),
+                };
+                let seconds = match seconds {
+                    Ok(s) => s,
+                    Err(_) => {
+                        RespValue::Error("ERR value is not an integer".to_string())
+                            .write(&mut socket)
+                            .await?;
+                        continue;
+                    }
+                };
+                let result = executor.kv_expire(key, seconds, None).await?;
+                RespValue::Integer(if result { 1 } else { 0 })
+                    .write(&mut socket)
+                    .await?;
+            }
+            "TTL" => {
+                if cmd_array.len() < 2 {
+                    RespValue::Error("ERR wrong number of arguments for 'ttl' command".to_string())
+                        .write(&mut socket)
+                        .await?;
+                    continue;
+                }
+                let key = match &cmd_array[1] {
+                    RespValue::BulkString(Some(b)) => String::from_utf8_lossy(b).to_string(),
+                    _ => {
+                        RespValue::Error("ERR invalid key type".to_string())
+                            .write(&mut socket)
+                            .await?;
+                        continue;
+                    }
+                };
+                let ttl = executor.kv_ttl(&key, None).await?;
+                RespValue::Integer(ttl).write(&mut socket).await?;
+            }
+            "KEYS" => {
+                if cmd_array.len() < 2 {
+                    RespValue::Error(
+                        "ERR wrong number of arguments for 'keys' command".to_string(),
+                    )
+                    .write(&mut socket)
+                    .await?;
+                    continue;
+                }
+                let pattern = match &cmd_array[1] {
+                    RespValue::BulkString(Some(b)) => String::from_utf8_lossy(b).to_string(),
+                    _ => {
+                        RespValue::Error("ERR invalid pattern type".to_string())
+                            .write(&mut socket)
+                            .await?;
+                        continue;
+                    }
+                };
+                let keys = executor.kv_keys(&pattern, None).await?;
+                let result: Vec<RespValue> = keys
+                    .into_iter()
+                    .map(|k| RespValue::BulkString(Some(k.into_bytes())))
+                    .collect();
+                RespValue::Array(Some(result)).write(&mut socket).await?;
+            }
             "QUIT" => {
                 RespValue::SimpleString("OK".to_string())
                     .write(&mut socket)

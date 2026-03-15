@@ -39,6 +39,8 @@ pub struct DatabaseState {
     pub users: HashMap<String, User>,
     #[serde(default)]
     pub kv: HashMap<String, Value>,
+    #[serde(default)]
+    pub kv_expiry: HashMap<String, u64>, // key -> expiry timestamp (milliseconds)
 }
 
 impl DatabaseState {
@@ -83,6 +85,7 @@ impl Database {
                 materialized_views: HashMap::new(),
                 users: HashMap::new(),
                 kv: HashMap::new(),
+                kv_expiry: HashMap::new(),
             },
             persister: Some(persister),
             _data_dir: Some(data_dir.clone()),
