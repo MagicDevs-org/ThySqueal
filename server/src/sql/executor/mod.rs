@@ -364,29 +364,56 @@ impl Executor {
         Ok(keys.into_iter().filter(|k| re.is_match(k)).collect())
     }
 
-    pub async fn kv_hash_set(&self, key: String, field: String, value: Value, tx_id: Option<&str>) -> SqlResult<()> {
+    pub async fn kv_hash_set(
+        &self,
+        key: String,
+        field: String,
+        value: Value,
+        tx_id: Option<&str>,
+    ) -> SqlResult<()> {
         self.mutate_state(tx_id, |state| {
-            state.kv_hash.entry(key).or_insert_with(HashMap::new).insert(field, value);
+            state
+                .kv_hash
+                .entry(key)
+                .or_insert_with(HashMap::new)
+                .insert(field, value);
             Ok(())
         })
         .await?;
         Ok(())
     }
 
-    pub async fn kv_hash_get(&self, key: &str, field: &str, tx_id: Option<&str>) -> SqlResult<Option<Value>> {
+    pub async fn kv_hash_get(
+        &self,
+        key: &str,
+        field: &str,
+        tx_id: Option<&str>,
+    ) -> SqlResult<Option<Value>> {
         if let Some(id) = tx_id {
-            let state = self.transactions.get(id)
+            let state = self
+                .transactions
+                .get(id)
                 .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
             Ok(state.kv_hash.get(key).and_then(|h| h.get(field).cloned()))
         } else {
             let db = self.db.read().await;
-            Ok(db.state().kv_hash.get(key).and_then(|h| h.get(field).cloned()))
+            Ok(db
+                .state()
+                .kv_hash
+                .get(key)
+                .and_then(|h| h.get(field).cloned()))
         }
     }
 
-    pub async fn kv_hash_get_all(&self, key: &str, tx_id: Option<&str>) -> SqlResult<HashMap<String, Value>> {
+    pub async fn kv_hash_get_all(
+        &self,
+        key: &str,
+        tx_id: Option<&str>,
+    ) -> SqlResult<HashMap<String, Value>> {
         if let Some(id) = tx_id {
-            let state = self.transactions.get(id)
+            let state = self
+                .transactions
+                .get(id)
                 .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
             Ok(state.kv_hash.get(key).cloned().unwrap_or_default())
         } else {
@@ -395,7 +422,12 @@ impl Executor {
         }
     }
 
-    pub async fn kv_hash_del(&self, key: String, fields: Vec<String>, tx_id: Option<&str>) -> SqlResult<usize> {
+    pub async fn kv_hash_del(
+        &self,
+        key: String,
+        fields: Vec<String>,
+        tx_id: Option<&str>,
+    ) -> SqlResult<usize> {
         let count = fields.len();
         self.mutate_state(tx_id, |state| {
             if let Some(hash) = state.kv_hash.get_mut(&key) {
@@ -409,7 +441,13 @@ impl Executor {
         Ok(count)
     }
 
-    pub async fn kv_list_push(&self, key: String, values: Vec<Value>, left: bool, tx_id: Option<&str>) -> SqlResult<usize> {
+    pub async fn kv_list_push(
+        &self,
+        key: String,
+        values: Vec<Value>,
+        left: bool,
+        tx_id: Option<&str>,
+    ) -> SqlResult<usize> {
         let count = values.len();
         self.mutate_state(tx_id, |state| {
             let list = state.kv_list.entry(key).or_insert_with(Vec::new);
@@ -426,9 +464,17 @@ impl Executor {
         Ok(count)
     }
 
-    pub async fn kv_list_range(&self, key: &str, start: i64, stop: i64, tx_id: Option<&str>) -> SqlResult<Vec<Value>> {
+    pub async fn kv_list_range(
+        &self,
+        key: &str,
+        start: i64,
+        stop: i64,
+        tx_id: Option<&str>,
+    ) -> SqlResult<Vec<Value>> {
         if let Some(id) = tx_id {
-            let state = self.transactions.get(id)
+            let state = self
+                .transactions
+                .get(id)
                 .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
             let list = state.kv_list.get(key).cloned().unwrap_or_default();
             Ok(Self::range_slice(&list, start, stop))
@@ -451,36 +497,45 @@ impl Executor {
         list[start..stop].to_vec()
     }
 
-    pub async fn kv_list_pop(&self, key: String, count: usize, left: bool, tx_id: Option<&str>) -> SqlResult<Vec<Value>> {
-        let result = self.mutate_state(tx_id, |state| {
-            let mut vals = vec![];
-            if let Some(list) = state.kv_list.get_mut(&key) {
-                for _ in 0..count {
-                    let val = if left {
-                        if !list.is_empty() {
-                            Some(list.remove(0))
+    pub async fn kv_list_pop(
+        &self,
+        key: String,
+        count: usize,
+        left: bool,
+        tx_id: Option<&str>,
+    ) -> SqlResult<Vec<Value>> {
+        let result = self
+            .mutate_state(tx_id, |state| {
+                let mut vals = vec![];
+                if let Some(list) = state.kv_list.get_mut(&key) {
+                    for _ in 0..count {
+                        let val = if left {
+                            if !list.is_empty() {
+                                Some(list.remove(0))
+                            } else {
+                                None
+                            }
                         } else {
-                            None
+                            list.pop()
+                        };
+                        if let Some(v) = val {
+                            vals.push(v);
+                        } else {
+                            break;
                         }
-                    } else {
-                        list.pop()
-                    };
-                    if let Some(v) = val {
-                        vals.push(v);
-                    } else {
-                        break;
                     }
                 }
-            }
-            Ok(vals)
-        })
-        .await?;
+                Ok(vals)
+            })
+            .await?;
         Ok(result)
     }
 
     pub async fn kv_list_len(&self, key: &str, tx_id: Option<&str>) -> SqlResult<usize> {
         if let Some(id) = tx_id {
-            let state = self.transactions.get(id)
+            let state = self
+                .transactions
+                .get(id)
                 .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
             Ok(state.kv_list.get(key).map(|l| l.len()).unwrap_or(0))
         } else {
@@ -489,7 +544,12 @@ impl Executor {
         }
     }
 
-    pub async fn kv_set_add(&self, key: String, members: Vec<String>, tx_id: Option<&str>) -> SqlResult<usize> {
+    pub async fn kv_set_add(
+        &self,
+        key: String,
+        members: Vec<String>,
+        tx_id: Option<&str>,
+    ) -> SqlResult<usize> {
         let count = members.len();
         self.mutate_state(tx_id, |state| {
             let set = state.kv_set.entry(key).or_insert_with(HashSet::new);
@@ -504,27 +564,59 @@ impl Executor {
 
     pub async fn kv_set_members(&self, key: &str, tx_id: Option<&str>) -> SqlResult<Vec<String>> {
         if let Some(id) = tx_id {
-            let state = self.transactions.get(id)
+            let state = self
+                .transactions
+                .get(id)
                 .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
-            Ok(state.kv_set.get(key).map(|s| s.iter().cloned().collect()).unwrap_or_default())
+            Ok(state
+                .kv_set
+                .get(key)
+                .map(|s| s.iter().cloned().collect())
+                .unwrap_or_default())
         } else {
             let db = self.db.read().await;
-            Ok(db.state().kv_set.get(key).map(|s| s.iter().cloned().collect()).unwrap_or_default())
+            Ok(db
+                .state()
+                .kv_set
+                .get(key)
+                .map(|s| s.iter().cloned().collect())
+                .unwrap_or_default())
         }
     }
 
-    pub async fn kv_set_is_member(&self, key: &str, member: &str, tx_id: Option<&str>) -> SqlResult<bool> {
+    pub async fn kv_set_is_member(
+        &self,
+        key: &str,
+        member: &str,
+        tx_id: Option<&str>,
+    ) -> SqlResult<bool> {
         if let Some(id) = tx_id {
-            let state = self.transactions.get(id)
+            let state = self
+                .transactions
+                .get(id)
                 .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
-            Ok(state.kv_set.get(key).map(|s| s.contains(member)).unwrap_or(false))
+            Ok(state
+                .kv_set
+                .get(key)
+                .map(|s| s.contains(member))
+                .unwrap_or(false))
         } else {
             let db = self.db.read().await;
-            Ok(db.state().kv_set.get(key).map(|s| s.contains(member)).unwrap_or(false))
+            Ok(db
+                .state()
+                .kv_set
+                .get(key)
+                .map(|s| s.contains(member))
+                .unwrap_or(false))
         }
     }
 
-    pub async fn kv_set_remove(&self, key: String, members: Vec<String>, tx_id: Option<&str>) -> SqlResult<usize> {
+    pub async fn kv_set_remove(
+        &self,
+        key: String,
+        members: Vec<String>,
+        tx_id: Option<&str>,
+    ) -> SqlResult<usize> {
         let count = members.len();
         self.mutate_state(tx_id, |state| {
             if let Some(set) = state.kv_set.get_mut(&key) {
@@ -538,7 +630,12 @@ impl Executor {
         Ok(count)
     }
 
-    pub async fn kv_zset_add(&self, key: String, members: Vec<(f64, String)>, tx_id: Option<&str>) -> SqlResult<usize> {
+    pub async fn kv_zset_add(
+        &self,
+        key: String,
+        members: Vec<(f64, String)>,
+        tx_id: Option<&str>,
+    ) -> SqlResult<usize> {
         let count = members.len();
         self.mutate_state(tx_id, |state| {
             let zset = state.kv_zset.entry(key).or_insert_with(Vec::new);
@@ -556,9 +653,18 @@ impl Executor {
         Ok(count)
     }
 
-    pub async fn kv_zset_range(&self, key: &str, start: i64, stop: i64, with_scores: bool, tx_id: Option<&str>) -> SqlResult<Vec<Value>> {
+    pub async fn kv_zset_range(
+        &self,
+        key: &str,
+        start: i64,
+        stop: i64,
+        with_scores: bool,
+        tx_id: Option<&str>,
+    ) -> SqlResult<Vec<Value>> {
         if let Some(id) = tx_id {
-            let state = self.transactions.get(id)
+            let state = self
+                .transactions
+                .get(id)
                 .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
             let zset = state.kv_zset.get(key).cloned().unwrap_or_default();
             Ok(Self::zset_range(zset, start, stop, with_scores))
@@ -569,9 +675,18 @@ impl Executor {
         }
     }
 
-    pub async fn kv_zsetrangebyscore(&self, key: &str, min: f64, max: f64, with_scores: bool, tx_id: Option<&str>) -> SqlResult<Vec<Value>> {
+    pub async fn kv_zsetrangebyscore(
+        &self,
+        key: &str,
+        min: f64,
+        max: f64,
+        with_scores: bool,
+        tx_id: Option<&str>,
+    ) -> SqlResult<Vec<Value>> {
         if let Some(id) = tx_id {
-            let state = self.transactions.get(id)
+            let state = self
+                .transactions
+                .get(id)
                 .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
             let zset = state.kv_zset.get(key).cloned().unwrap_or_default();
             Ok(Self::zset_filter_by_score(zset, min, max, with_scores))
@@ -582,11 +697,20 @@ impl Executor {
         }
     }
 
-    fn zset_range(zset: Vec<(f64, String)>, start: i64, stop: i64, with_scores: bool) -> Vec<Value> {
+    fn zset_range(
+        zset: Vec<(f64, String)>,
+        start: i64,
+        stop: i64,
+        with_scores: bool,
+    ) -> Vec<Value> {
         let len = zset.len() as i64;
         let start = start.max(0) as usize;
-        let stop = if stop < 0 { len as usize } else { stop as usize };
-        
+        let stop = if stop < 0 {
+            len as usize
+        } else {
+            stop as usize
+        };
+
         let mut result = vec![];
         for (i, (score, member)) in zset.into_iter().enumerate() {
             if i >= start && i <= stop {
@@ -602,7 +726,12 @@ impl Executor {
         result
     }
 
-    fn zset_filter_by_score(zset: Vec<(f64, String)>, min: f64, max: f64, with_scores: bool) -> Vec<Value> {
+    fn zset_filter_by_score(
+        zset: Vec<(f64, String)>,
+        min: f64,
+        max: f64,
+        with_scores: bool,
+    ) -> Vec<Value> {
         let mut result = vec![];
         for (score, member) in zset {
             if score >= min && score <= max {
@@ -615,7 +744,12 @@ impl Executor {
         result
     }
 
-    pub async fn kv_zset_remove(&self, key: String, members: Vec<String>, tx_id: Option<&str>) -> SqlResult<usize> {
+    pub async fn kv_zset_remove(
+        &self,
+        key: String,
+        members: Vec<String>,
+        tx_id: Option<&str>,
+    ) -> SqlResult<usize> {
         let count = members.len();
         self.mutate_state(tx_id, |state| {
             if let Some(zset) = state.kv_zset.get_mut(&key) {
