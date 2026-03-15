@@ -1,5 +1,10 @@
 use super::common::setup;
-use crate::{http::create_app, sql::Executor};
+use crate::config::{Config, LoggingConfig, SecurityConfig, ServerConfig, StorageConfig};
+use crate::http::create_app;
+use crate::sql::Executor;
+use crate::storage::Database;
+use crate::storage::persistence::SledPersister;
+
 use axum::{
     body::Body,
     http::{Request, StatusCode},
@@ -7,6 +12,7 @@ use axum::{
 };
 use serde_json::{Value, json};
 use std::sync::Arc;
+use tokio::sync::RwLock;
 use tower::ServiceExt; // for `oneshot`
 
 #[tokio::test]
@@ -18,35 +24,37 @@ async fn test_sql_lifecycle() {
     ));
     let data_dir = temp_dir.to_str().unwrap().to_string();
 
-    let db = crate::storage::Database::with_persister(
-        Box::new(crate::storage::persistence::SledPersister::new(&data_dir).unwrap()),
+    let db = Database::with_persister(
+        Box::new(SledPersister::new(&data_dir).unwrap()),
         data_dir.clone(),
     )
     .unwrap();
-    let executor = Arc::new(Executor::new(db).with_data_dir(data_dir.clone()));
+    let db_lock = Arc::new(RwLock::new(db));
+    let executor = Arc::new(Executor::new(db_lock).with_data_dir(data_dir.clone()));
 
-    let config = crate::config::Config {
-        server: crate::config::ServerConfig {
+    let config = Config {
+        server: ServerConfig {
             host: "127.0.0.1".to_string(),
             sql_port: 3306,
             http_port: 9200,
+            redis_port: Some(6379),
         },
-        storage: crate::config::StorageConfig {
+        storage: StorageConfig {
             max_memory_mb: 1024,
             default_cache_size: 1000,
             default_eviction: "LRU".to_string(),
             snapshot_interval_sec: 300,
             data_dir: data_dir.clone(),
         },
-        security: crate::config::SecurityConfig {
+        security: SecurityConfig {
             auth_enabled: false,
             tls_enabled: false,
         },
-        logging: crate::config::LoggingConfig {
+        logging: LoggingConfig {
             level: "info".to_string(),
         },
     };
-    let app = create_app(executor, config);
+    let app = create_app(executor, Arc::new(config));
 
     // 1. CREATE TABLE
     let response: Response = app
@@ -187,9 +195,11 @@ async fn test_sql_lifecycle() {
 #[tokio::test]
 async fn test_error_handling() {
     setup();
-    let executor = Arc::new(Executor::new(crate::storage::Database::new()));
-    let config = crate::config::Config::default();
-    let app = create_app(executor, config);
+    let db = Database::new();
+    let db_lock = Arc::new(RwLock::new(db));
+    let executor = Arc::new(Executor::new(db_lock));
+    let config = Config::default();
+    let app = create_app(executor, Arc::new(config));
 
     // Table not found error
     let response: Response = app
@@ -220,8 +230,9 @@ async fn test_error_handling() {
 
 #[tokio::test]
 async fn test_materialized_views() {
-    let db = crate::storage::Database::new();
-    let executor = std::sync::Arc::new(crate::sql::Executor::new(db));
+    let db = Database::new();
+    let db_lock = Arc::new(RwLock::new(db));
+    let executor = Arc::new(Executor::new(db_lock));
 
     executor
         .execute("CREATE TABLE base (id INT, val INT)", vec![], None, None)

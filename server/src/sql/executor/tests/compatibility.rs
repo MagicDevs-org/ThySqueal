@@ -1,10 +1,11 @@
 use crate::sql::Executor;
 use crate::storage::{Database, Value};
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 #[tokio::test]
 async fn test_auto_increment() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     // Test with AUTO_INCREMENT keyword
@@ -73,7 +74,7 @@ async fn test_auto_increment() {
 
 #[tokio::test]
 async fn test_serial_shorthand() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     // Test with SERIAL shorthand
@@ -106,7 +107,7 @@ async fn test_serial_shorthand() {
 
 #[tokio::test]
 async fn test_alter_table() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -189,7 +190,7 @@ async fn test_alter_table() {
 
 #[tokio::test]
 async fn test_sql_functions() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     // CONCAT
@@ -228,7 +229,7 @@ async fn test_sql_functions() {
 
 #[tokio::test]
 async fn test_constraints() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -283,7 +284,7 @@ async fn test_constraints() {
 
 #[tokio::test]
 async fn test_ctes() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     let sql = "WITH t AS (SELECT 1 AS val) SELECT * FROM t";

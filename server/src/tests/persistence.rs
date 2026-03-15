@@ -3,6 +3,7 @@ use crate::sql::Executor;
 use crate::storage::persistence::SledPersister;
 use crate::storage::{Database, Value};
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 #[tokio::test]
 async fn test_persistence() {
@@ -13,8 +14,9 @@ async fn test_persistence() {
     {
         let persister = Box::new(SledPersister::new(&data_dir).unwrap());
         let db = Database::with_persister(persister, data_dir.clone()).unwrap();
+        let db_lock = Arc::new(RwLock::new(db));
+        let executor = Arc::new(Executor::new(db_lock).with_data_dir(data_dir.clone()));
 
-        let executor = Arc::new(Executor::new(db).with_data_dir(data_dir.clone()));
         executor
             .execute(
                 "CREATE TABLE test_table (id INT, name TEXT)",
@@ -39,7 +41,8 @@ async fn test_persistence() {
     {
         let persister = Box::new(SledPersister::new(&data_dir).unwrap());
         let db = Database::with_persister(persister, data_dir.clone()).unwrap();
-        let executor = Arc::new(Executor::new(db).with_data_dir(data_dir.clone()));
+        let db_lock = Arc::new(RwLock::new(db));
+        let executor = Arc::new(Executor::new(db_lock).with_data_dir(data_dir.clone()));
 
         let res = executor
             .execute(
@@ -59,15 +62,16 @@ async fn test_persistence() {
 #[tokio::test]
 async fn test_wal_recovery() {
     setup();
-    let temp_dir =
-        std::env::temp_dir().join(format!("thy-squeal-wal-test-{}", uuid::Uuid::new_v4()));
+    let suffix = format!("thy-squeal-wal-test-{}", uuid::Uuid::new_v4());
+    let temp_dir = std::env::temp_dir().join(suffix);
     let data_dir = temp_dir.to_str().unwrap().to_string();
 
     // 1. Create table and insert data (will be in WAL)
     {
         let persister = Box::new(SledPersister::new(&data_dir).unwrap());
         let db = Database::with_persister(persister, data_dir.clone()).unwrap();
-        let executor = Arc::new(Executor::new(db).with_data_dir(data_dir.clone()));
+        let db_lock = Arc::new(RwLock::new(db));
+        let executor = Arc::new(Executor::new(db_lock).with_data_dir(data_dir.clone()));
 
         executor
             .execute("CREATE TABLE w (id INT, v TEXT)", vec![], None, None)
@@ -83,7 +87,8 @@ async fn test_wal_recovery() {
     {
         let persister = Box::new(SledPersister::new(&data_dir).unwrap());
         let db = Database::with_persister(persister, data_dir.clone()).unwrap();
-        let executor = Arc::new(Executor::new(db).with_data_dir(data_dir.clone()));
+        let db_lock = Arc::new(RwLock::new(db));
+        let executor = Arc::new(Executor::new(db_lock).with_data_dir(data_dir.clone()));
 
         let res = executor
             .execute("SELECT v FROM w WHERE id = 1", vec![], None, None)

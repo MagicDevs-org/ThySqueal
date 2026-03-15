@@ -2,11 +2,12 @@ use super::common::setup;
 use crate::sql::Executor;
 use crate::storage::{Database, Value};
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 #[tokio::test]
 async fn test_dump_restore() {
     setup();
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -54,7 +55,7 @@ async fn test_dump_restore() {
     assert!(dump_sql.contains("CREATE UNIQUE INDEX idx_dump_id"));
 
     // Restore into a new database
-    let db2 = Database::new();
+    let db2 = Arc::new(RwLock::new(Database::new()));
     let executor2 = Arc::new(Executor::new(db2));
     executor2.execute_batch(&dump_sql).await.unwrap();
 

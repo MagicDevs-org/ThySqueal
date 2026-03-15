@@ -2,10 +2,11 @@ use crate::sql::Executor;
 use crate::sql::error::SqlError;
 use crate::storage::{Database, Value};
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 #[tokio::test]
 async fn test_create_table_insert_select() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -28,7 +29,7 @@ async fn test_create_table_insert_select() {
 
 #[tokio::test]
 async fn test_drop_table() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -48,7 +49,7 @@ async fn test_drop_table() {
 
 #[tokio::test]
 async fn test_select_where() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -86,7 +87,7 @@ async fn test_select_where() {
 
 #[tokio::test]
 async fn test_update() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -117,7 +118,7 @@ async fn test_update() {
 
 #[tokio::test]
 async fn test_delete() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -143,7 +144,7 @@ async fn test_delete() {
 
 #[tokio::test]
 async fn test_order_by() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -182,7 +183,7 @@ async fn test_order_by() {
 
 #[tokio::test]
 async fn test_limit_offset() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -213,7 +214,7 @@ async fn test_limit_offset() {
 
 #[tokio::test]
 async fn test_aggregations_and_aliases() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -249,7 +250,7 @@ async fn test_aggregations_and_aliases() {
 
 #[tokio::test]
 async fn test_group_by_having() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -295,7 +296,7 @@ async fn test_group_by_having() {
 
 #[tokio::test]
 async fn test_distinct() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -324,7 +325,7 @@ async fn test_distinct() {
 
 #[tokio::test]
 async fn test_explain() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -347,7 +348,7 @@ async fn test_explain() {
 
 #[tokio::test]
 async fn test_select_columns() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor

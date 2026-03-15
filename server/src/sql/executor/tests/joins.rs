@@ -1,10 +1,11 @@
 use crate::sql::Executor;
 use crate::storage::{Database, Value};
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 #[tokio::test]
 async fn test_inner_join() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -52,7 +53,7 @@ async fn test_inner_join() {
 
 #[tokio::test]
 async fn test_left_join() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor

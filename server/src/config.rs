@@ -22,6 +22,7 @@ pub struct ServerConfig {
     pub sql_port: u16,
     #[serde(default = "default_http_port")]
     pub http_port: u16,
+    pub redis_port: Option<u16>,
 }
 
 impl Default for ServerConfig {
@@ -30,6 +31,7 @@ impl Default for ServerConfig {
             host: default_host(),
             sql_port: default_sql_port(),
             http_port: default_http_port(),
+            redis_port: None,
         }
     }
 }
@@ -44,6 +46,11 @@ fn default_sql_port() -> u16 {
 
 fn default_http_port() -> u16 {
     9200
+}
+
+#[allow(unused)]
+fn default_redis_port() -> u16 {
+    6379
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -63,6 +63,15 @@ pub enum WalRecord {
         use_hash: bool,
         where_clause: Option<squeal::Condition>,
     },
+    KvSet {
+        tx_id: Option<String>,
+        key: String,
+        value: Value,
+    },
+    KvDelete {
+        tx_id: Option<String>,
+        key: String,
+    },
 }
 
 pub trait Persister: Send + Sync {

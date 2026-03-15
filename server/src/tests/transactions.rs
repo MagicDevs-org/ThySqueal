@@ -1,16 +1,21 @@
 use super::common::setup;
+use crate::config::Config;
+use crate::storage::Database;
 use crate::{http::create_app, sql::Executor};
 use axum::{body::Body, http::Request};
 use serde_json::{Value, json};
 use std::sync::Arc;
+use tokio::sync::RwLock;
 use tower::ServiceExt; // for `oneshot`
 
 #[tokio::test]
 async fn test_transactions() {
     setup();
-    let executor = Arc::new(Executor::new(crate::storage::Database::new()));
-    let config = crate::config::Config::default();
-    let app = create_app(executor, config);
+    let db = Database::new();
+    let db_lock = Arc::new(RwLock::new(db));
+    let executor = Arc::new(Executor::new(db_lock));
+    let config = Config::default();
+    let app = create_app(executor, Arc::new(config));
 
     // 1. Create table
     app.clone()
@@ -118,9 +123,11 @@ async fn test_transactions() {
 #[tokio::test]
 async fn test_rollback() {
     setup();
-    let executor = Arc::new(Executor::new(crate::storage::Database::new()));
-    let config = crate::config::Config::default();
-    let app = create_app(executor, config);
+    let db = Database::new();
+    let db_lock = Arc::new(RwLock::new(db));
+    let executor = Arc::new(Executor::new(db_lock));
+    let config = Config::default();
+    let app = create_app(executor, Arc::new(config));
 
     app.clone()
         .oneshot(

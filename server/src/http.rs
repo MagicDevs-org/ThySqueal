@@ -50,7 +50,7 @@ impl HttpServer {
 
     #[allow(dead_code)]
     pub async fn run(&self, port: u16) -> anyhow::Result<()> {
-        let app = create_app(self.executor.clone(), Config::default());
+        let app = create_app(self.executor.clone(), Arc::new(Config::default()));
         let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port)).await?;
         axum::serve(listener, app).await?;
         Ok(())
@@ -191,7 +191,7 @@ impl HttpServer {
     }
 }
 
-pub fn create_app(executor: Arc<Executor>, _config: Config) -> Router {
+pub fn create_app(executor: Arc<Executor>, _config: Arc<Config>) -> Router {
     Router::new()
         .route("/", get(HttpServer::root))
         .route("/health", get(HttpServer::health))

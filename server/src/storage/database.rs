@@ -37,6 +37,8 @@ pub struct DatabaseState {
     pub materialized_views: HashMap<String, Select>,
     #[serde(default)]
     pub users: HashMap<String, User>,
+    #[serde(default)]
+    pub kv: HashMap<String, Value>,
 }
 
 impl DatabaseState {
@@ -80,6 +82,7 @@ impl Database {
                 tables,
                 materialized_views: HashMap::new(),
                 users: HashMap::new(),
+                kv: HashMap::new(),
             },
             persister: Some(persister),
             _data_dir: Some(data_dir.clone()),

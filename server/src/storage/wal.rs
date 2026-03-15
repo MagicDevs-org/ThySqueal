@@ -39,6 +39,8 @@ pub fn replay_logs(state: &mut DatabaseState, logs: Vec<WalRecord>) -> Result<()
                     WalRecord::Update { tx_id, .. } => tx_id,
                     WalRecord::Delete { tx_id, .. } => tx_id,
                     WalRecord::CreateIndex { tx_id, .. } => tx_id,
+                    WalRecord::KvSet { tx_id, .. } => tx_id,
+                    WalRecord::KvDelete { tx_id, .. } => tx_id,
                     _ => &None,
                 };
 
@@ -138,6 +140,12 @@ pub fn apply_record(
                     &db_state,
                 )?;
             }
+        }
+        WalRecord::KvSet { key, value, .. } => {
+            state.kv.insert(key, value);
+        }
+        WalRecord::KvDelete { key, .. } => {
+            state.kv.remove(&key);
         }
         _ => {}
     }

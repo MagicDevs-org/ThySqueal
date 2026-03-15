@@ -3,10 +3,12 @@ mod tests {
     use crate::sql::executor::Executor;
     use crate::squeal::{Expression, Insert, Select, SelectColumn, Squeal};
     use crate::storage::{Database, Value};
+    use std::sync::Arc;
+    use tokio::sync::RwLock;
 
     #[tokio::test]
     async fn test_jsqueal_select_simple() {
-        let db = Database::new();
+        let db = Arc::new(RwLock::new(Database::new()));
         let executor = Executor::new(db);
 
         // CREATE TABLE users (id INT, name TEXT)
@@ -56,7 +58,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_jsqueal_insert_and_select() {
-        let db = Database::new();
+        let db = Arc::new(RwLock::new(Database::new()));
         let executor = Executor::new(db);
 
         executor

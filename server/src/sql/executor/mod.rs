@@ -14,9 +14,11 @@ pub mod user;
 
 use super::error::{SqlError, SqlResult};
 use crate::squeal::{Select, Squeal};
-use crate::storage::{Database, DatabaseState, Privilege, Row, Table, Value};
+use crate::storage::{Database, DatabaseState, Privilege, Row, Table, Value, WalRecord};
 use dashmap::DashMap;
 use futures::future::BoxFuture;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 pub use result::QueryResult;
 
@@ -88,16 +90,16 @@ impl<'a> SelectQueryPlan<'a> {
 }
 
 pub struct Executor {
-    pub(crate) db: tokio::sync::RwLock<Database>,
+    pub(crate) db: Arc<RwLock<Database>>,
     pub(crate) transactions: DashMap<String, DatabaseState>,
     pub(crate) prepared_statements: DashMap<String, Squeal>, // name -> stmt
     pub(crate) data_dir: Option<String>,
 }
 
 impl Executor {
-    pub fn new(db: Database) -> Self {
+    pub fn new(db: Arc<RwLock<Database>>) -> Self {
         Self {
-            db: tokio::sync::RwLock::new(db),
+            db,
             transactions: DashMap::new(),
             prepared_statements: DashMap::new(),
             data_dir: None,
@@ -190,6 +192,54 @@ impl Executor {
                     .collect();
             }
         }
+        Ok(())
+    }
+
+    pub async fn kv_set(&self, key: String, value: Value, tx_id: Option<&str>) -> SqlResult<()> {
+        self.mutate_state(tx_id, |state| {
+            state.kv.insert(key.clone(), value.clone());
+            self.refresh_materialized_views(state)?;
+            Ok(())
+        })
+        .await?;
+
+        let db = self.db.read().await;
+        db.log_operation(&WalRecord::KvSet {
+            tx_id: tx_id.map(|s| s.to_string()),
+            key,
+            value,
+        })
+        .map_err(SqlError::Storage)?;
+        Ok(())
+    }
+
+    pub async fn kv_get(&self, key: &str, tx_id: Option<&str>) -> SqlResult<Option<Value>> {
+        if let Some(id) = tx_id {
+            let state = self
+                .transactions
+                .get(id)
+                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+            Ok(state.kv.get(key).cloned())
+        } else {
+            let db = self.db.read().await;
+            Ok(db.state().kv.get(key).cloned())
+        }
+    }
+
+    pub async fn kv_del(&self, key: String, tx_id: Option<&str>) -> SqlResult<()> {
+        self.mutate_state(tx_id, |state| {
+            state.kv.remove(&key);
+            self.refresh_materialized_views(state)?;
+            Ok(())
+        })
+        .await?;
+
+        let db = self.db.read().await;
+        db.log_operation(&WalRecord::KvDelete {
+            tx_id: tx_id.map(|s| s.to_string()),
+            key,
+        })
+        .map_err(SqlError::Storage)?;
         Ok(())
     }
 }

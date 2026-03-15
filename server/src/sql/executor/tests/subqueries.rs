@@ -1,10 +1,11 @@
 use crate::sql::Executor;
 use crate::storage::{Database, Value};
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 #[tokio::test]
 async fn test_subqueries() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor

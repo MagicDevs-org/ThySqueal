@@ -1,10 +1,11 @@
 use crate::sql::Executor;
 use crate::storage::{Database, Value};
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 #[tokio::test]
 async fn test_parameterized_select() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -49,7 +50,7 @@ async fn test_parameterized_select() {
 
 #[tokio::test]
 async fn test_parameterized_insert() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -79,7 +80,7 @@ async fn test_parameterized_insert() {
 
 #[tokio::test]
 async fn test_parameterized_insert_with_columns() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -115,7 +116,7 @@ async fn test_parameterized_insert_with_columns() {
 
 #[tokio::test]
 async fn test_prepare_execute() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -176,7 +177,7 @@ async fn test_prepare_execute() {
 
 #[tokio::test]
 async fn test_parameterized_update_delete() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor

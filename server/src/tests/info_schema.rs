@@ -2,11 +2,12 @@ use super::common::setup;
 use crate::sql::Executor;
 use crate::storage::Database;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 #[tokio::test]
 async fn test_info_schema() {
     setup();
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor

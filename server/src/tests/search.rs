@@ -1,8 +1,14 @@
 use super::common::setup;
-use crate::{http::create_app, sql::Executor};
+use crate::config::{Config, LoggingConfig, SecurityConfig, ServerConfig, StorageConfig};
+use crate::http::create_app;
+use crate::sql::Executor;
+use crate::storage::Database;
+use crate::storage::persistence::SledPersister;
+
 use axum::{body::Body, http::Request};
 use serde_json::{Value, json};
 use std::sync::Arc;
+use tokio::sync::RwLock;
 use tower::ServiceExt; // for `oneshot`
 
 #[tokio::test]
@@ -12,35 +18,37 @@ async fn test_full_text_search() {
         std::env::temp_dir().join(format!("thy-squeal-search-test-{}", uuid::Uuid::new_v4()));
     let data_dir = temp_dir.to_str().unwrap().to_string();
 
-    let db = crate::storage::Database::with_persister(
-        Box::new(crate::storage::persistence::SledPersister::new(&data_dir).unwrap()),
+    let db = Database::with_persister(
+        Box::new(SledPersister::new(&data_dir).unwrap()),
         data_dir.clone(),
     )
     .unwrap();
-    let executor = Arc::new(Executor::new(db).with_data_dir(data_dir.clone()));
+    let db_lock = Arc::new(RwLock::new(db));
+    let executor = Arc::new(Executor::new(db_lock).with_data_dir(data_dir.clone()));
 
-    let config = crate::config::Config {
-        server: crate::config::ServerConfig {
+    let config = Config {
+        server: ServerConfig {
             host: "127.0.0.1".to_string(),
             sql_port: 3306,
             http_port: 9200,
+            redis_port: Some(6379),
         },
-        storage: crate::config::StorageConfig {
+        storage: StorageConfig {
             max_memory_mb: 1024,
             default_cache_size: 1000,
             default_eviction: "LRU".to_string(),
             snapshot_interval_sec: 300,
             data_dir: data_dir.clone(),
         },
-        security: crate::config::SecurityConfig {
+        security: SecurityConfig {
             auth_enabled: false,
             tls_enabled: false,
         },
-        logging: crate::config::LoggingConfig {
+        logging: LoggingConfig {
             level: "info".to_string(),
         },
     };
-    let app = create_app(executor, config);
+    let app = create_app(executor, Arc::new(config));
 
     app.clone()
         .oneshot(

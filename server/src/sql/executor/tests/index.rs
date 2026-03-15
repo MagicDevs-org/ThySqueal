@@ -1,10 +1,11 @@
 use crate::sql::Executor;
 use crate::storage::{Database, Value};
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 #[tokio::test]
 async fn test_hash_index() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -46,7 +47,7 @@ async fn test_hash_index() {
 
 #[tokio::test]
 async fn test_composite_btree_index() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -110,7 +111,7 @@ async fn test_composite_btree_index() {
 
 #[tokio::test]
 async fn test_json_path_index() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -160,7 +161,7 @@ async fn test_json_path_index() {
 
 #[tokio::test]
 async fn test_functional_index() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -201,7 +202,7 @@ async fn test_functional_index() {
 
 #[tokio::test]
 async fn test_partial_index() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
@@ -265,7 +266,7 @@ async fn test_partial_index() {
 
 #[tokio::test]
 async fn test_index_selectivity() {
-    let db = Database::new();
+    let db = Arc::new(RwLock::new(Database::new()));
     let executor = Arc::new(Executor::new(db));
 
     executor
