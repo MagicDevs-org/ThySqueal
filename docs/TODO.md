@@ -62,8 +62,8 @@
 - [x] User Authentication & RBAC
 
 ## Phase 6: Key-Value Storage (v0.6) - 🏗 IN PROGRESS
-- [ ] **Redis Protocol Compatibility**: Support for RESP protocol on port 6379
-- [ ] **Core Commands**: GET, SET, DEL, EXISTS, EXPIRE, TTL
+- [x] **Redis Protocol Compatibility**: Support for RESP protocol on port 6379
+- [x] **Core Commands**: GET, SET, DEL, EXISTS, EXPIRE, TTL, KEYS
 - [ ] **Data Structures**: Lists, Sets, Hashes, Sorted Sets, **Streams (XADD, XREAD, etc.)**
 - [ ] **Persistence**: RDB-style snapshots and AOF (Append Only File) integration with existing WAL
 - [ ] **Pub/Sub**: Basic message queuing and notification system
