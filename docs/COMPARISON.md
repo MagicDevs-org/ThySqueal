@@ -1,118 +1,110 @@
 # Comparison with Other Database Engines
 
-This document compares **thy-squeal** with other popular database engines to help you understand its positioning, strengths, and trade-offs.
+This document provides a detailed technical comparison between **thy-squeal** and other database engines, with a specific focus on its alignment and differences with **MySQL 8.x**.
 
 ## Overview
 
-thy-squeal is a **hybrid in-memory database** that combines:
-1.  **Relational SQL** (similar to SQLite/MySQL/PostgreSQL)
-2.  **Full-Text Search** (similar to Elasticsearch/Tantivy)
-3.  **Key-Value Operations** (similar to Redis)
+thy-squeal is a **hybrid in-memory database** designed for high-performance, developer-centric workflows. It combines relational SQL, native full-text search, and Redis-compatible key-value operations into a single, memory-safe Rust binary.
 
 | Feature | thy-squeal | SQLite | Redis | MySQL | PostgreSQL | Elasticsearch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Primary Model** | Relational (SQL) | Relational (SQL) | Key-Value | Relational | Relational | Document (Search) |
+| **Primary Model** | Relational + KV | Relational | Key-Value | Relational | Relational | Document (Search) |
 | **Storage** | In-Mem (+ Sled) | Disk (B-Tree) | In-Mem (+ RDB) | Disk (B+Tree) | Disk (B-Tree) | Disk (Lucene) |
 | **Language** | Rust | C | C | C++ | C | Java |
 | **Full-Text Search** | Native (Tantivy) | FTS extension | RediSearch | Basic (MyISAM/Inno) | Advanced (GIN/GiST) | Native / Core |
-| **Protocols** | HTTP + SQL (pl) | C API | RESP | MySQL Binary | Postgres Binary | HTTP JSON |
+| **Protocols** | HTTP + MySQL + RESP| C API | RESP | MySQL Binary | Postgres Binary | HTTP JSON |
 | **Joins** | Inner/Left | Full Support | No | Full Support | Full Support | Limited |
-| **ACID** | Supported (Snapshot) | Full Support | Limited | Full Support | Full Support | No |
+| **ACID** | Supported (WAL) | Full Support | Limited | Full Support | Full Support | No |
 
-## SQL Feature Comparison
+---
 
-The following table provides a more granular comparison of the SQL features currently supported by `thy-squeal` compared to `MySQL` and `PostgreSQL`.
+## SQL Feature Comparison (thy-squeal vs. MySQL 8.x)
 
-| Feature | thy-squeal (v0.4) | MySQL (8.x) | PostgreSQL (16.x) |
+While thy-squeal implements a significant subset of the MySQL dialect, it is optimized for modern application patterns rather than 100% legacy compatibility.
+
+### Core SQL Support
+
+| Feature | thy-squeal (v0.6+) | MySQL (8.x) | Notes |
 | :--- | :--- | :--- | :--- |
-| **SELECT / INSERT / UPDATE / DELETE** | ✅ Full Support | ✅ Full Support | ✅ Full Support |
-| **WHERE / ORDER BY / LIMIT** | ✅ Full Support | ✅ Full Support | ✅ Full Support |
-| **JOINs (INNER / LEFT)** | ✅ Supported | ✅ Full Support | ✅ Full Support |
-| **Subqueries (IN / Correlated)** | ✅ Supported | ✅ Full Support | ✅ Full Support |
-| **Aggregations (GROUP BY / HAVING)** | ✅ Supported | ✅ Full Support | ✅ Full Support |
-| **Indexes (B-Tree / Hash / Composite)** | ✅ Supported | ✅ Supported | ✅ Supported |
-| **Functional / Partial / JSON Indexes** | ✅ Supported | ✅ Supported | ✅ Supported |
-| **Prepared Statements / Placeholders** | ✅ Supported | ✅ Supported | ✅ Supported |
-| **Transactions (ACID)** | ✅ Supported | ✅ Supported | ✅ Supported |
-| **Write-Ahead Logging (WAL)** | ✅ Supported | ✅ Supported | ✅ Supported |
-| **Information Schema** | ✅ Supported | ✅ Supported | ✅ Supported |
-| **Full-Text Search (Native SQL)** | ✅ SEARCH Command | ⚠️ Plugin/Limited | ⚠️ GIN/TSVector |
-| **Explain Plan** | ✅ EXPLAIN Command | ✅ EXPLAIN | ✅ EXPLAIN |
-| **Common Table Expressions (CTEs)** | ❌ No | ✅ Supported | ✅ Supported |
-| **Window Functions** | ❌ No | ✅ Supported | ✅ Supported |
-| **Stored Procedures / Triggers** | ❌ No | ✅ Supported | ✅ Supported |
-| **Schema Evolution (ALTER TABLE)** | ❌ No | ✅ Supported | ✅ Supported |
-| **Primary Keys / Foreign Keys** | ⚠️ Unique Only | ✅ Supported | ✅ Supported |
+| **SELECT / INSERT / UPDATE / DELETE** | ✅ Full Support | ✅ Full Support | Standard DML is fully compatible. |
+| **JOINs (INNER / LEFT)** | ✅ Supported | ✅ Full Support | `RIGHT` and `FULL` joins are currently not supported in thy-squeal. |
+| **Subqueries** | ✅ Supported | ✅ Full Support | Supports `IN (...)` and scalar subqueries in `SELECT` and `WHERE`. |
+| **CTEs (WITH clause)** | ✅ Supported | ✅ Supported | Non-recursive CTEs are fully supported. |
+| **Recursive CTEs** | ❌ No | ✅ Supported | thy-squeal does not yet support `WITH RECURSIVE`. |
+| **Window Functions** | ❌ No | ✅ Supported | Functions like `RANK()`, `ROW_NUMBER()`, `OVER()` are not implemented. |
+| **Aggregations** | ✅ Supported | ✅ Full Support | `COUNT`, `SUM`, `AVG`, `MIN`, `MAX` with `GROUP BY` and `HAVING`. |
+| **Set Operations** | ❌ No | ✅ Supported | `UNION`, `INTERSECT`, `EXCEPT` are currently missing. |
+
+### Schema & Constraints
+
+| Feature | thy-squeal (v0.6+) | MySQL (8.x) | Notes |
+| :--- | :--- | :--- | :--- |
+| **Data Types** | ✅ Modern Set | ✅ Exhaustive | thy-squeal supports standard types + `JSON` and `SERIAL`. |
+| **AUTO_INCREMENT** | ✅ Supported | ✅ Supported | Identical behavior for automated ID generation. |
+| **Primary / Foreign Keys** | ✅ Supported | ✅ Supported | Full referential integrity checks on mutations. |
+| **Unique Constraints** | ✅ Supported | ✅ Supported | Enforced via unique indexes. |
+| **ALTER TABLE** | ✅ Robust | ✅ Full Support | Supports `ADD`, `DROP`, `RENAME`, `MODIFY` columns and table renaming. |
+| **Materialized Views** | ✅ Supported | ❌ No (Workarounds) | thy-squeal has first-class `CREATE MATERIALIZED VIEW` support. |
+| **Information Schema** | ✅ Supported | ✅ Supported | Metadata accessible via `information_schema` tables. |
+
+### Indexing & Performance
+
+| Feature | thy-squeal (v0.6+) | MySQL (8.x) | Notes |
+| :--- | :--- | :--- | :--- |
+| **B-Tree Indexes** | ✅ Supported | ✅ Default | Standard range and equality indexing. |
+| **Hash Indexes** | ✅ Supported | ⚠️ Memory Only | thy-squeal supports persistent Hash indexes for O(1) lookups. |
+| **Composite Indexes** | ✅ Supported | ✅ Supported | Multi-column indexing supported. |
+| **Functional Indexes** | ✅ Supported | ✅ Supported | Indexing the result of an expression. |
+| **Partial Indexes** | ✅ Supported | ❌ No | Indexing a subset of rows using a `WHERE` clause. |
+| **JSON Path Indexes** | ✅ Supported | ⚠️ Virtual Col | Native indexing of nested JSON fields. |
+
+### Advanced Capabilities
+
+| Feature | thy-squeal (v0.6+) | MySQL (8.x) | Notes |
+| :--- | :--- | :--- | :--- |
+| **Full-Text Search** | ✅ Native (SEARCH) | ⚠️ Basic (MATCH) | thy-squeal uses Tantivy for high-performance TF-IDF search. |
+| **Transactions (ACID)** | ✅ Snapshot | ✅ Multi-level | thy-squeal uses WAL and snapshotting for ACID compliance. |
+| **Prepared Statements** | ✅ Supported | ✅ Supported | `PREPARE`, `EXECUTE`, `DEALLOCATE` commands. |
+| **User & RBAC** | ✅ Supported | ✅ Full Support | `GRANT`, `REVOKE`, and privilege-based access control. |
+| **Key-Value API** | ✅ RESP (Redis) | ❌ No | thy-squeal exposes a Redis-compatible port (6379). |
+| **JSON Query (JSqueal)**| ✅ Native | ❌ No | Programmatic JSON-to-IR interface bypassing the SQL parser. |
+| **Stored Procs / Triggers**| ❌ No | ✅ Supported | Logic is preferred in the application layer. |
 
 ---
 
-## thy-squeal vs. MySQL
+## Detailed Comparison: thy-squeal vs. MySQL
 
-**When to choose thy-squeal:**
-- **Developer Experience**: You want a "battery-included" server that starts instantly and provides a native HTTP JSON API.
-- **Hybrid Needs**: You need to perform full-text searches and relational joins in the same engine without setting up external search plugins.
-- **Resource Constraints**: You need a lightweight binary (~20MB) rather than a heavy RDBMS installation.
+### 1. Storage Architecture
+- **MySQL**: Primarily uses InnoDB, which is a disk-oriented B+Tree engine. It relies heavily on a buffer pool to cache pages in memory.
+- **thy-squeal**: An in-memory first engine. Data resides in optimized Rust structures for maximum speed, with durability provided by a Write-Ahead Log (WAL) and periodic snapshots via Sled.
 
-**When to choose MySQL:**
-- **Ecosystem**: You need compatibility with thousands of existing tools, ORMs, and drivers.
-- **Scaling**: You require proven replication, clustering, and high-availability features.
-- **Complex DDL**: You need advanced schema management like triggers, stored procedures, or views.
+### 2. Full-Text Search
+- **MySQL**: Full-text search is available via `MATCH() AGAINST()` on InnoDB/MyISAM tables. It is functional but often lacks the performance and features of dedicated search engines.
+- **thy-squeal**: Integrates **Tantivy** (a Lucene-inspired Rust library) directly into the core. The `SEARCH` command provides professional-grade search capabilities (stemming, ranking, tokenization) alongside relational joins.
 
----
+### 3. Protocol & Integration
+- **MySQL**: Uses the MySQL binary protocol. Requires specific drivers for every language.
+- **thy-squeal**: Triple-threat connectivity:
+    - **MySQL Protocol**: Use any existing MySQL client/ORM.
+    - **HTTP JSON API**: Perfect for serverless, web, and quick integrations without persistent connections.
+    - **RESP (Redis)**: High-speed key-value operations using standard Redis clients.
 
-## thy-squeal vs. PostgreSQL
+### 4. Schema Evolution
+- **MySQL**: `ALTER TABLE` operations in MySQL can be complex (Online DDL vs. Copy).
+- **thy-squeal**: `ALTER TABLE` is designed to be lightweight. Since data is in-memory, structural changes like adding or dropping columns are extremely fast.
 
-**When to choose thy-squeal:**
-- **Speed**: You prioritize raw in-memory execution speed for read-heavy workloads.
-- **Simplicity**: You prefer a simplified SQL dialect that is easy to learn and embed.
-- **Rust Integration**: You want a database built in a memory-safe language that can be compiled directly into your Rust binary.
-
-**When to choose PostgreSQL:**
-- **Extensibility**: You need PostGIS for GIS data, custom types, or advanced indexing (GIN/BRIN).
-- **Data Integrity**: You require strict compliance with complex relational constraints and window functions.
-- **Proven Reliability**: You are building a mission-critical system where data loss is not an option and requires battle-tested WAL and recovery.
-
----
-
-## thy-squeal vs. SQLite
-
-**When to choose thy-squeal:**
-- You need an **HTTP API** out of the box for remote access.
-- You require **Full-Text Search** as a first-class citizen integrated into your SQL workflow.
-- High-speed in-memory performance is a priority over massive disk-based datasets.
-
-**When to choose SQLite:**
-- You need a single-file database for local application state.
-- You require deep, battle-tested SQL compatibility (CTEs, etc.).
+### 5. Programming Interface
+- **MySQL**: SQL is the only primary interface.
+- **thy-squeal**: Introduces **JSqueal**, a JSON representation of the query IR. This allows developers to build complex queries programmatically without string concatenation or SQL injection risks, while still having the option of standard SQL.
 
 ---
 
-## thy-squeal vs. Redis
+## Summary: When to Use What?
 
-**When to choose thy-squeal:**
-- You need **Relational Querying (Joins, Aggregations)** which Redis doesn't handle natively.
-- You prefer **SQL** over the Redis command set for complex data manipulation.
-
-**When to choose Redis:**
-- You need ultra-low latency sub-millisecond responses for simple key lookups.
-- You require complex data structures like Sorted Sets or Streams.
-
----
-
-## thy-squeal vs. Elasticsearch
-
-**When to choose thy-squeal:**
-- You want a **lightweight** engine (Elasticsearch requires significant JVM resources).
-- You need to perform **SQL Joins** between your searchable data and relational tables.
-
-**When to choose Elasticsearch:**
-- You are dealing with **Terabytes** of log data or documents.
-- You need advanced distributed search features (sharding, geo-queries).
-
----
-
-## Key Differentiators
-
-1.  **Memory Safety**: Built in 100% safe Rust, preventing entire classes of memory-related bugs common in C/C++ based engines.
-2.  **Hybrid Core**: Unlike other engines that "bolt on" search or SQL, thy-squeal's AST and Executor are designed from the ground up to support both relational and search queries in a single execution pipeline.
-3.  **Embeddability**: While it runs as a standalone server, the modular architecture allows the `sql` and `storage` crates to be used as a library within other Rust projects.
+| Use Case | Recommended Engine | Why? |
+| :--- | :--- | :--- |
+| **High-Scale Web Apps** | **MySQL** | Battle-tested replication, massive ecosystem, and specialized hosting. |
+| **Search-Heavy Apps** | **thy-squeal** | Native Tantivy integration saves you from running Elasticsearch alongside MySQL. |
+| **Microservices / Edge** | **thy-squeal** | Lightweight binary, HTTP API, and combined SQL/KV capabilities. |
+| **Complex Reporting** | **PostgreSQL** | Best-in-class support for Window Functions and recursive queries. |
+| **Simple KV Caching** | **Redis / thy-squeal** | Low latency; thy-squeal is better if you eventually need to query that data with SQL. |

@@ -108,21 +108,22 @@ thy-squeal/                          # Cargo workspace
 └── LICENSE, README.md
 ```
 
-### Current Status (as of v0.5)
+### Current Status (as of v0.6)
 - [x] Workspace setup
-- [x] Server binary with Axum HTTP and MySQL TCP (3306)
+- [x] Server binary with Axum HTTP, MySQL TCP (3306), and RESP (6379)
 - [x] Client binary with REPL
 - [x] SQL grammar (`sql.pest`) — Modular Pest parser
 - [x] Modular Architecture: Decomposed AST, Parser, Evaluator, and Storage
 - [x] In-memory storage: CREATE, ALTER, DROP, INSERT, SELECT, UPDATE, DELETE
+- [x] **JSqueal**: JSON-based query language (direct IR mapping)
 - [x] Materialized Views with automatic refresh
 - [x] ACID Transactions & WAL Durability
 - [x] Advanced Indexing (B-Tree, Hash, JSON, Functional, Partial)
 - [x] User Authentication & RBAC (Secure access control)
 - [x] Standard SQL Functions (CONCAT, COALESCE, etc.)
 - [x] CTE Support (WITH clause)
-- [x] SELECT without FROM (Dual-less support)
-- [x] Integration testing suite (43+ tests)
+- [x] Redis Protocol Compatibility (GET, SET, HASH, LIST, SET, ZSET, STREAM, PUBSUB)
+- [x] Integration testing suite (52+ tests)
 
 ---
 
@@ -142,8 +143,8 @@ thy-squeal/                          # Cargo workspace
 - [x] `POST /_query` endpoint
 - [x] `GET /`, `GET /health`
 - [x] Transaction ID support in HTTP API
-- [ ] `GET /_stats` (Storage/cache statistics)
-- [ ] CRUD endpoints for tables (REST)
+- [x] `GET /_stats` (Storage/cache statistics)
+- [x] CRUD endpoints for tables (REST)
 
 ### Phase 3: Advanced SQL (v0.3) - ✅ COMPLETE
 - [x] Wire Pest parser into executor
@@ -168,9 +169,11 @@ thy-squeal/                          # Cargo workspace
 - [x] Client CLI (Clap)
 - [x] REPL with history and HTTP execution
 - [x] **ALTER TABLE**: Support for schema evolution
+- [x] **Advanced Schema Evolution**: Type changes and constraint modifications
 - [x] **Constraints**: Primary & Foreign Keys
 - [x] **AUTO_INCREMENT**: Automated ID generation
 - [x] **CTEs**: Common Table Expressions (WITH clause)
+- [x] **JSqueal**: JSON-based query language (direct IR mapping)
 - [x] **Materialized Views**: Automatically refreshing pre-calculated query results
 - [x] **User Authentication & RBAC**: Secure access control
 
@@ -182,11 +185,24 @@ thy-squeal/                          # Cargo workspace
 - [x] **Pub/Sub**: Basic message queuing and notification system
 - [x] **SQL Integration**: Querying Key-Value data via SQL virtual tables
 
-### Phase 7: Production & Distributed (v1.0) - 🏗 IN PROGRESS
-- [x] **JSqueal**: JSON-based query language (direct IR mapping, bypassing Pest parser)
+### Phase 7: MySQL Compatibility Improvements (v0.7) - 🏗 IN PROGRESS
+- [ ] **System Variables**: Support for common global and session variables
+- [ ] **Extended Protocol Support**: Multi-result sets and binary protocol enhancements
+- [ ] **Error Code Alignment**: Mapping to MySQL-specific `errno`
+- [ ] **Advanced Functions**: `IFNULL`, `MD5`, `SHA2`, and date-time utilities
+- [ ] **Session Management**: Support for user-defined variables (`SET @var`)
+
+### Phase 8: Advanced SQL Capabilities (v0.8) - 🏗 IN PROGRESS
+- [ ] **Recursive CTEs**: Support for `WITH RECURSIVE`
+- [ ] **Window Functions**: Support for `RANK`, `DENSE_RANK`, `ROW_NUMBER`, etc.
+- [ ] **Set Operations**: `UNION`, `INTERSECT`, `EXCEPT`
+- [ ] **Advanced Aggregations**: `GROUP_CONCAT`, `JSON_AGG`
+- [ ] **Extended CTEs**: Support for multiple CTEs in a single `WITH` clause
+
+### Phase 9: Production & Distributed (v1.0) - 🏗 IN PROGRESS
 - [ ] **JavaScript Query Interface**: QuickJS integration
 - [ ] **Distributed Mode**: multi-node replication (Raft)
 - [ ] **Telemetry**: Prometheus/OpenTelemetry metrics
 - [ ] **Encryption**: TLS for both HTTP and SQL protocols
-- [x] **Advanced Schema Evolution**: Type changes and constraint modifications
+- [ ] **Query Optimizer Phase 2**: Cost-based Join ordering
 

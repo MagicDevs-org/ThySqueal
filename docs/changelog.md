@@ -34,7 +34,7 @@
 - **Constraints**: Support for `PRIMARY KEY` and `FOREIGN KEY` (Referential Integrity). Automatic unique index creation for PKs.
 - **Standard SQL Functions**: Added variadic function support and implemented `CONCAT`, `COALESCE`, `NOW`, and `REPLACE`.
 - **SELECT without FROM**: Support for dual-less selects (e.g., `SELECT NOW()`).
-- **ALTER TABLE**: Support for schema evolution via `ADD COLUMN`, `DROP COLUMN`, `RENAME COLUMN`, and `RENAME TO` (table renaming).
+- **ALTER TABLE**: Robust support for schema evolution including `ADD COLUMN`, `DROP COLUMN`, `RENAME COLUMN`, `RENAME TO` (table renaming), as well as advanced operations like `MODIFY COLUMN` (type changes), `SET/DROP DEFAULT`, and `SET/DROP NOT NULL`.
 
 ### Refactored
 - **Architectural Modularization**: Deep decomposition of the codebase for better maintainability:

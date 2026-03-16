@@ -52,10 +52,12 @@
 
 ## Phase 5: Compatibility & Ecosystem (v0.5) - ✅ COMPLETE
 - [x] **ALTER TABLE**: Support for `ADD COLUMN`, `DROP COLUMN`, `RENAME COLUMN`, `RENAME TABLE`
+- [x] **Advanced Schema Evolution**: Type changes and constraint modifications
 - [x] **Constraints**: Proper `PRIMARY KEY` and `FOREIGN KEY` (Referential Integrity)
 - [x] **AUTO_INCREMENT / SERIAL**: Automated ID generation for integer columns
 - [x] **Standard SQL Functions**: `CONCAT`, `SUBSTRING`, `COALESCE`, `NOW()`, `DATE_FORMAT`, `CAST(x AS type)`
 - [x] **CTEs (WITH clause)**: Common Table Expressions for complex query readability
+- [x] **JSqueal**: JSON-based query language (direct IR mapping, bypassing Pest parser)
 - [x] **Information Schema Expansion**: `statistics`, `key_column_usage`, `schemata` tables
 - [x] Secondary Index optimization (using index only if selective)
 - [x] Materialized Views
@@ -70,12 +72,24 @@
 - [x] **Pub/Sub**: Basic message queuing and notification system
 - [x] **SQL Integration**: Querying Key-Value data via SQL virtual tables
 
-## Phase 7: Production & Distributed (v1.0) - 🏗 IN PROGRESS
-- [x] **JSqueal**: JSON-based query language (direct IR mapping, bypassing Pest parser)
+## Phase 7: MySQL Compatibility Improvements (v0.7) - 🏗 IN PROGRESS
+- [ ] **System Variables**: Support for `@@version`, `@@max_allowed_packet`, etc.
+- [ ] **Extended Protocol**: Support for `COM_FIELD_LIST`, `COM_STATISTICS`, and better multi-result handling
+- [ ] **MySQL Error Codes**: Map `SqlError` to exact MySQL numeric error codes
+- [ ] **Advanced Functions**: `IFNULL`, `STR_TO_DATE`, `DATEDIFF`, `MD5`, `SHA2`
+- [ ] **Session Variables**: Support for `SET @var = val` and `SELECT @var`
+
+## Phase 8: Advanced SQL Capabilities (v0.8) - 🏗 IN PROGRESS
+- [ ] **Recursive CTEs**: Support for `WITH RECURSIVE` for hierarchical data
+- [ ] **Window Functions**: Implementation of `OVER()`, `RANK()`, `ROW_NUMBER()`, `DENSE_RANK()`, etc.
+- [ ] **Set Operations**: `UNION`, `UNION ALL`, `INTERSECT`, `EXCEPT`
+- [ ] **Advanced Aggregations**: `GROUP_CONCAT`, `JSON_ARRAYAGG`, `JSON_OBJECTAGG`
+- [ ] **Common Table Expressions (CTEs) Expansion**: Support for multiple CTEs in a single query
+
+## Phase 9: Production & Distributed (v1.0) - 🏗 IN PROGRESS
 - [ ] **Distributed Mode**: Multi-node replication via Raft consensus
 - [ ] **Telemetry**: Prometheus metrics and OpenTelemetry tracing
 - [ ] **Encryption**: TLS support for HTTP and MySQL TCP protocols
-- [x] **Advanced Schema Evolution**: Type changes and constraint modifications
 - [ ] **Query Optimizer Phase 2**: Cost-based Join ordering
 - [ ] JavaScript Query Interface (QuickJS)
 
