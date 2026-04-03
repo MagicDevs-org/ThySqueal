@@ -72,14 +72,19 @@
 - [x] **Pub/Sub**: Basic message queuing and notification system
 - [x] **SQL Integration**: Querying Key-Value data via SQL virtual tables
 
-## Phase 7: MySQL Compatibility Improvements (v0.7) - 🏗 IN PROGRESS
-- [ ] **System Variables**: Support for `@@version`, `@@max_allowed_packet`, etc.
-- [ ] **Extended Protocol**: Support for `COM_FIELD_LIST`, `COM_STATISTICS`, and better multi-result handling
-- [ ] **MySQL Error Codes**: Map `SqlError` to exact MySQL numeric error codes
-- [ ] **Advanced Functions**: `IFNULL`, `STR_TO_DATE`, `DATEDIFF`, `MD5`, `SHA2`
-- [ ] **Session Variables**: Support for `SET @var = val` and `SELECT @var`
+## Phase 7: MySQL Compatibility Improvements (v0.7) - ✅ COMPLETE
+- [x] **System Variables**: Support for `@@version`, `@@max_allowed_packet`, etc.
+- [x] **Extended Protocol**: Support for `COM_FIELD_LIST`, `COM_STATISTICS`, and better multi-result handling
+- [x] **MySQL Error Codes**: Map `SqlError` to exact MySQL numeric error codes
+- [x] **Advanced Functions**: `IFNULL`, `IF`, `DATEDIFF`, `DATE_FORMAT`, `MD5`, `SHA2`
+- [x] **Session Variables**: Support for `SET @var = val` and `SELECT @var`
 
 ## Phase 8: Advanced SQL Capabilities (v0.8) - 🏗 IN PROGRESS
+- [ ] **Recursive CTEs**: Support for `WITH RECURSIVE` for hierarchical data
+- [ ] **Window Functions**: Implementation of `OVER()`, `RANK()`, `ROW_NUMBER()`, `DENSE_RANK()`, etc.
+- [ ] **Set Operations**: `UNION`, `UNION ALL`, `INTERSECT`, `EXCEPT`
+- [ ] **Advanced Aggregations**: `GROUP_CONCAT`, `JSON_ARRAYAGG`, `JSON_OBJECTAGG`
+- [ ] **Common Table Expressions (CTEs) Expansion**: Support for multiple CTEs in a single query
 - [ ] **Recursive CTEs**: Support for `WITH RECURSIVE` for hierarchical data
 - [ ] **Window Functions**: Implementation of `OVER()`, `RANK()`, `ROW_NUMBER()`, `DENSE_RANK()`, etc.
 - [ ] **Set Operations**: `UNION`, `UNION ALL`, `INTERSECT`, `EXCEPT`

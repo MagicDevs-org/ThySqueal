@@ -1,5 +1,6 @@
 use super::super::super::ast::{
-    AggregateType, Expression, FunctionCall, ScalarFuncType, ScalarFunction,
+    AggregateType, Expression, FrameBound, FrameUnits, FunctionCall, ScalarFuncType,
+    ScalarFunction, WindowFrame, WindowFuncType, WindowFunction, WindowOrderByItem,
 };
 use super::super::super::error::{SqlError, SqlResult};
 use super::parse_any_expression;
@@ -101,6 +102,229 @@ pub fn parse_scalar_func_type(pair: pest::iterators::Pair<Rule>) -> SqlResult<Sc
         _ => Err(SqlError::Parse(format!(
             "Unknown scalar function: {}",
             name
+        ))),
+    }
+}
+
+pub fn parse_window_function(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expression> {
+    let mut inner = pair.into_inner();
+
+    let name_pair = inner
+        .next()
+        .ok_or_else(|| SqlError::Parse("Missing window function name".to_string()))?;
+    let func_type = parse_window_func_type(name_pair)?;
+
+    let mut args = Vec::new();
+    for arg_pair in inner.by_ref() {
+        match arg_pair.as_rule() {
+            Rule::star => args.push(Expression::Star),
+            Rule::expression => args.push(parse_any_expression(arg_pair)?),
+            Rule::KW_OVER => break,
+            _ => {}
+        }
+    }
+
+    let window_spec = inner
+        .next()
+        .ok_or_else(|| SqlError::Parse("Missing OVER clause".to_string()))?;
+
+    let (partition_by, order_by, frame) = parse_window_spec(window_spec)?;
+
+    Ok(Expression::WindowFunc(WindowFunction {
+        func_type,
+        args,
+        partition_by,
+        order_by,
+        frame,
+    }))
+}
+
+fn parse_window_func_type(pair: pest::iterators::Pair<Rule>) -> SqlResult<WindowFuncType> {
+    let name = pair.as_str().to_uppercase();
+    match name.as_str() {
+        "ROW_NUMBER" => Ok(WindowFuncType::RowNumber),
+        "RANK" => Ok(WindowFuncType::Rank),
+        "DENSE_RANK" => Ok(WindowFuncType::DenseRank),
+        "NTILE" => Ok(WindowFuncType::Ntile),
+        "PERCENT_RANK" => Ok(WindowFuncType::PercentRank),
+        "CUME_DIST" => Ok(WindowFuncType::CumeDist),
+        "FIRST_VALUE" => Ok(WindowFuncType::FirstValue),
+        "LAST_VALUE" => Ok(WindowFuncType::LastValue),
+        "NTH_VALUE" => Ok(WindowFuncType::NthValue),
+        "LAG" => Ok(WindowFuncType::Lag),
+        "LEAD" => Ok(WindowFuncType::Lead),
+        _ => Err(SqlError::Parse(format!(
+            "Unknown window function: {}",
+            name
+        ))),
+    }
+}
+
+fn parse_window_spec(
+    pair: pest::iterators::Pair<Rule>,
+) -> SqlResult<(
+    Vec<Expression>,
+    Vec<WindowOrderByItem>,
+    Option<Box<WindowFrame>>,
+)> {
+    let mut partition_by = Vec::new();
+    let mut order_by = Vec::new();
+    let mut frame = None;
+
+    for inner_pair in pair.into_inner() {
+        match inner_pair.as_rule() {
+            Rule::window_partition_by => {
+                for expr_pair in inner_pair.into_inner() {
+                    if expr_pair.as_rule() == Rule::expression {
+                        partition_by.push(parse_any_expression(expr_pair)?);
+                    }
+                }
+            }
+            Rule::window_order_by => {
+                for item_pair in inner_pair.into_inner() {
+                    if item_pair.as_rule() == Rule::order_by_item {
+                        order_by.push(parse_window_order_by_item(item_pair)?);
+                    }
+                }
+            }
+            Rule::window_frame => {
+                frame = Some(parse_window_frame(inner_pair)?);
+            }
+            _ => {}
+        }
+    }
+
+    Ok((partition_by, order_by, frame))
+}
+
+fn parse_window_order_by_item(pair: pest::iterators::Pair<Rule>) -> SqlResult<WindowOrderByItem> {
+    let mut expr = None;
+    let mut ascending = true;
+
+    for inner_pair in pair.into_inner() {
+        match inner_pair.as_rule() {
+            Rule::expression => {
+                expr = Some(parse_any_expression(inner_pair)?);
+            }
+            Rule::KW_ASC => ascending = true,
+            Rule::KW_DESC => ascending = false,
+            _ => {}
+        }
+    }
+
+    let expr =
+        expr.ok_or_else(|| SqlError::Parse("Missing expression in ORDER BY item".to_string()))?;
+
+    Ok(WindowOrderByItem { expr, ascending })
+}
+
+fn parse_window_frame(pair: pest::iterators::Pair<Rule>) -> SqlResult<Box<WindowFrame>> {
+    let mut units = FrameUnits::Rows;
+    let mut start = FrameBound::UnboundedPreceding;
+    let mut end = FrameBound::CurrentRow;
+
+    for inner_pair in pair.into_inner() {
+        match inner_pair.as_rule() {
+            Rule::KW_ROWS => units = FrameUnits::Rows,
+            Rule::KW_RANGE => units = FrameUnits::Range,
+            Rule::window_frame_extent => {
+                let (s, e) = parse_window_frame_extent(inner_pair)?;
+                start = s;
+                end = e;
+            }
+            _ => {}
+        }
+    }
+
+    Ok(Box::new(WindowFrame {
+        units,
+        start: Box::new(start),
+        end: Box::new(end),
+    }))
+}
+
+fn parse_window_frame_extent(
+    pair: pest::iterators::Pair<Rule>,
+) -> SqlResult<(FrameBound, FrameBound)> {
+    let mut inner = pair.into_inner().peekable();
+
+    if inner.peek().map(|p| p.as_rule()) == Some(Rule::KW_BETWEEN) {
+        inner.next();
+
+        let start = parse_window_frame_bound(
+            inner
+                .next()
+                .ok_or_else(|| SqlError::Parse("Missing start bound".to_string()))?,
+        )?;
+
+        let end = if inner.peek().map(|p| p.as_rule()) == Some(Rule::KW_AND) {
+            inner.next();
+            parse_window_frame_bound(
+                inner
+                    .next()
+                    .ok_or_else(|| SqlError::Parse("Missing end bound".to_string()))?,
+            )?
+        } else {
+            FrameBound::CurrentRow
+        };
+
+        Ok((start, end))
+    } else {
+        let bound = parse_window_frame_bound(
+            inner
+                .next()
+                .ok_or_else(|| SqlError::Parse("Missing frame bound".to_string()))?,
+        )?;
+        Ok((bound.clone(), bound))
+    }
+}
+
+fn parse_window_frame_bound(pair: pest::iterators::Pair<Rule>) -> SqlResult<FrameBound> {
+    let bound_str = pair.as_str().to_string();
+    let mut value = None;
+    let mut kind = None;
+
+    for inner_pair in pair.into_inner() {
+        match inner_pair.as_rule() {
+            Rule::KW_UNBOUNDED => kind = Some("unbounded".to_string()),
+            Rule::KW_PRECEDING => kind = Some("preceding".to_string()),
+            Rule::KW_FOLLOWING => kind = Some("following".to_string()),
+            Rule::KW_CURRENT => kind = Some("current".to_string()),
+            Rule::expression => {
+                value = Some(parse_any_expression(inner_pair)?);
+            }
+            _ => {}
+        }
+    }
+
+    let kind = kind.ok_or_else(|| SqlError::Parse("Missing frame bound kind".to_string()))?;
+
+    match kind.as_str() {
+        "unbounded" => {
+            if bound_str.contains("PRECEDING") {
+                Ok(FrameBound::UnboundedPreceding)
+            } else {
+                Ok(FrameBound::UnboundedFollowing)
+            }
+        }
+        "current" => Ok(FrameBound::CurrentRow),
+        "preceding" => {
+            if let Some(expr) = value {
+                Ok(FrameBound::Preceding(Box::new(expr)))
+            } else {
+                Err(SqlError::Parse("Missing preceding value".to_string()))
+            }
+        }
+        "following" => {
+            if let Some(expr) = value {
+                Ok(FrameBound::Following(Box::new(expr)))
+            } else {
+                Err(SqlError::Parse("Missing following value".to_string()))
+            }
+        }
+        _ => Err(SqlError::Parse(format!(
+            "Unknown frame bound kind: {}",
+            kind
         ))),
     }
 }

@@ -11,6 +11,7 @@ pub enum Expression {
     BinaryOp(Box<Expression>, BinaryOp, Box<Expression>),
     FunctionCall(FunctionCall),
     ScalarFunc(ScalarFunction),
+    WindowFunc(WindowFunction),
     Star,
     Subquery(Box<Select>),
     UnaryNot(Box<Expression>),
@@ -77,6 +78,58 @@ pub enum BinaryOp {
     Div,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WindowFunction {
+    pub func_type: WindowFuncType,
+    pub args: Vec<Expression>,
+    pub partition_by: Vec<Expression>,
+    pub order_by: Vec<OrderByItem>,
+    pub frame: Option<Box<WindowFrame>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum WindowFuncType {
+    RowNumber,
+    Rank,
+    DenseRank,
+    Ntile,
+    PercentRank,
+    CumeDist,
+    FirstValue,
+    LastValue,
+    NthValue,
+    Lag,
+    Lead,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WindowFrame {
+    pub units: FrameUnits,
+    pub start: Box<FrameBound>,
+    pub end: Box<FrameBound>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum FrameUnits {
+    Rows,
+    Range,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum FrameBound {
+    UnboundedPreceding,
+    UnboundedFollowing,
+    CurrentRow,
+    Preceding(Box<Expression>),
+    Following(Box<Expression>),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OrderByItem {
+    pub expr: Expression,
+    pub ascending: bool,
+}
+
 impl Expression {
     pub fn to_sql(&self) -> String {
         match self {
@@ -102,6 +155,9 @@ impl Expression {
             Expression::Star => "*".to_string(),
             Expression::Subquery(_) => "(subquery)".to_string(),
             Expression::UnaryNot(e) => format!("NOT ({})", e.to_sql()),
+            Expression::WindowFunc(wf) => {
+                format!("{}(...) OVER (...)", format!("{:?}", wf.func_type))
+            }
         }
     }
 }

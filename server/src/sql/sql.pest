@@ -144,7 +144,16 @@ plus_minus = { "+" | "-" }
 term = { factor ~ (mul_div ~ factor)* }
 mul_div = { "*" | "/" | "%" }
 
-factor = { aggregate_func | scalar_func | variable | column_ref | literal | placeholder | "(" ~ select_stmt_inner ~ ")" | "(" ~ expression ~ ")" | KW_NOT ~ factor | "-" ~ factor }
+factor = { window_func | aggregate_func | scalar_func | variable | column_ref | literal | placeholder | "(" ~ select_stmt_inner ~ ")" | "(" ~ expression ~ ")" | KW_NOT ~ factor | "-" ~ factor }
+
+window_func = { window_func_name ~ "(" ~ (star | expression ~ ("," ~ expression)*)? ~ ")" ~ KW_OVER ~ "(" ~ window_spec ~ ")" }
+window_func_name = { KW_ROW_NUMBER | KW_RANK | KW_DENSE_RANK | KW_NTILE | KW_PERCENT_RANK | KW_CUME_DIST | KW_FIRST_VALUE | KW_LAST_VALUE | KW_NTH_VALUE | KW_LAG | KW_LEAD }
+window_spec = { window_partition_by? ~ window_order_by? ~ window_frame? }
+window_partition_by = { KW_PARTITION ~ KW_BY ~ expression_list }
+window_order_by = { KW_ORDER ~ KW_BY ~ order_by_list }
+window_frame = { (KW_ROWS | KW_RANGE) ~ window_frame_extent }
+window_frame_extent = { KW_BETWEEN ~ window_frame_bound ~ KW_AND ~ window_frame_bound | window_frame_bound }
+window_frame_bound = { KW_UNBOUNDED ~ (KW_PRECEDING | KW_FOLLOWING) | KW_CURRENT ~ KW_ROW | expression ~ (KW_PRECEDING | KW_FOLLOWING) }
 
 variable = { system_variable | session_variable }
 system_variable = { "@@" ~ ( ^"GLOBAL." | ^"SESSION." )? ~ identifier }
@@ -181,7 +190,10 @@ keyword = {
     KW_PREPARE | KW_EXECUTE | KW_DEALLOCATE | KW_USING | KW_AUTO_INCREMENT | KW_PRIMARY | KW_KEY |
     KW_ALTER | KW_ADD | KW_COLUMN | KW_RENAME | KW_TO | KW_FOREIGN | KW_REFERENCES | KW_WITH |
     KW_MATERIALIZED | KW_VIEW | KW_USER | KW_IDENTIFIED | KW_PRIVILEGES | KW_REVOKE | KW_ALL |
-    KW_MODIFY | KW_DEFAULT | KW_NOT_NULL
+    KW_MODIFY | KW_DEFAULT | KW_NOT_NULL | KW_BETWEEN | KW_ROW |
+    KW_ROW_NUMBER | KW_RANK | KW_DENSE_RANK | KW_NTILE | KW_PERCENT_RANK | KW_CUME_DIST |
+    KW_FIRST_VALUE | KW_LAST_VALUE | KW_NTH_VALUE | KW_LAG | KW_LEAD |
+    KW_OVER | KW_PARTITION | KW_ROWS | KW_RANGE | KW_UNBOUNDED | KW_PRECEDING | KW_FOLLOWING | KW_CURRENT
 }
 
 // Keywords (reserved)
@@ -258,6 +270,27 @@ KW_ALL      = @{ ^"ALL" ~ !id_char }
 KW_MODIFY   = @{ ^"MODIFY" ~ !id_char }
 KW_DEFAULT  = @{ ^"DEFAULT" ~ !id_char }
 KW_NOT_NULL = @{ ^"NOT_NULL" | "^NOT NULL" ~ !id_char }
+KW_ROW_NUMBER = @{ ^"ROW_NUMBER" ~ !id_char }
+KW_RANK = @{ ^"RANK" ~ !id_char }
+KW_DENSE_RANK = @{ ^"DENSE_RANK" ~ !id_char }
+KW_NTILE = @{ ^"NTILE" ~ !id_char }
+KW_PERCENT_RANK = @{ ^"PERCENT_RANK" ~ !id_char }
+KW_CUME_DIST = @{ ^"CUME_DIST" ~ !id_char }
+KW_FIRST_VALUE = @{ ^"FIRST_VALUE" ~ !id_char }
+KW_LAST_VALUE = @{ ^"LAST_VALUE" ~ !id_char }
+KW_NTH_VALUE = @{ ^"NTH_VALUE" ~ !id_char }
+KW_LAG = @{ ^"LAG" ~ !id_char }
+KW_LEAD = @{ ^"LEAD" ~ !id_char }
+KW_OVER = @{ ^"OVER" ~ !id_char }
+KW_PARTITION = @{ ^"PARTITION" ~ !id_char }
+KW_ROWS = @{ ^"ROWS" ~ !id_char }
+KW_RANGE = @{ ^"RANGE" ~ !id_char }
+KW_UNBOUNDED = @{ ^"UNBOUNDED" ~ !id_char }
+KW_PRECEDING = @{ ^"PRECEDING" ~ !id_char }
+KW_FOLLOWING = @{ ^"FOLLOWING" ~ !id_char }
+KW_CURRENT = @{ ^"CURRENT" ~ !id_char }
+KW_BETWEEN = @{ ^"BETWEEN" ~ !id_char }
+KW_ROW = @{ ^"ROW" ~ !id_char }
 
 id_char = _{ ASCII_ALPHA | ASCII_DIGIT | "_" }
 

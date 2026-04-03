@@ -1,6 +1,6 @@
 use super::cond::*;
-use super::expr::*;
-use super::stmt::*;
+use super::expr::{self, *};
+use super::stmt::{self, *};
 use crate::sql::ast::{self, SqlStmt};
 
 // Conversions from AST to Squeal IR
@@ -103,14 +103,23 @@ impl From<ast::Join> for Join {
     }
 }
 
-impl From<ast::OrderByItem> for OrderByItem {
+impl From<ast::OrderByItem> for stmt::OrderByItem {
     fn from(o: ast::OrderByItem) -> Self {
-        OrderByItem {
+        stmt::OrderByItem {
             expr: o.expr.into(),
             order: match o.order {
-                ast::Order::Asc => Order::Asc,
-                ast::Order::Desc => Order::Desc,
+                ast::Order::Asc => stmt::Order::Asc,
+                ast::Order::Desc => stmt::Order::Desc,
             },
+        }
+    }
+}
+
+impl From<ast::WindowOrderByItem> for expr::OrderByItem {
+    fn from(o: ast::WindowOrderByItem) -> Self {
+        expr::OrderByItem {
+            expr: o.expr.into(),
+            ascending: o.ascending,
         }
     }
 }
@@ -168,6 +177,25 @@ impl From<ast::Expression> for Expression {
                     ast::ScalarFuncType::Sha2 => ScalarFuncType::Sha2,
                 },
                 args: f.args.into_iter().map(|a| a.into()).collect(),
+            }),
+            ast::Expression::WindowFunc(f) => Expression::WindowFunc(WindowFunction {
+                func_type: match f.func_type {
+                    ast::WindowFuncType::RowNumber => WindowFuncType::RowNumber,
+                    ast::WindowFuncType::Rank => WindowFuncType::Rank,
+                    ast::WindowFuncType::DenseRank => WindowFuncType::DenseRank,
+                    ast::WindowFuncType::Ntile => WindowFuncType::Ntile,
+                    ast::WindowFuncType::PercentRank => WindowFuncType::PercentRank,
+                    ast::WindowFuncType::CumeDist => WindowFuncType::CumeDist,
+                    ast::WindowFuncType::FirstValue => WindowFuncType::FirstValue,
+                    ast::WindowFuncType::LastValue => WindowFuncType::LastValue,
+                    ast::WindowFuncType::NthValue => WindowFuncType::NthValue,
+                    ast::WindowFuncType::Lag => WindowFuncType::Lag,
+                    ast::WindowFuncType::Lead => WindowFuncType::Lead,
+                },
+                args: f.args.into_iter().map(|a| a.into()).collect(),
+                partition_by: f.partition_by.into_iter().map(|e| e.into()).collect(),
+                order_by: f.order_by.into_iter().map(|o| o.into()).collect(),
+                frame: f.frame.map(|f| Box::new((*f).into())),
             }),
             ast::Expression::Star => Expression::Star,
             ast::Expression::Variable(v) => Expression::Variable(Variable {
@@ -396,6 +424,31 @@ impl From<ast::ExecuteStmt> for Execute {
         Execute {
             name: s.name,
             params: s.params.into_iter().map(|p| p.into()).collect(),
+        }
+    }
+}
+
+impl From<ast::WindowFrame> for WindowFrame {
+    fn from(f: ast::WindowFrame) -> Self {
+        WindowFrame {
+            units: match f.units {
+                ast::FrameUnits::Rows => FrameUnits::Rows,
+                ast::FrameUnits::Range => FrameUnits::Range,
+            },
+            start: Box::new((*f.start).into()),
+            end: Box::new((*f.end).into()),
+        }
+    }
+}
+
+impl From<ast::FrameBound> for FrameBound {
+    fn from(b: ast::FrameBound) -> Self {
+        match b {
+            ast::FrameBound::UnboundedPreceding => FrameBound::UnboundedPreceding,
+            ast::FrameBound::UnboundedFollowing => FrameBound::UnboundedFollowing,
+            ast::FrameBound::CurrentRow => FrameBound::CurrentRow,
+            ast::FrameBound::Preceding(e) => FrameBound::Preceding(Box::new((*e).into())),
+            ast::FrameBound::Following(e) => FrameBound::Following(Box::new((*e).into())),
         }
     }
 }

@@ -84,6 +84,9 @@ pub fn evaluate_expression_joined(
                 )),
             }
         }
+        Expression::WindowFunc(_) => Err(SqlError::Runtime(
+            "Window functions must be evaluated at the top level".to_string(),
+        )),
     }
 }
 

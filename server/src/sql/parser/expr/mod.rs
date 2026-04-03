@@ -7,7 +7,7 @@ use super::super::error::{SqlError, SqlResult};
 use crate::sql::parser::Rule;
 
 pub use condition::{parse_condition, parse_where_clause};
-pub use functions::{parse_aggregate, parse_scalar_func};
+pub use functions::{parse_aggregate, parse_scalar_func, parse_window_function};
 pub use literal::parse_literal;
 
 pub fn parse_any_expression(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expression> {
@@ -156,6 +156,7 @@ pub fn parse_factor(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expression> 
     match first.as_rule() {
         Rule::aggregate_func => parse_aggregate(first),
         Rule::scalar_func => parse_scalar_func(first),
+        Rule::window_func => parse_window_function(first),
         Rule::literal
         | Rule::string_literal
         | Rule::number_literal

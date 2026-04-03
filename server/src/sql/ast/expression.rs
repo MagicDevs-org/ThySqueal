@@ -11,6 +11,7 @@ pub enum Expression {
     BinaryOp(Box<Expression>, BinaryOp, Box<Expression>),
     FunctionCall(FunctionCall),
     ScalarFunc(ScalarFunction),
+    WindowFunc(WindowFunction),
     Star,
     Subquery(Box<SelectStmt>),
     UnaryNot(Box<Expression>),
@@ -53,6 +54,17 @@ impl Expression {
                     arg.resolve_placeholders(counter);
                 }
             }
+            Expression::WindowFunc(wf) => {
+                for arg in &mut wf.args {
+                    arg.resolve_placeholders(counter);
+                }
+                for expr in &mut wf.partition_by {
+                    expr.resolve_placeholders(counter);
+                }
+                for item in &mut wf.order_by {
+                    item.expr.resolve_placeholders(counter);
+                }
+            }
             Expression::Subquery(s) => {
                 s.resolve_placeholders(counter);
             }
@@ -88,9 +100,74 @@ impl Expression {
                 let args: Vec<String> = sf.args.iter().map(|a| a.to_sql()).collect();
                 format!("{}({})", sf.name.to_sql(), args.join(", "))
             }
+            Expression::WindowFunc(wf) => {
+                let args: Vec<String> = wf.args.iter().map(|a| a.to_sql()).collect();
+                let over = Self::window_spec_to_sql(&wf.partition_by, &wf.order_by, &wf.frame);
+                format!(
+                    "{}({}) OVER ({})",
+                    wf.func_type.to_sql(),
+                    args.join(", "),
+                    over
+                )
+            }
             Expression::Star => "*".to_string(),
             Expression::Subquery(_) => "(SELECT ...)".to_string(),
             Expression::UnaryNot(e) => format!("NOT ({})", e.to_sql()),
+        }
+    }
+}
+
+impl Expression {
+    fn window_spec_to_sql(
+        partition_by: &[Expression],
+        order_by: &[WindowOrderByItem],
+        frame: &Option<Box<WindowFrame>>,
+    ) -> String {
+        let mut parts = Vec::new();
+
+        if !partition_by.is_empty() {
+            let cols: Vec<String> = partition_by.iter().map(|e| e.to_sql()).collect();
+            parts.push(format!("PARTITION BY {}", cols.join(", ")));
+        }
+
+        if !order_by.is_empty() {
+            let items: Vec<String> = order_by
+                .iter()
+                .map(|item| {
+                    let asc = if item.ascending { "ASC" } else { "DESC" };
+                    format!("{} {}", item.expr.to_sql(), asc)
+                })
+                .collect();
+            parts.push(format!("ORDER BY {}", items.join(", ")));
+        }
+
+        if let Some(f) = frame {
+            let units = match f.units {
+                FrameUnits::Rows => "ROWS",
+                FrameUnits::Range => "RANGE",
+            };
+            let start = Self::frame_bound_to_sql(&f.start);
+            let end = Self::frame_bound_to_sql(&f.end);
+            if start == "CURRENT ROW" && end == "CURRENT ROW" {
+                parts.push(format!(
+                    "{} BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW",
+                    units
+                ));
+            } else {
+                parts.push(format!("{} BETWEEN {} AND {}", units, start, end));
+            }
+        }
+
+        parts.join(" ")
+    }
+
+    fn frame_bound_to_sql(bound: &FrameBound) -> &'static str {
+        match bound {
+            FrameBound::UnboundedPreceding => "UNBOUNDED PRECEDING",
+            FrameBound::UnboundedFollowing => "UNBOUNDED FOLLOWING",
+            FrameBound::CurrentRow => "CURRENT ROW",
+            FrameBound::Preceding(_) => "n PRECEDING",
+            FrameBound::Following(_) => "n FOLLOWING",
         }
     }
 }
@@ -185,4 +262,74 @@ impl BinaryOp {
             BinaryOp::Div => "/",
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WindowFunction {
+    pub func_type: WindowFuncType,
+    pub args: Vec<Expression>,
+    pub partition_by: Vec<Expression>,
+    pub order_by: Vec<WindowOrderByItem>,
+    pub frame: Option<Box<WindowFrame>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum WindowFuncType {
+    RowNumber,
+    Rank,
+    DenseRank,
+    Ntile,
+    PercentRank,
+    CumeDist,
+    FirstValue,
+    LastValue,
+    NthValue,
+    Lag,
+    Lead,
+}
+
+impl WindowFuncType {
+    pub fn to_sql(&self) -> &str {
+        match self {
+            WindowFuncType::RowNumber => "ROW_NUMBER",
+            WindowFuncType::Rank => "RANK",
+            WindowFuncType::DenseRank => "DENSE_RANK",
+            WindowFuncType::Ntile => "NTILE",
+            WindowFuncType::PercentRank => "PERCENT_RANK",
+            WindowFuncType::CumeDist => "CUME_DIST",
+            WindowFuncType::FirstValue => "FIRST_VALUE",
+            WindowFuncType::LastValue => "LAST_VALUE",
+            WindowFuncType::NthValue => "NTH_VALUE",
+            WindowFuncType::Lag => "LAG",
+            WindowFuncType::Lead => "LEAD",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WindowFrame {
+    pub units: FrameUnits,
+    pub start: Box<FrameBound>,
+    pub end: Box<FrameBound>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum FrameUnits {
+    Rows,
+    Range,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum FrameBound {
+    UnboundedPreceding,
+    UnboundedFollowing,
+    CurrentRow,
+    Preceding(Box<Expression>),
+    Following(Box<Expression>),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WindowOrderByItem {
+    pub expr: Expression,
+    pub ascending: bool,
 }

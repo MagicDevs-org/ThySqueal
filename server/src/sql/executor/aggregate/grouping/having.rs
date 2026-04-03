@@ -305,6 +305,16 @@ impl Executor {
                 }
             }
             Expression::Star => Err(SqlError::Runtime("Star not allowed in HAVING".to_string())),
+            Expression::WindowFunc(_) => {
+                if let Some(first_ctx_list) = contexts.first() {
+                    let eval_ctx =
+                        EvalContext::new(first_ctx_list, params, outer_contexts, db_state)
+                            .with_session(session);
+                    evaluate_expression_joined(self as &dyn Evaluator, expr, &eval_ctx)
+                } else {
+                    Ok(Value::Null)
+                }
+            }
         }
     }
 }

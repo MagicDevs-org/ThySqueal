@@ -126,14 +126,23 @@ impl From<squeal::Join> for Join {
     }
 }
 
-impl From<squeal::OrderByItem> for OrderByItem {
-    fn from(o: squeal::OrderByItem) -> Self {
+impl From<squeal::stmt::OrderByItem> for OrderByItem {
+    fn from(o: squeal::stmt::OrderByItem) -> Self {
         OrderByItem {
             expr: o.expr.into(),
             order: match o.order {
-                squeal::Order::Asc => Order::Asc,
-                squeal::Order::Desc => Order::Desc,
+                squeal::stmt::Order::Asc => Order::Asc,
+                squeal::stmt::Order::Desc => Order::Desc,
             },
+        }
+    }
+}
+
+impl From<squeal::expr::OrderByItem> for WindowOrderByItem {
+    fn from(o: squeal::expr::OrderByItem) -> Self {
+        WindowOrderByItem {
+            expr: o.expr.into(),
+            ascending: o.ascending,
         }
     }
 }
@@ -204,6 +213,25 @@ impl From<squeal::Expression> for Expression {
             }),
             squeal::Expression::Subquery(s) => Expression::Subquery(Box::new((*s).into())),
             squeal::Expression::UnaryNot(e) => Expression::UnaryNot(Box::new((*e).into())),
+            squeal::Expression::WindowFunc(f) => Expression::WindowFunc(WindowFunction {
+                func_type: match f.func_type {
+                    squeal::WindowFuncType::RowNumber => WindowFuncType::RowNumber,
+                    squeal::WindowFuncType::Rank => WindowFuncType::Rank,
+                    squeal::WindowFuncType::DenseRank => WindowFuncType::DenseRank,
+                    squeal::WindowFuncType::Ntile => WindowFuncType::Ntile,
+                    squeal::WindowFuncType::PercentRank => WindowFuncType::PercentRank,
+                    squeal::WindowFuncType::CumeDist => WindowFuncType::CumeDist,
+                    squeal::WindowFuncType::FirstValue => WindowFuncType::FirstValue,
+                    squeal::WindowFuncType::LastValue => WindowFuncType::LastValue,
+                    squeal::WindowFuncType::NthValue => WindowFuncType::NthValue,
+                    squeal::WindowFuncType::Lag => WindowFuncType::Lag,
+                    squeal::WindowFuncType::Lead => WindowFuncType::Lead,
+                },
+                args: f.args.into_iter().map(|a| a.into()).collect(),
+                partition_by: f.partition_by.into_iter().map(|e| e.into()).collect(),
+                order_by: f.order_by.into_iter().map(|o| o.into()).collect(),
+                frame: f.frame.map(|f| Box::new((*f).into())),
+            }),
         }
     }
 }
@@ -252,6 +280,31 @@ impl From<squeal::Condition> for Condition {
             ),
             squeal::Condition::Like(e, s) => Condition::Like(e.into(), s),
             squeal::Condition::FullTextSearch(f, q) => Condition::FullTextSearch(f, q),
+        }
+    }
+}
+
+impl From<squeal::WindowFrame> for WindowFrame {
+    fn from(f: squeal::WindowFrame) -> Self {
+        WindowFrame {
+            units: match f.units {
+                squeal::FrameUnits::Rows => FrameUnits::Rows,
+                squeal::FrameUnits::Range => FrameUnits::Range,
+            },
+            start: Box::new((*f.start).into()),
+            end: Box::new((*f.end).into()),
+        }
+    }
+}
+
+impl From<squeal::FrameBound> for FrameBound {
+    fn from(b: squeal::FrameBound) -> Self {
+        match b {
+            squeal::FrameBound::UnboundedPreceding => FrameBound::UnboundedPreceding,
+            squeal::FrameBound::UnboundedFollowing => FrameBound::UnboundedFollowing,
+            squeal::FrameBound::CurrentRow => FrameBound::CurrentRow,
+            squeal::FrameBound::Preceding(e) => FrameBound::Preceding(Box::new((*e).into())),
+            squeal::FrameBound::Following(e) => FrameBound::Following(Box::new((*e).into())),
         }
     }
 }
