@@ -1,6 +1,6 @@
 use crate::sql::Executor;
-use crate::storage::Database;
 use crate::sql::executor::Session;
+use crate::storage::Database;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -13,11 +13,7 @@ async fn test_rbac_basic() {
 
     // 1. Root can do everything
     executor
-        .execute(
-            "CREATE TABLE test (id INT)",
-            vec![],
-            root_session.clone(),
-        )
+        .execute("CREATE TABLE test (id INT)", vec![], root_session.clone())
         .await
         .unwrap();
     executor
@@ -59,11 +55,7 @@ async fn test_rbac_basic() {
 
     // 5. Bob still cannot insert
     let res = executor
-        .execute(
-            "INSERT INTO test VALUES (1)",
-            vec![],
-            bob_session.clone(),
-        )
+        .execute("INSERT INTO test VALUES (1)", vec![], bob_session.clone())
         .await;
     assert!(res.is_err());
 
@@ -77,11 +69,7 @@ async fn test_rbac_basic() {
         .await
         .unwrap();
     let res = executor
-        .execute(
-            "INSERT INTO test VALUES (1)",
-            vec![],
-            bob_session.clone(),
-        )
+        .execute("INSERT INTO test VALUES (1)", vec![], bob_session.clone())
         .await;
     assert!(res.is_ok());
 

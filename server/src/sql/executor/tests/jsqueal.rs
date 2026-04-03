@@ -17,7 +17,11 @@ mod tests {
 
         // CREATE TABLE users (id INT, name TEXT)
         executor
-            .execute("CREATE TABLE users (id INT, name TEXT)", vec![], Session::new(None, None))
+            .execute(
+                "CREATE TABLE users (id INT, name TEXT)",
+                vec![],
+                Session::new(None, None),
+            )
             .await
             .unwrap();
         executor
@@ -89,7 +93,11 @@ mod tests {
             .unwrap();
 
         let result = executor
-            .execute("SELECT price FROM items WHERE id = 10", vec![], Session::new(None, None))
+            .execute(
+                "SELECT price FROM items WHERE id = 10",
+                vec![],
+                Session::new(None, None),
+            )
             .await
             .unwrap();
         assert_eq!(result.rows.len(), 1);

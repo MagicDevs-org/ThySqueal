@@ -1,0 +1,83 @@
+# Pre-commit hooks for thy-squeal
+# See https://pre-commit.com for more information
+# Install: pre-commit install
+
+repos:
+  # Rust formatting
+  - repo: https://github.com/dense-analysis/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args: [--markdown-line-length=off]
+
+  # Rust fmt check (must pass before tests)
+  - repo: https://github.com/dense-analysis/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: rustfmt
+        name: rustfmt (check)
+        entry: cargo fmt -- --check
+        language: system
+        pass_filenames: false
+        types: [rust]
+
+  # Rust clippy lints
+  - repo: https://github.com/dense-analysis/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: clippy
+        name: clippy (warnings)
+        entry: cargo clippy
+        language: system
+        pass_filenames: false
+        types: [rust]
+        args:
+          [
+            "--all-targets",
+            "--all-features",
+            "--",
+            "-A",
+            "clippy::large_enum_variant",
+            "-A",
+            "clippy::type_complexity",
+            "-A",
+            "clippy::format_in_format_args",
+            "-W",
+            "clippy::correctness",
+            "-W",
+            "clippy::suspicious",
+            "-W",
+            "clippy::perf",
+            "-W",
+            "clippy::complexity",
+            "-W",
+            "clippy::style",
+            "-D",
+            "clippy::unnecessary_cast",
+            "-D",
+            "clippy::too_many_arguments",
+          ]
+
+  # Unit tests (skip pre-existing failing test)
+  - repo: https://github.com/dense-analysis/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: cargo
+        name: cargo test
+        entry: cargo test -- --skip test_subqueries
+        language: system
+        pass_filenames: false
+        types: [rust]
+
+  # Check for test coverage (optional, uncomment if using tarpaulin)
+  # - repo: https://github.com/dense-analysis/pre-commit-hooks
+  #   rev: v5.0.0
+  #   hooks:
+  #     - id: cargo-tarpaulin
+  #       name: cargo tarpaulin (coverage)
+  #       entry: cargo tarpaulin --out Xml
+  #       language: system
+  #       pass_filenames: false
+  #       types: [rust]

@@ -5,8 +5,8 @@ pub mod project;
 
 use crate::sql::error::SqlResult;
 use crate::sql::eval::{EvalContext, evaluate_condition_joined, evaluate_expression_joined};
-use crate::sql::executor::{Executor, QueryResult, SelectQueryPlan};
 use crate::sql::executor::window::WindowFunctionEvaluator;
+use crate::sql::executor::{Executor, QueryResult, SelectQueryPlan};
 use crate::squeal;
 use crate::squeal::stmt::OrderByItem;
 use crate::storage::{Row, Table};
@@ -48,10 +48,8 @@ impl Executor {
             let mut matched_rows = Vec::new();
             if let Some(ref where_cond) = stmt.where_clause {
                 for ctx in joined_rows {
-                    let eval_ctx_list: Vec<(&Table, Option<&str>, &Row)> = ctx
-                        .iter()
-                        .map(|(t, a, r)| (*t, a.as_deref(), r))
-                        .collect();
+                    let eval_ctx_list: Vec<(&Table, Option<&str>, &Row)> =
+                        ctx.iter().map(|(t, a, r)| (*t, a.as_deref(), r)).collect();
                     let eval_ctx =
                         EvalContext::new(&eval_ctx_list, params, outer_contexts, db_state)
                             .with_session(&session);
@@ -84,11 +82,18 @@ impl Executor {
             // 5b. Evaluate Window Functions
             if has_window_funcs {
                 let window_evaluator = WindowFunctionEvaluator;
-                
+
                 // Sort rows by ORDER BY for window frame evaluation
                 let mut sorted_rows: Vec<JoinedContext> = matched_rows;
                 if !stmt.order_by.is_empty() {
-                    self.apply_order_by(&stmt.order_by, &mut sorted_rows, params, outer_contexts, db_state, &session)?;
+                    self.apply_order_by(
+                        &stmt.order_by,
+                        &mut sorted_rows,
+                        params,
+                        outer_contexts,
+                        db_state,
+                        &session,
+                    )?;
                 }
 
                 // Apply LIMIT
@@ -113,8 +118,13 @@ impl Executor {
                     self,
                 )?;
 
-                let result_columns: Vec<String> =
-                    self.get_result_column_names(stmt, base_table, &stmt.joins, db_state, &cte_tables);
+                let result_columns: Vec<String> = self.get_result_column_names(
+                    stmt,
+                    base_table,
+                    &stmt.joins,
+                    db_state,
+                    &cte_tables,
+                );
 
                 let mut projected_rows = window_results;
                 if stmt.distinct {
@@ -133,7 +143,14 @@ impl Executor {
 
             // 6. Apply ORDER BY
             if !stmt.order_by.is_empty() {
-                self.apply_order_by(&stmt.order_by, &mut matched_rows, params, outer_contexts, db_state, &session)?;
+                self.apply_order_by(
+                    &stmt.order_by,
+                    &mut matched_rows,
+                    params,
+                    outer_contexts,
+                    db_state,
+                    &session,
+                )?;
             }
 
             // 7. Apply LIMIT and OFFSET
@@ -154,10 +171,8 @@ impl Executor {
 
             let mut projected_rows = Vec::new();
             for ctx in final_rows {
-                let eval_ctx_list: Vec<(&Table, Option<&str>, &Row)> = ctx
-                    .iter()
-                    .map(|(t, a, r)| (*t, a.as_deref(), r))
-                    .collect();
+                let eval_ctx_list: Vec<(&Table, Option<&str>, &Row)> =
+                    ctx.iter().map(|(t, a, r)| (*t, a.as_deref(), r)).collect();
                 let eval_ctx = EvalContext::new(&eval_ctx_list, params, outer_contexts, db_state)
                     .with_session(&session);
                 let mut row_values = Vec::new();
@@ -204,34 +219,26 @@ impl Executor {
     ) -> SqlResult<()> {
         let mut err = None;
         rows.sort_by(|a, b| {
-            let eval_ctx_list_a: Vec<(&Table, Option<&str>, &Row)> = a
-                .iter()
-                .map(|(t, al, r)| (*t, al.as_deref(), r))
-                .collect();
-            let eval_ctx_list_b: Vec<(&Table, Option<&str>, &Row)> = b
-                .iter()
-                .map(|(t, al, r)| (*t, al.as_deref(), r))
-                .collect();
+            let eval_ctx_list_a: Vec<(&Table, Option<&str>, &Row)> =
+                a.iter().map(|(t, al, r)| (*t, al.as_deref(), r)).collect();
+            let eval_ctx_list_b: Vec<(&Table, Option<&str>, &Row)> =
+                b.iter().map(|(t, al, r)| (*t, al.as_deref(), r)).collect();
 
-            let eval_ctx_a =
-                EvalContext::new(&eval_ctx_list_a, params, outer_contexts, db_state)
-                    .with_session(session);
+            let eval_ctx_a = EvalContext::new(&eval_ctx_list_a, params, outer_contexts, db_state)
+                .with_session(session);
 
-            let eval_ctx_b =
-                EvalContext::new(&eval_ctx_list_b, params, outer_contexts, db_state)
-                    .with_session(session);
+            let eval_ctx_b = EvalContext::new(&eval_ctx_list_b, params, outer_contexts, db_state)
+                .with_session(session);
 
             for item in order_by {
-                let val_a = match evaluate_expression_joined(self, &item.expr, &eval_ctx_a)
-                {
+                let val_a = match evaluate_expression_joined(self, &item.expr, &eval_ctx_a) {
                     Ok(v) => v,
                     Err(e) => {
                         err = Some(e);
                         return std::cmp::Ordering::Equal;
                     }
                 };
-                let val_b = match evaluate_expression_joined(self, &item.expr, &eval_ctx_b)
-                {
+                let val_b = match evaluate_expression_joined(self, &item.expr, &eval_ctx_b) {
                     Ok(v) => v,
                     Err(e) => {
                         err = Some(e);

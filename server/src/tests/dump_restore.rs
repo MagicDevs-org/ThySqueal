@@ -1,6 +1,6 @@
 use super::common::setup;
-use crate::sql::executor::Session;
 use crate::sql::Executor;
+use crate::sql::executor::Session;
 use crate::storage::{Database, Value};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -54,7 +54,10 @@ async fn test_dump_restore() {
     // Restore into a new database
     let db2 = Arc::new(RwLock::new(Database::new()));
     let executor2 = Arc::new(Executor::new(db2));
-    executor2.execute_batch(&dump_sql, Session::new(None, None)).await.unwrap();
+    executor2
+        .execute_batch(&dump_sql, Session::new(None, None))
+        .await
+        .unwrap();
 
     // Verify
     let res = executor2

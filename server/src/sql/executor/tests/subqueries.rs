@@ -10,15 +10,27 @@ async fn test_subqueries() {
     let executor = Arc::new(Executor::new(db));
 
     executor
-        .execute("CREATE TABLE users (id INT, name TEXT)", vec![], Session::new(None, None))
+        .execute(
+            "CREATE TABLE users (id INT, name TEXT)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO users VALUES (1, 'Alice')", vec![], Session::new(None, None))
+        .execute(
+            "INSERT INTO users VALUES (1, 'Alice')",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO users VALUES (2, 'Bob')", vec![], Session::new(None, None))
+        .execute(
+            "INSERT INTO users VALUES (2, 'Bob')",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
 

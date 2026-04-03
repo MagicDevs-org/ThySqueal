@@ -10,7 +10,11 @@ async fn test_hash_index() {
     let executor = Arc::new(Executor::new(db));
 
     executor
-        .execute("CREATE TABLE users (id INT, name TEXT)", vec![], Session::new(None, None))
+        .execute(
+            "CREATE TABLE users (id INT, name TEXT)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     executor
@@ -23,16 +27,28 @@ async fn test_hash_index() {
         .unwrap();
 
     executor
-        .execute("INSERT INTO users VALUES (1, 'Alice')", vec![], Session::new(None, None))
+        .execute(
+            "INSERT INTO users VALUES (1, 'Alice')",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO users VALUES (2, 'Bob')", vec![], Session::new(None, None))
+        .execute(
+            "INSERT INTO users VALUES (2, 'Bob')",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
 
     let result = executor
-        .execute("SELECT * FROM users WHERE name = 'Bob'", vec![], Session::new(None, None))
+        .execute(
+            "SELECT * FROM users WHERE name = 'Bob'",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     assert_eq!(result.rows.len(), 1);
@@ -40,7 +56,11 @@ async fn test_hash_index() {
 
     // Test unique constraint
     let result = executor
-        .execute("INSERT INTO users VALUES (3, 'Alice')", vec![], Session::new(None, None))
+        .execute(
+            "INSERT INTO users VALUES (3, 'Alice')",
+            vec![],
+            Session::new(None, None),
+        )
         .await;
     assert!(result.is_err());
 }
@@ -109,7 +129,11 @@ async fn test_json_path_index() {
     let executor = Arc::new(Executor::new(db));
 
     executor
-        .execute("CREATE TABLE events (data JSON)", vec![], Session::new(None, None))
+        .execute(
+            "CREATE TABLE events (data JSON)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     executor
@@ -155,7 +179,11 @@ async fn test_functional_index() {
     let executor = Arc::new(Executor::new(db));
 
     executor
-        .execute("CREATE TABLE users (email TEXT)", vec![], Session::new(None, None))
+        .execute(
+            "CREATE TABLE users (email TEXT)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     executor
@@ -251,18 +279,30 @@ async fn test_index_selectivity() {
     let executor = Arc::new(Executor::new(db));
 
     executor
-        .execute("CREATE TABLE test (val INT)", vec![], Session::new(None, None))
+        .execute(
+            "CREATE TABLE test (val INT)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     executor
-        .execute("CREATE INDEX idx_val ON test (val)", vec![], Session::new(None, None))
+        .execute(
+            "CREATE INDEX idx_val ON test (val)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
 
     // Insert 100 rows: 50 rows with val=1, 50 rows with val=2..51
     for i in 0..50 {
         executor
-            .execute("INSERT INTO test VALUES (1)", vec![], Session::new(None, None))
+            .execute(
+                "INSERT INTO test VALUES (1)",
+                vec![],
+                Session::new(None, None),
+            )
             .await
             .unwrap();
         executor

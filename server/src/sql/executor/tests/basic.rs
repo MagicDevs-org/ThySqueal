@@ -1,7 +1,7 @@
 use crate::sql::Executor;
 use crate::sql::error::SqlError;
-use crate::storage::{Database, Value};
 use crate::sql::executor::Session;
+use crate::storage::{Database, Value};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -11,11 +11,19 @@ async fn test_create_table_insert_select() {
     let executor = Arc::new(Executor::new(db));
 
     executor
-        .execute("CREATE TABLE users (id INT, name TEXT)", vec![], Session::new(None, None))
+        .execute(
+            "CREATE TABLE users (id INT, name TEXT)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO users VALUES (1, 'Alice')", vec![], Session::new(None, None))
+        .execute(
+            "INSERT INTO users VALUES (1, 'Alice')",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     let result = executor
@@ -34,7 +42,11 @@ async fn test_drop_table() {
     let executor = Arc::new(Executor::new(db));
 
     executor
-        .execute("CREATE TABLE users (id INT)", vec![], Session::new(None, None))
+        .execute(
+            "CREATE TABLE users (id INT)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     executor
@@ -54,20 +66,36 @@ async fn test_select_where() {
     let executor = Arc::new(Executor::new(db));
 
     executor
-        .execute("CREATE TABLE users (id INT, name TEXT)", vec![], Session::new(None, None))
+        .execute(
+            "CREATE TABLE users (id INT, name TEXT)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO users VALUES (1, 'Alice')", vec![], Session::new(None, None))
+        .execute(
+            "INSERT INTO users VALUES (1, 'Alice')",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO users VALUES (2, 'Bob')", vec![], Session::new(None, None))
+        .execute(
+            "INSERT INTO users VALUES (2, 'Bob')",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
 
     let result = executor
-        .execute("SELECT * FROM users WHERE id = 2", vec![], Session::new(None, None))
+        .execute(
+            "SELECT * FROM users WHERE id = 2",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     assert_eq!(result.rows.len(), 1);
@@ -91,11 +119,19 @@ async fn test_update() {
     let executor = Arc::new(Executor::new(db));
 
     executor
-        .execute("CREATE TABLE users (id INT, name TEXT)", vec![], Session::new(None, None))
+        .execute(
+            "CREATE TABLE users (id INT, name TEXT)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO users VALUES (1, 'Alice')", vec![], Session::new(None, None))
+        .execute(
+            "INSERT INTO users VALUES (1, 'Alice')",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
 
@@ -109,7 +145,11 @@ async fn test_update() {
         .unwrap();
 
     let result = executor
-        .execute("SELECT name FROM users WHERE id = 1", vec![], Session::new(None, None))
+        .execute(
+            "SELECT name FROM users WHERE id = 1",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     assert_eq!(result.rows[0][0], Value::Text("Bob".to_string()));
@@ -121,16 +161,28 @@ async fn test_delete() {
     let executor = Arc::new(Executor::new(db));
 
     executor
-        .execute("CREATE TABLE users (id INT, name TEXT)", vec![], Session::new(None, None))
+        .execute(
+            "CREATE TABLE users (id INT, name TEXT)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO users VALUES (1, 'Alice')", vec![], Session::new(None, None))
+        .execute(
+            "INSERT INTO users VALUES (1, 'Alice')",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
 
     executor
-        .execute("DELETE FROM users WHERE id = 1", vec![], Session::new(None, None))
+        .execute(
+            "DELETE FROM users WHERE id = 1",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
 
@@ -164,7 +216,11 @@ async fn test_order_by() {
         .unwrap();
 
     let result = executor
-        .execute("SELECT v FROM t ORDER BY v ASC", vec![], Session::new(None, None))
+        .execute(
+            "SELECT v FROM t ORDER BY v ASC",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     assert_eq!(result.rows[0][0], Value::Int(1));
@@ -172,7 +228,11 @@ async fn test_order_by() {
     assert_eq!(result.rows[2][0], Value::Int(3));
 
     let result = executor
-        .execute("SELECT v FROM t ORDER BY v DESC", vec![], Session::new(None, None))
+        .execute(
+            "SELECT v FROM t ORDER BY v DESC",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     assert_eq!(result.rows[0][0], Value::Int(3));
@@ -191,7 +251,11 @@ async fn test_limit_offset() {
         .unwrap();
     for i in 1..=10 {
         executor
-            .execute(&format!("INSERT INTO t VALUES ({})", i), vec![], Session::new(None, None))
+            .execute(
+                &format!("INSERT INTO t VALUES ({})", i),
+                vec![],
+                Session::new(None, None),
+            )
             .await
             .unwrap();
     }
@@ -216,19 +280,35 @@ async fn test_aggregations_and_aliases() {
     let executor = Arc::new(Executor::new(db));
 
     executor
-        .execute("CREATE TABLE sales (amount FLOAT)", vec![], Session::new(None, None))
+        .execute(
+            "CREATE TABLE sales (amount FLOAT)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO sales VALUES (10.5)", vec![], Session::new(None, None))
+        .execute(
+            "INSERT INTO sales VALUES (10.5)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO sales VALUES (20.0)", vec![], Session::new(None, None))
+        .execute(
+            "INSERT INTO sales VALUES (20.0)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO sales VALUES (5.5)", vec![], Session::new(None, None))
+        .execute(
+            "INSERT INTO sales VALUES (5.5)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
 
@@ -260,19 +340,35 @@ async fn test_group_by_having() {
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO sales VALUES ('A', 10)", vec![], Session::new(None, None))
+        .execute(
+            "INSERT INTO sales VALUES ('A', 10)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO sales VALUES ('A', 20)", vec![], Session::new(None, None))
+        .execute(
+            "INSERT INTO sales VALUES ('A', 20)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO sales VALUES ('B', 5)", vec![], Session::new(None, None))
+        .execute(
+            "INSERT INTO sales VALUES ('B', 5)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO sales VALUES ('B', 15)", vec![], Session::new(None, None))
+        .execute(
+            "INSERT INTO sales VALUES ('B', 15)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
 
@@ -325,7 +421,11 @@ async fn test_explain() {
     let executor = Arc::new(Executor::new(db));
 
     executor
-        .execute("CREATE TABLE users (id INT, name TEXT)", vec![], Session::new(None, None))
+        .execute(
+            "CREATE TABLE users (id INT, name TEXT)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     let result = executor
@@ -347,17 +447,29 @@ async fn test_select_columns() {
     let executor = Arc::new(Executor::new(db));
 
     executor
-        .execute("CREATE TABLE users (id INT, name TEXT)", vec![], Session::new(None, None))
+        .execute(
+            "CREATE TABLE users (id INT, name TEXT)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO users VALUES (1, 'Alice')", vec![], Session::new(None, None))
+        .execute(
+            "INSERT INTO users VALUES (1, 'Alice')",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
 
     // Test specific columns
     let result = executor
-        .execute("SELECT name, id FROM users", vec![], Session::new(None, None))
+        .execute(
+            "SELECT name, id FROM users",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     assert_eq!(result.columns, vec!["name", "id"]);
@@ -366,7 +478,11 @@ async fn test_select_columns() {
 
     // Test expressions in SELECT
     let result = executor
-        .execute("SELECT id + 10, UPPER(name) FROM users", vec![], Session::new(None, None))
+        .execute(
+            "SELECT id + 10, UPPER(name) FROM users",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     assert_eq!(result.rows[0][0], Value::Int(11));

@@ -73,6 +73,7 @@ impl WindowFunctionEvaluator {
         Ok(results)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn evaluate_window_function(
         &self,
         wf: &WindowFunction,
@@ -149,7 +150,7 @@ impl WindowFunctionEvaluator {
                     .args
                     .first()
                     .and_then(|a| match a {
-                        Expression::Literal(Value::Int(n)) => Some(*n as i64),
+                        Expression::Literal(Value::Int(n)) => Some(*n),
                         _ => None,
                     })
                     .unwrap_or(1);
@@ -276,7 +277,7 @@ impl WindowFunctionEvaluator {
                     .args
                     .get(1)
                     .and_then(|a| match a {
-                        Expression::Literal(Value::Int(n)) => Some(*n as i64),
+                        Expression::Literal(Value::Int(n)) => Some(*n),
                         _ => None,
                     })
                     .unwrap_or(1);

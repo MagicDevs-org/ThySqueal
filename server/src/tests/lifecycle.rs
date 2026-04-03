@@ -1,8 +1,8 @@
 use super::common::setup;
 use crate::config::{Config, LoggingConfig, SecurityConfig, ServerConfig, StorageConfig};
 use crate::http::create_app;
-use crate::sql::executor::Session;
 use crate::sql::Executor;
+use crate::sql::executor::Session;
 use crate::storage::Database;
 use crate::storage::persistence::SledPersister;
 
@@ -236,15 +236,27 @@ async fn test_materialized_views() {
     let executor = Arc::new(Executor::new(db_lock));
 
     executor
-        .execute("CREATE TABLE base (id INT, val INT)", vec![], Session::new(None, None))
+        .execute(
+            "CREATE TABLE base (id INT, val INT)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO base VALUES (1, 10)", vec![], Session::new(None, None))
+        .execute(
+            "INSERT INTO base VALUES (1, 10)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO base VALUES (2, 20)", vec![], Session::new(None, None))
+        .execute(
+            "INSERT INTO base VALUES (2, 20)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
 
@@ -266,7 +278,11 @@ async fn test_materialized_views() {
 
     // 2. Trigger automatic refresh on INSERT
     executor
-        .execute("INSERT INTO base VALUES (3, 30)", vec![], Session::new(None, None))
+        .execute(
+            "INSERT INTO base VALUES (3, 30)",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     let res = executor
@@ -277,7 +293,11 @@ async fn test_materialized_views() {
 
     // 3. Trigger automatic refresh on DELETE
     executor
-        .execute("DELETE FROM base WHERE id = 1", vec![], Session::new(None, None))
+        .execute(
+            "DELETE FROM base WHERE id = 1",
+            vec![],
+            Session::new(None, None),
+        )
         .await
         .unwrap();
     let res = executor
