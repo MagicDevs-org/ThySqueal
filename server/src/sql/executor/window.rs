@@ -171,15 +171,9 @@ impl WindowFunctionEvaluator {
             executor,
         )?;
 
-        for i in (start + 1)..all_rows.len() {
-            let current_key = self.compute_partition_key(
-                wf,
-                &all_rows[i],
-                params,
-                outer_contexts,
-                db_state,
-                executor,
-            )?;
+        for (i, row) in all_rows.iter().enumerate().skip(start + 1) {
+            let current_key =
+                self.compute_partition_key(wf, row, params, outer_contexts, db_state, executor)?;
             if current_key != partition_key {
                 return Ok(i);
             }
