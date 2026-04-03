@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::sql::executor::Executor;
+    use crate::sql::executor::{Executor, Session};
     use crate::squeal::{Expression, Insert, Select, SelectColumn, Squeal};
     use crate::squeal::{
         KvDel, KvGet, KvHashGet, KvHashSet, KvListPush, KvListRange, KvSet, KvSetAdd, KvSetMembers,
@@ -17,15 +17,14 @@ mod tests {
 
         // CREATE TABLE users (id INT, name TEXT)
         executor
-            .execute("CREATE TABLE users (id INT, name TEXT)", vec![], None, None)
+            .execute("CREATE TABLE users (id INT, name TEXT)", vec![], Session::new(None, None))
             .await
             .unwrap();
         executor
             .execute(
                 "INSERT INTO users (id, name) VALUES (1, 'Alice')",
                 vec![],
-                None,
-                None,
+                Session::new(None, None),
             )
             .await
             .unwrap();
@@ -53,7 +52,7 @@ mod tests {
         });
 
         let result = executor
-            .execute_squeal(query, vec![], None, None)
+            .execute_squeal(query, vec![], Session::new(None, None))
             .await
             .unwrap();
         assert_eq!(result.rows.len(), 1);
@@ -69,8 +68,7 @@ mod tests {
             .execute(
                 "CREATE TABLE items (id INT, price FLOAT)",
                 vec![],
-                None,
-                None,
+                Session::new(None, None),
             )
             .await
             .unwrap();
@@ -86,12 +84,12 @@ mod tests {
         });
 
         executor
-            .execute_squeal(insert, vec![], None, None)
+            .execute_squeal(insert, vec![], Session::new(None, None))
             .await
             .unwrap();
 
         let result = executor
-            .execute("SELECT price FROM items WHERE id = 10", vec![], None, None)
+            .execute("SELECT price FROM items WHERE id = 10", vec![], Session::new(None, None))
             .await
             .unwrap();
         assert_eq!(result.rows.len(), 1);
@@ -109,7 +107,7 @@ mod tests {
             expiry: None,
         });
         executor
-            .execute_squeal(kv_set, vec![], None, None)
+            .execute_squeal(kv_set, vec![], Session::new(None, None))
             .await
             .unwrap();
 
@@ -117,7 +115,7 @@ mod tests {
             key: "mykey".to_string(),
         });
         let result = executor
-            .execute_squeal(kv_get, vec![], None, None)
+            .execute_squeal(kv_get, vec![], Session::new(None, None))
             .await
             .unwrap();
 
@@ -136,7 +134,7 @@ mod tests {
             value: Value::Text("value1".to_string()),
         });
         executor
-            .execute_squeal(kv_set, vec![], None, None)
+            .execute_squeal(kv_set, vec![], Session::new(None, None))
             .await
             .unwrap();
 
@@ -145,7 +143,7 @@ mod tests {
             field: "field1".to_string(),
         });
         let result = executor
-            .execute_squeal(kv_get, vec![], None, None)
+            .execute_squeal(kv_get, vec![], Session::new(None, None))
             .await
             .unwrap();
 
@@ -164,7 +162,7 @@ mod tests {
             left: false,
         });
         executor
-            .execute_squeal(kv_push, vec![], None, None)
+            .execute_squeal(kv_push, vec![], Session::new(None, None))
             .await
             .unwrap();
 
@@ -174,7 +172,7 @@ mod tests {
             stop: -1,
         });
         let result = executor
-            .execute_squeal(kv_range, vec![], None, None)
+            .execute_squeal(kv_range, vec![], Session::new(None, None))
             .await
             .unwrap();
 
@@ -191,7 +189,7 @@ mod tests {
             members: vec!["member1".to_string(), "member2".to_string()],
         });
         executor
-            .execute_squeal(kv_add, vec![], None, None)
+            .execute_squeal(kv_add, vec![], Session::new(None, None))
             .await
             .unwrap();
 
@@ -199,7 +197,7 @@ mod tests {
             key: "myset".to_string(),
         });
         let result = executor
-            .execute_squeal(kv_members, vec![], None, None)
+            .execute_squeal(kv_members, vec![], Session::new(None, None))
             .await
             .unwrap();
 
@@ -220,7 +218,7 @@ mod tests {
             ],
         });
         executor
-            .execute_squeal(kv_add, vec![], None, None)
+            .execute_squeal(kv_add, vec![], Session::new(None, None))
             .await
             .unwrap();
 
@@ -231,7 +229,7 @@ mod tests {
             with_scores: false,
         });
         let result = executor
-            .execute_squeal(kv_range, vec![], None, None)
+            .execute_squeal(kv_range, vec![], Session::new(None, None))
             .await
             .unwrap();
 

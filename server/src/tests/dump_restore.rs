@@ -1,4 +1,5 @@
 use super::common::setup;
+use crate::sql::executor::Session;
 use crate::sql::Executor;
 use crate::storage::{Database, Value};
 use std::sync::Arc;
@@ -14,8 +15,7 @@ async fn test_dump_restore() {
         .execute(
             "CREATE TABLE dump_test (id INT, name TEXT)",
             vec![],
-            None,
-            None,
+            Session::new(None, None),
         )
         .await
         .unwrap();
@@ -23,8 +23,7 @@ async fn test_dump_restore() {
         .execute(
             "CREATE UNIQUE INDEX idx_dump_id ON dump_test (id)",
             vec![],
-            None,
-            None,
+            Session::new(None, None),
         )
         .await
         .unwrap();
@@ -33,8 +32,7 @@ async fn test_dump_restore() {
         .execute(
             "INSERT INTO dump_test VALUES (1, 'alice')",
             vec![],
-            None,
-            None,
+            Session::new(None, None),
         )
         .await
         .unwrap();
@@ -42,8 +40,7 @@ async fn test_dump_restore() {
         .execute(
             "INSERT INTO dump_test VALUES (2, 'bob')",
             vec![],
-            None,
-            None,
+            Session::new(None, None),
         )
         .await
         .unwrap();
@@ -57,15 +54,14 @@ async fn test_dump_restore() {
     // Restore into a new database
     let db2 = Arc::new(RwLock::new(Database::new()));
     let executor2 = Arc::new(Executor::new(db2));
-    executor2.execute_batch(&dump_sql).await.unwrap();
+    executor2.execute_batch(&dump_sql, Session::new(None, None)).await.unwrap();
 
     // Verify
     let res = executor2
         .execute(
             "SELECT name FROM dump_test WHERE id = 1",
             vec![],
-            None,
-            None,
+            Session::new(None, None),
         )
         .await
         .unwrap();
@@ -75,8 +71,7 @@ async fn test_dump_restore() {
         .execute(
             "SELECT name FROM dump_test WHERE id = 2",
             vec![],
-            None,
-            None,
+            Session::new(None, None),
         )
         .await
         .unwrap();
@@ -87,8 +82,7 @@ async fn test_dump_restore() {
         .execute(
             "INSERT INTO dump_test VALUES (1, 'duplicate')",
             vec![],
-            None,
-            None,
+            Session::new(None, None),
         )
         .await;
     assert!(res.is_err());

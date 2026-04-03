@@ -1,4 +1,5 @@
 use super::common::setup;
+use crate::sql::executor::Session;
 use crate::sql::Executor;
 use crate::storage::persistence::SledPersister;
 use crate::storage::{Database, Value};
@@ -21,8 +22,7 @@ async fn test_persistence() {
             .execute(
                 "CREATE TABLE test_table (id INT, name TEXT)",
                 vec![],
-                None,
-                None,
+                Session::new(None, None),
             )
             .await
             .unwrap();
@@ -30,8 +30,7 @@ async fn test_persistence() {
             .execute(
                 "INSERT INTO test_table VALUES (1, 'alice')",
                 vec![],
-                None,
-                None,
+                Session::new(None, None),
             )
             .await
             .unwrap();
@@ -48,8 +47,7 @@ async fn test_persistence() {
             .execute(
                 "SELECT name FROM test_table WHERE id = 1",
                 vec![],
-                None,
-                None,
+                Session::new(None, None),
             )
             .await
             .unwrap();
@@ -74,11 +72,11 @@ async fn test_wal_recovery() {
         let executor = Arc::new(Executor::new(db_lock).with_data_dir(data_dir.clone()));
 
         executor
-            .execute("CREATE TABLE w (id INT, v TEXT)", vec![], None, None)
+            .execute("CREATE TABLE w (id INT, v TEXT)", vec![], Session::new(None, None))
             .await
             .unwrap();
         executor
-            .execute("INSERT INTO w VALUES (1, 'wal_data')", vec![], None, None)
+            .execute("INSERT INTO w VALUES (1, 'wal_data')", vec![], Session::new(None, None))
             .await
             .unwrap();
     }
@@ -91,7 +89,7 @@ async fn test_wal_recovery() {
         let executor = Arc::new(Executor::new(db_lock).with_data_dir(data_dir.clone()));
 
         let res = executor
-            .execute("SELECT v FROM w WHERE id = 1", vec![], None, None)
+            .execute("SELECT v FROM w WHERE id = 1", vec![], Session::new(None, None))
             .await
             .unwrap();
         assert_eq!(res.rows[0][0], Value::Text("wal_data".to_string()));

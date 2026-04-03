@@ -6,12 +6,14 @@ pub mod project;
 use crate::sql::error::SqlResult;
 use crate::sql::eval::{EvalContext, evaluate_condition_joined, evaluate_expression_joined};
 use crate::sql::executor::{Executor, QueryResult, SelectQueryPlan};
+use crate::sql::executor::window::WindowFunctionEvaluator;
 use crate::squeal;
+use crate::squeal::stmt::OrderByItem;
 use crate::storage::{Row, Table};
 use futures::FutureExt;
 use futures::future::BoxFuture;
 
-pub use project::JoinedContext;
+use project::JoinedContext;
 
 impl Executor {
     pub fn exec_select_recursive<'a>(
@@ -48,7 +50,7 @@ impl Executor {
                 for ctx in joined_rows {
                     let eval_ctx_list: Vec<(&Table, Option<&str>, &Row)> = ctx
                         .iter()
-                        .map(|(t, a, r): &(&Table, Option<String>, Row)| (*t, a.as_deref(), r))
+                        .map(|(t, a, r)| (*t, a.as_deref(), r))
                         .collect();
                     let eval_ctx =
                         EvalContext::new(&eval_ctx_list, params, outer_contexts, db_state)
@@ -67,6 +69,11 @@ impl Executor {
                 .iter()
                 .any(|c| matches!(c.expr, squeal::Expression::FunctionCall(_)));
 
+            let has_window_funcs = stmt
+                .columns
+                .iter()
+                .any(|c| matches!(c.expr, squeal::Expression::WindowFunc(_)));
+
             if has_aggregates || !stmt.group_by.is_empty() {
                 let group_plan = SelectQueryPlan::new(stmt.clone(), db_state, session);
                 return self
@@ -74,60 +81,59 @@ impl Executor {
                     .await;
             }
 
+            // 5b. Evaluate Window Functions
+            if has_window_funcs {
+                let window_evaluator = WindowFunctionEvaluator;
+                
+                // Sort rows by ORDER BY for window frame evaluation
+                let mut sorted_rows: Vec<JoinedContext> = matched_rows;
+                if !stmt.order_by.is_empty() {
+                    self.apply_order_by(&stmt.order_by, &mut sorted_rows, params, outer_contexts, db_state, &session)?;
+                }
+
+                // Apply LIMIT
+                let final_rows: Vec<JoinedContext> = if let Some(ref limit) = stmt.limit {
+                    let offset = limit.offset.unwrap_or(0);
+                    sorted_rows
+                        .into_iter()
+                        .skip(offset)
+                        .take(limit.count)
+                        .collect()
+                } else {
+                    sorted_rows
+                };
+
+                // Evaluate window functions with final rows
+                let window_results = window_evaluator.evaluate_window_functions(
+                    &stmt.columns,
+                    &final_rows,
+                    params,
+                    outer_contexts,
+                    db_state,
+                    self,
+                )?;
+
+                let result_columns: Vec<String> =
+                    self.get_result_column_names(stmt, base_table, &stmt.joins, db_state, &cte_tables);
+
+                let mut projected_rows = window_results;
+                if stmt.distinct {
+                    let mut seen = std::collections::HashSet::new();
+                    projected_rows.retain(|row| seen.insert(row.clone()));
+                }
+
+                return Ok(QueryResult {
+                    columns: result_columns,
+                    rows: projected_rows,
+                    rows_affected: 0,
+                    transaction_id: session.transaction_id,
+                    session: None,
+                });
+            }
+
             // 6. Apply ORDER BY
             if !stmt.order_by.is_empty() {
-                let mut err = None;
-                matched_rows.sort_by(|a, b| {
-                    let eval_ctx_list_a: Vec<(&Table, Option<&str>, &Row)> = a
-                        .iter()
-                        .map(|(t, al, r): &(&Table, Option<String>, Row)| (*t, al.as_deref(), r))
-                        .collect();
-                    let eval_ctx_list_b: Vec<(&Table, Option<&str>, &Row)> = b
-                        .iter()
-                        .map(|(t, al, r): &(&Table, Option<String>, Row)| (*t, al.as_deref(), r))
-                        .collect();
-
-                    let eval_ctx_a =
-                        EvalContext::new(&eval_ctx_list_a, params, outer_contexts, db_state)
-                            .with_session(&session);
-
-                    let eval_ctx_b =
-                        EvalContext::new(&eval_ctx_list_b, params, outer_contexts, db_state)
-                            .with_session(&session);
-
-                    for item in &stmt.order_by {
-                        let val_a = match evaluate_expression_joined(self, &item.expr, &eval_ctx_a)
-                        {
-                            Ok(v) => v,
-                            Err(e) => {
-                                err = Some(e);
-                                return std::cmp::Ordering::Equal;
-                            }
-                        };
-                        let val_b = match evaluate_expression_joined(self, &item.expr, &eval_ctx_b)
-                        {
-                            Ok(v) => v,
-                            Err(e) => {
-                                err = Some(e);
-                                return std::cmp::Ordering::Equal;
-                            }
-                        };
-
-                        if let Some(ord) = val_a.partial_cmp(&val_b)
-                            && ord != std::cmp::Ordering::Equal
-                        {
-                            return if item.order == squeal::Order::Desc {
-                                ord.reverse()
-                            } else {
-                                ord
-                            };
-                        }
-                    }
-                    std::cmp::Ordering::Equal
-                });
-                if let Some(e) = err {
-                    return Err(e);
-                }
+                self.apply_order_by(&stmt.order_by, &mut matched_rows, params, outer_contexts, db_state, &session)?;
             }
 
             // 7. Apply LIMIT and OFFSET
@@ -150,7 +156,7 @@ impl Executor {
             for ctx in final_rows {
                 let eval_ctx_list: Vec<(&Table, Option<&str>, &Row)> = ctx
                     .iter()
-                    .map(|(t, a, r): &(&Table, Option<String>, Row)| (*t, a.as_deref(), r))
+                    .map(|(t, a, r)| (*t, a.as_deref(), r))
                     .collect();
                 let eval_ctx = EvalContext::new(&eval_ctx_list, params, outer_contexts, db_state)
                     .with_session(&session);
@@ -185,5 +191,69 @@ impl Executor {
             })
         }
         .boxed()
+    }
+
+    fn apply_order_by(
+        &self,
+        order_by: &[OrderByItem],
+        rows: &mut Vec<JoinedContext>,
+        params: &[crate::storage::Value],
+        outer_contexts: &[(&Table, Option<&str>, &Row)],
+        db_state: &crate::storage::DatabaseState,
+        session: &crate::sql::executor::Session,
+    ) -> SqlResult<()> {
+        let mut err = None;
+        rows.sort_by(|a, b| {
+            let eval_ctx_list_a: Vec<(&Table, Option<&str>, &Row)> = a
+                .iter()
+                .map(|(t, al, r)| (*t, al.as_deref(), r))
+                .collect();
+            let eval_ctx_list_b: Vec<(&Table, Option<&str>, &Row)> = b
+                .iter()
+                .map(|(t, al, r)| (*t, al.as_deref(), r))
+                .collect();
+
+            let eval_ctx_a =
+                EvalContext::new(&eval_ctx_list_a, params, outer_contexts, db_state)
+                    .with_session(session);
+
+            let eval_ctx_b =
+                EvalContext::new(&eval_ctx_list_b, params, outer_contexts, db_state)
+                    .with_session(session);
+
+            for item in order_by {
+                let val_a = match evaluate_expression_joined(self, &item.expr, &eval_ctx_a)
+                {
+                    Ok(v) => v,
+                    Err(e) => {
+                        err = Some(e);
+                        return std::cmp::Ordering::Equal;
+                    }
+                };
+                let val_b = match evaluate_expression_joined(self, &item.expr, &eval_ctx_b)
+                {
+                    Ok(v) => v,
+                    Err(e) => {
+                        err = Some(e);
+                        return std::cmp::Ordering::Equal;
+                    }
+                };
+
+                if let Some(ord) = val_a.partial_cmp(&val_b)
+                    && ord != std::cmp::Ordering::Equal
+                {
+                    return if item.order == squeal::Order::Desc {
+                        ord.reverse()
+                    } else {
+                        ord
+                    };
+                }
+            }
+            std::cmp::Ordering::Equal
+        });
+        if let Some(e) = err {
+            return Err(e);
+        }
+        Ok(())
     }
 }

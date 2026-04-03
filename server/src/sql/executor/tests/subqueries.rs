@@ -1,4 +1,5 @@
 use crate::sql::Executor;
+use crate::sql::executor::Session;
 use crate::storage::{Database, Value};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -9,15 +10,15 @@ async fn test_subqueries() {
     let executor = Arc::new(Executor::new(db));
 
     executor
-        .execute("CREATE TABLE users (id INT, name TEXT)", vec![], None, None)
+        .execute("CREATE TABLE users (id INT, name TEXT)", vec![], Session::new(None, None))
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO users VALUES (1, 'Alice')", vec![], None, None)
+        .execute("INSERT INTO users VALUES (1, 'Alice')", vec![], Session::new(None, None))
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO users VALUES (2, 'Bob')", vec![], None, None)
+        .execute("INSERT INTO users VALUES (2, 'Bob')", vec![], Session::new(None, None))
         .await
         .unwrap();
 
@@ -26,8 +27,7 @@ async fn test_subqueries() {
         .execute(
             "SELECT name FROM users WHERE id IN (SELECT id FROM users WHERE name = 'Bob')",
             vec![],
-            None,
-            None,
+            Session::new(None, None),
         )
         .await
         .unwrap();
@@ -36,7 +36,7 @@ async fn test_subqueries() {
 
     // Correlated subquery in SELECT
     let result = executor
-            .execute("SELECT name, (SELECT COUNT(*) FROM users u2 WHERE u2.id <= users.id) as rank FROM users ORDER BY id", vec![], None, None)
+            .execute("SELECT name, (SELECT COUNT(*) FROM users u2 WHERE u2.id <= users.id) as rank FROM users ORDER BY id", vec![], Session::new(None, None))
             .await
             .unwrap();
     assert_eq!(result.rows[0][1], Value::Int(1));

@@ -1,6 +1,7 @@
 use super::common::setup;
 use crate::config::{Config, LoggingConfig, SecurityConfig, ServerConfig, StorageConfig};
 use crate::http::create_app;
+use crate::sql::executor::Session;
 use crate::sql::Executor;
 use crate::storage::Database;
 use crate::storage::persistence::SledPersister;
@@ -235,15 +236,15 @@ async fn test_materialized_views() {
     let executor = Arc::new(Executor::new(db_lock));
 
     executor
-        .execute("CREATE TABLE base (id INT, val INT)", vec![], None, None)
+        .execute("CREATE TABLE base (id INT, val INT)", vec![], Session::new(None, None))
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO base VALUES (1, 10)", vec![], None, None)
+        .execute("INSERT INTO base VALUES (1, 10)", vec![], Session::new(None, None))
         .await
         .unwrap();
     executor
-        .execute("INSERT INTO base VALUES (2, 20)", vec![], None, None)
+        .execute("INSERT INTO base VALUES (2, 20)", vec![], Session::new(None, None))
         .await
         .unwrap();
 
@@ -252,36 +253,35 @@ async fn test_materialized_views() {
         .execute(
             "CREATE MATERIALIZED VIEW mv_sum AS SELECT SUM(val) FROM base",
             vec![],
-            None,
-            None,
+            Session::new(None, None),
         )
         .await
         .unwrap();
 
     let res = executor
-        .execute("SELECT * FROM mv_sum", vec![], None, None)
+        .execute("SELECT * FROM mv_sum", vec![], Session::new(None, None))
         .await
         .unwrap();
     assert_eq!(res.rows[0][0], crate::storage::Value::Int(30));
 
     // 2. Trigger automatic refresh on INSERT
     executor
-        .execute("INSERT INTO base VALUES (3, 30)", vec![], None, None)
+        .execute("INSERT INTO base VALUES (3, 30)", vec![], Session::new(None, None))
         .await
         .unwrap();
     let res = executor
-        .execute("SELECT * FROM mv_sum", vec![], None, None)
+        .execute("SELECT * FROM mv_sum", vec![], Session::new(None, None))
         .await
         .unwrap();
     assert_eq!(res.rows[0][0], crate::storage::Value::Int(60));
 
     // 3. Trigger automatic refresh on DELETE
     executor
-        .execute("DELETE FROM base WHERE id = 1", vec![], None, None)
+        .execute("DELETE FROM base WHERE id = 1", vec![], Session::new(None, None))
         .await
         .unwrap();
     let res = executor
-        .execute("SELECT * FROM mv_sum", vec![], None, None)
+        .execute("SELECT * FROM mv_sum", vec![], Session::new(None, None))
         .await
         .unwrap();
     assert_eq!(res.rows[0][0], crate::storage::Value::Int(50));

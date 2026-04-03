@@ -12,6 +12,7 @@ pub mod session;
 mod tests;
 pub mod tx;
 pub mod user;
+pub mod window;
 
 use super::error::{SqlError, SqlResult};
 use crate::squeal;

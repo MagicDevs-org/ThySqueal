@@ -1,4 +1,5 @@
 use super::common::setup;
+use crate::sql::executor::Session;
 use crate::sql::Executor;
 use crate::storage::Database;
 use std::sync::Arc;
@@ -14,8 +15,7 @@ async fn test_info_schema() {
         .execute(
             "CREATE TABLE info_test (id INT, name TEXT)",
             vec![],
-            None,
-            None,
+            Session::new(None, None),
         )
         .await
         .unwrap();
@@ -23,8 +23,7 @@ async fn test_info_schema() {
         .execute(
             "CREATE UNIQUE INDEX idx_info_id ON info_test (id)",
             vec![],
-            None,
-            None,
+            Session::new(None, None),
         )
         .await
         .unwrap();
@@ -34,8 +33,7 @@ async fn test_info_schema() {
         .execute(
             "SELECT table_name, table_type FROM information_schema.tables WHERE table_name = 'info_test'",
             vec![],
-            None,
-            None,
+            Session::new(None, None),
         )
         .await
         .unwrap();
@@ -43,7 +41,7 @@ async fn test_info_schema() {
     assert_eq!(r.rows[0][0].as_text(), Some("info_test"));
 
     // 2. Check columns
-    let r = executor.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'info_test' ORDER BY ordinal_position", vec![], None, None).await.unwrap();
+    let r = executor.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'info_test' ORDER BY ordinal_position", vec![], Session::new(None, None)).await.unwrap();
     assert_eq!(r.rows.len(), 2);
     assert_eq!(r.rows[0][0].as_text(), Some("id"));
     assert_eq!(r.rows[1][0].as_text(), Some("name"));
@@ -53,8 +51,7 @@ async fn test_info_schema() {
         .execute(
             "SELECT index_name, is_unique FROM information_schema.indexes WHERE table_name = 'info_test'",
             vec![],
-            None,
-            None,
+            Session::new(None, None),
         )
         .await
         .unwrap();
@@ -67,8 +64,7 @@ async fn test_info_schema() {
         .execute(
             "SELECT schema_name FROM information_schema.schemata",
             vec![],
-            None,
-            None,
+            Session::new(None, None),
         )
         .await
         .unwrap();
@@ -79,8 +75,7 @@ async fn test_info_schema() {
         .execute(
             "SELECT index_name, column_name FROM information_schema.statistics WHERE table_name = 'info_test'",
             vec![],
-            None,
-            None,
+            Session::new(None, None),
         )
         .await
         .unwrap();
@@ -92,11 +87,10 @@ async fn test_info_schema() {
         .execute(
             "CREATE TABLE orders (id INT PRIMARY KEY (id), info_id INT, FOREIGN KEY (info_id) REFERENCES info_test(id))",
             vec![],
-            None,
-            None,
+            Session::new(None, None),
         )
         .await
         .unwrap();
-    let res = executor.execute("SELECT constraint_name, referenced_table_name FROM information_schema.key_column_usage WHERE table_name = 'orders' AND column_name = 'info_id'", vec![], None, None).await.unwrap();
+    let res = executor.execute("SELECT constraint_name, referenced_table_name FROM information_schema.key_column_usage WHERE table_name = 'orders' AND column_name = 'info_id'", vec![], Session::new(None, None)).await.unwrap();
     assert_eq!(res.rows[0][1].as_text(), Some("info_test"));
 }
