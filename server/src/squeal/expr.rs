@@ -156,7 +156,7 @@ impl Expression {
             Expression::Subquery(_) => "(subquery)".to_string(),
             Expression::UnaryNot(e) => format!("NOT ({})", e.to_sql()),
             Expression::WindowFunc(wf) => {
-                format!("{}(...) OVER (...)", format!("{:?}", wf.func_type))
+                format!("{:?}(...) OVER (...)", wf.func_type)
             }
         }
     }

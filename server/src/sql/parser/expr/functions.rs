@@ -160,6 +160,7 @@ fn parse_window_func_type(pair: pest::iterators::Pair<Rule>) -> SqlResult<Window
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn parse_window_spec(
     pair: pest::iterators::Pair<Rule>,
 ) -> SqlResult<(

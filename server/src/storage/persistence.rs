@@ -21,6 +21,7 @@ pub struct SnapshotData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(clippy::large_enum_variant)]
 pub enum WalRecord {
     Begin {
         tx_id: String,
