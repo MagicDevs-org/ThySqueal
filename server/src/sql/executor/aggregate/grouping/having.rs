@@ -12,6 +12,7 @@ impl Executor {
         params: &[Value],
         outer_contexts: &[(&Table, Option<&str>, &Row)],
         db_state: &DatabaseState,
+        session: &super::super::super::Session,
     ) -> SqlResult<bool> {
         match cond {
             Condition::And(left, right) => {
@@ -21,6 +22,7 @@ impl Executor {
                     params,
                     outer_contexts,
                     db_state,
+                    session,
                 ))
                 .await?;
                 if !l {
@@ -32,6 +34,7 @@ impl Executor {
                     params,
                     outer_contexts,
                     db_state,
+                    session,
                 ))
                 .await
             }
@@ -42,6 +45,7 @@ impl Executor {
                     params,
                     outer_contexts,
                     db_state,
+                    session,
                 ))
                 .await?;
                 if l {
@@ -53,6 +57,7 @@ impl Executor {
                     params,
                     outer_contexts,
                     db_state,
+                    session,
                 ))
                 .await
             }
@@ -62,6 +67,7 @@ impl Executor {
                 params,
                 outer_contexts,
                 db_state,
+                session,
             ))
             .await?),
             Condition::Comparison(left, op, right) => {
@@ -72,6 +78,7 @@ impl Executor {
                         params,
                         outer_contexts,
                         db_state,
+                        session,
                     )
                     .await?;
                 let right_val = self
@@ -81,6 +88,7 @@ impl Executor {
                         params,
                         outer_contexts,
                         db_state,
+                        session,
                     )
                     .await?;
 
@@ -101,6 +109,7 @@ impl Executor {
                         params,
                         outer_contexts,
                         db_state,
+                        session,
                     )
                     .await?;
                 match op {
@@ -118,6 +127,7 @@ impl Executor {
                         params,
                         outer_contexts,
                         db_state,
+                        session,
                     )
                     .await?;
                 let mut combined_outer = outer_contexts.to_vec();
@@ -142,6 +152,7 @@ impl Executor {
                         params,
                         outer_contexts,
                         db_state,
+                        session,
                     )
                     .await?;
                 for v_expr in values {
@@ -152,6 +163,7 @@ impl Executor {
                             params,
                             outer_contexts,
                             db_state,
+                            session,
                         )
                         .await?;
                     if v == val {
@@ -178,6 +190,7 @@ impl Executor {
                         params,
                         outer_contexts,
                         db_state,
+                        session,
                     )
                     .await?;
                 let l = self
@@ -187,6 +200,7 @@ impl Executor {
                         params,
                         outer_contexts,
                         db_state,
+                        session,
                     )
                     .await?;
                 let h = self
@@ -196,6 +210,7 @@ impl Executor {
                         params,
                         outer_contexts,
                         db_state,
+                        session,
                     )
                     .await?;
                 Ok(val >= l && val <= h)
@@ -208,6 +223,7 @@ impl Executor {
                         params,
                         outer_contexts,
                         db_state,
+                        session,
                     )
                     .await?;
                 let l = val
@@ -228,15 +244,16 @@ impl Executor {
         params: &[Value],
         outer_contexts: &[(&Table, Option<&str>, &Row)],
         db_state: &DatabaseState,
+        session: &super::super::super::Session,
     ) -> SqlResult<Value> {
         match expr {
             Expression::FunctionCall(fc) => {
-                self.eval_aggregate_joined(fc, contexts, outer_contexts, db_state)
+                self.eval_aggregate_joined(fc, contexts, outer_contexts, db_state, session)
             }
             Expression::ScalarFunc(_sf) => {
                 if let Some(first_ctx_list) = contexts.first() {
                     let eval_ctx =
-                        EvalContext::new(first_ctx_list, params, outer_contexts, db_state);
+                        EvalContext::new(first_ctx_list, params, outer_contexts, db_state).with_session(session);
                     evaluate_expression_joined(self as &dyn Evaluator, expr, &eval_ctx)
                 } else {
                     Ok(Value::Null)
@@ -263,10 +280,10 @@ impl Executor {
                     Ok(result.rows[0][0].clone())
                 }
             }
-            Expression::Column(_) | Expression::BinaryOp(_, _, _) => {
+            Expression::Column(_) | Expression::BinaryOp(_, _, _) | Expression::Variable(_) => {
                 if let Some(first_ctx_list) = contexts.first() {
                     let eval_ctx =
-                        EvalContext::new(first_ctx_list, params, outer_contexts, db_state);
+                        EvalContext::new(first_ctx_list, params, outer_contexts, db_state).with_session(session);
                     evaluate_expression_joined(self as &dyn Evaluator, expr, &eval_ctx)
                 } else {
                     Ok(Value::Null)
@@ -275,7 +292,7 @@ impl Executor {
             Expression::Placeholder(_) => {
                 if let Some(first_ctx_list) = contexts.first() {
                     let eval_ctx =
-                        EvalContext::new(first_ctx_list, params, outer_contexts, db_state);
+                        EvalContext::new(first_ctx_list, params, outer_contexts, db_state).with_session(session);
                     evaluate_expression_joined(self as &dyn Evaluator, expr, &eval_ctx)
                 } else {
                     Ok(Value::Null)

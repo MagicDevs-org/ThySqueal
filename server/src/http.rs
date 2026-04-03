@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::sql::executor::{Executor, QueryResult};
+use crate::sql::executor::{Executor, QueryResult, Session};
 use crate::squeal::Squeal;
 use crate::storage::Value;
 use axum::{
@@ -68,12 +68,12 @@ impl HttpServer {
         State(executor): State<Arc<Executor>>,
         Json(payload): Json<QueryRequest>,
     ) -> impl IntoResponse {
+        let session = Session::new(payload.username.clone(), payload.transaction_id.clone());
         match executor
             .execute(
                 &payload.sql,
                 vec![],
-                payload.transaction_id,
-                payload.username,
+                session,
             )
             .await
         {
@@ -88,7 +88,9 @@ impl HttpServer {
                             rows: vec![],
                             rows_affected: 0,
                             transaction_id: None,
-                        },
+                            session: None,
+                        }
+,
                         Some(format!("{:?}", e)),
                     )),
                 )
@@ -100,12 +102,12 @@ impl HttpServer {
         State(executor): State<Arc<Executor>>,
         Json(payload): Json<JsquealRequest>,
     ) -> impl IntoResponse {
+        let session = Session::new(payload.username.clone(), payload.transaction_id.clone());
         match executor
             .execute_squeal(
                 payload.squeal,
                 vec![],
-                payload.transaction_id,
-                payload.username,
+                session,
             )
             .await
         {
@@ -120,7 +122,9 @@ impl HttpServer {
                             rows: vec![],
                             rows_affected: 0,
                             transaction_id: None,
-                        },
+                            session: None,
+                        }
+,
                         Some(format!("{:?}", e)),
                     )),
                 )
@@ -139,7 +143,7 @@ impl HttpServer {
     }
 
     async fn restore(State(executor): State<Arc<Executor>>, body: String) -> impl IntoResponse {
-        match executor.execute_batch(&body).await {
+        match executor.execute_batch(&body, Session::root()).await {
             Ok(result) => (StatusCode::OK, Json(Self::map_result(result, None))),
             Err(e) => {
                 error!("Restore error: {:?}", e);
@@ -151,7 +155,9 @@ impl HttpServer {
                             rows: vec![],
                             rows_affected: 0,
                             transaction_id: None,
-                        },
+                            session: None,
+                        }
+,
                         Some(format!("{:?}", e)),
                     )),
                 )

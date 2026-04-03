@@ -1,5 +1,5 @@
 use super::packet::*;
-use crate::sql::executor::{Executor, QueryResult};
+use crate::sql::executor::{Executor, QueryResult, Session};
 use crate::storage::Value;
 use anyhow::Result;
 use byteorder::{LittleEndian, WriteBytesExt};
@@ -55,10 +55,9 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
                         continue;
                     }
                 };
-                match executor
-                    .execute(query, vec![], None, Some(username.clone()))
-                    .await
-                {
+                let session = Session::new(Some(username.clone()), None);
+                match executor.execute(query, vec![], session).await {
+
                     Ok(result) => {
                         if result.rows.is_empty() {
                             send_ok(&mut socket, seq + 1).await?;

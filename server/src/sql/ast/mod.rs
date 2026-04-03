@@ -30,6 +30,7 @@ pub enum SqlStmt {
     Prepare(PrepareStmt),
     Execute(ExecuteStmt),
     Deallocate(String),
+    Set(SetStmt),
     Begin,
     Commit,
     Rollback,
@@ -46,6 +47,7 @@ impl SqlStmt {
             SqlStmt::CreateIndex(ci) => ci.resolve_placeholders(&mut counter),
             SqlStmt::CreateMaterializedView(mv) => mv.query.resolve_placeholders(&mut counter),
             SqlStmt::Insert(i) => i.resolve_placeholders(&mut counter),
+            SqlStmt::Set(s) => s.resolve_placeholders(&mut counter),
             // No placeholders in these statements
             SqlStmt::CreateTable(_)
             | SqlStmt::AlterTable(_)
@@ -185,6 +187,15 @@ impl From<squeal::Expression> for Expression {
                 args: f.args.into_iter().map(|a| a.into()).collect(),
             }),
             squeal::Expression::Star => Expression::Star,
+            squeal::Expression::Variable(v) => Expression::Variable(Variable {
+                name: v.name,
+                is_system: v.is_system,
+                scope: match v.scope {
+                    squeal::VariableScope::Global => VariableScope::Global,
+                    squeal::VariableScope::Session => VariableScope::Session,
+                    squeal::VariableScope::User => VariableScope::User,
+                },
+            }),
             squeal::Expression::Subquery(s) => Expression::Subquery(Box::new((*s).into())),
         }
     }

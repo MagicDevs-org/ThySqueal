@@ -11,11 +11,9 @@ impl Executor {
         &'a self,
         stmt: Squeal,
         params: Vec<Value>,
-        transaction_id: Option<String>,
-        username: Option<String>,
+        session: Session,
     ) -> BoxFuture<'a, SqlResult<QueryResult>> {
         async move {
-            let session = Session::new(username, transaction_id);
             let ctx = ExecutionContext::new(params, session);
 
             let mut res = match stmt {
@@ -42,6 +40,9 @@ impl Executor {
                 | Squeal::Grant(_)
                 | Squeal::Revoke(_) => self.dispatch_user(stmt, &ctx).await?,
 
+                // Session management
+                Squeal::Set(s) => self.exec_set(s, &ctx).await?,
+
                 // Queries
                 Squeal::Select(_) | Squeal::Search(_) | Squeal::Explain(_) => {
                     self.dispatch_query(stmt, &ctx).await?
@@ -49,15 +50,7 @@ impl Executor {
 
                 // Prepared statements
                 Squeal::Prepare(p) => self.exec_prepare(p).await?,
-                Squeal::Execute(e) => {
-                    self.exec_execute(
-                        e,
-                        ctx.params.clone(),
-                        ctx.session.transaction_id.clone(),
-                        Some(ctx.session.username.clone()),
-                    )
-                    .await?
-                }
+                Squeal::Execute(e) => self.exec_execute(e, ctx.params.clone(), ctx.session.clone()).await?,
                 Squeal::Deallocate(name) => self.exec_deallocate(&name).await?,
 
                 // KV Store operations
@@ -122,6 +115,9 @@ impl Executor {
 
             if res.transaction_id.is_none() {
                 res.transaction_id = ctx.session.transaction_id.clone();
+            }
+            if res.session.is_none() {
+                res.session = Some(ctx.session);
             }
 
             Ok(res)
@@ -227,8 +223,7 @@ impl Executor {
                         db.state(),
                     )?;
                 }
-                self.exec_insert(i, &ctx.params, ctx.session.transaction_id.as_deref())
-                    .await
+                self.exec_insert(i, &ctx.params, ctx.session.clone()).await
             }
             Squeal::Update(u) => {
                 {
@@ -240,8 +235,7 @@ impl Executor {
                         db.state(),
                     )?;
                 }
-                self.exec_update(u, &ctx.params, ctx.session.transaction_id.as_deref())
-                    .await
+                self.exec_update(u, &ctx.params, ctx.session.clone()).await
             }
             Squeal::Delete(d) => {
                 {
@@ -253,8 +247,7 @@ impl Executor {
                         db.state(),
                     )?;
                 }
-                self.exec_delete(d, &ctx.params, ctx.session.transaction_id.as_deref())
-                    .await
+                self.exec_delete(d, &ctx.params, ctx.session.clone()).await
             }
             _ => unreachable!(),
         }
@@ -377,6 +370,7 @@ impl Executor {
             rows: vec![],
             rows_affected: 0,
             transaction_id: None,
+            session: None,
         })
     }
 
@@ -384,8 +378,7 @@ impl Executor {
         &self,
         stmt: crate::squeal::Execute,
         params: Vec<Value>,
-        transaction_id: Option<String>,
-        username: Option<String>,
+        session: Session,
     ) -> SqlResult<QueryResult> {
         let prepared = self.prepared_statements.get(&stmt.name).ok_or_else(|| {
             SqlError::Runtime(format!("Prepared statement '{}' not found", stmt.name))
@@ -397,7 +390,7 @@ impl Executor {
         if !stmt.params.is_empty() {
             for p in &stmt.params {
                 let db = self.db.read().await;
-                let state = if let Some(id) = &transaction_id {
+                let state = if let Some(id) = &session.transaction_id {
                     self.transactions
                         .get(id)
                         .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?
@@ -406,7 +399,7 @@ impl Executor {
                     db.state().clone()
                 };
 
-                let eval_ctx = crate::sql::eval::EvalContext::new(&[], &params, &[], &state);
+                let eval_ctx = crate::sql::eval::EvalContext::new(&[], &params, &[], &state).with_session(&session);
                 let val = crate::sql::eval::evaluate_expression_joined(self, p, &eval_ctx)?;
                 exec_params.push(val);
             }
@@ -414,8 +407,7 @@ impl Executor {
             exec_params = params;
         }
 
-        self.exec_squeal(inner_stmt, exec_params, transaction_id, username)
-            .await
+        self.exec_squeal(inner_stmt, exec_params, session).await
     }
 
     pub(crate) async fn exec_deallocate(&self, name: &str) -> SqlResult<QueryResult> {
@@ -425,6 +417,7 @@ impl Executor {
             rows: vec![],
             rows_affected: 0,
             transaction_id: None,
+            session: None,
         })
     }
 }

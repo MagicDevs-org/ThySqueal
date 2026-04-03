@@ -3,15 +3,17 @@ use super::super::super::eval::{EvalContext, Evaluator, evaluate_expression_join
 use super::super::{Executor, QueryResult};
 use crate::squeal::Insert;
 use crate::storage::{Value, WalRecord};
+use crate::sql::executor::Session;
 
 impl Executor {
     pub(crate) async fn exec_insert(
         &self,
         stmt: Insert,
         params: &[Value],
-        tx_id: Option<&str>,
+        session: Session,
     ) -> SqlResult<QueryResult> {
         let table_name = stmt.table.clone();
+        let tx_id = session.transaction_id.as_deref();
 
         let db = self.db.read().await;
         let state = if let Some(id) = tx_id {
@@ -41,7 +43,7 @@ impl Executor {
             )));
         }
 
-        let eval_ctx = EvalContext::new(&[], params, &[], &state);
+        let eval_ctx = EvalContext::new(&[], params, &[], &state).with_session(&session);
 
         // Map expressions to table columns
         let mut mapped_values = if let Some(ref col_names) = stmt.columns {
@@ -133,6 +135,8 @@ impl Executor {
             rows: vec![],
             rows_affected: 1,
             transaction_id: tx_id.map(|s| s.to_string()),
+            session: None,
         })
     }
 }
+

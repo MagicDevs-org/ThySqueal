@@ -7,6 +7,7 @@ pub mod explain;
 pub mod result;
 pub mod search;
 pub mod select;
+pub mod session;
 #[cfg(test)]
 mod tests;
 pub mod tx;
@@ -29,6 +30,7 @@ pub use result::QueryResult;
 pub struct Session {
     pub username: String,
     pub transaction_id: Option<String>,
+    pub variables: HashMap<String, Value>,
 }
 
 impl Session {
@@ -36,6 +38,19 @@ impl Session {
         Self {
             username: username.unwrap_or_else(|| "root".to_string()),
             transaction_id,
+            variables: HashMap::new(),
+        }
+    }
+
+    pub fn with_variables(
+        username: Option<String>,
+        transaction_id: Option<String>,
+        variables: HashMap<String, Value>,
+    ) -> Self {
+        Self {
+            username: username.unwrap_or_else(|| "root".to_string()),
+            transaction_id,
+            variables,
         }
     }
 
@@ -124,25 +139,21 @@ impl Executor {
         &self,
         sql: &str,
         params: Vec<Value>,
-        transaction_id: Option<String>,
-        username: Option<String>,
+        session: Session,
     ) -> SqlResult<QueryResult> {
         // Workflow: SQL string -> AST (Pest) -> Squeal (IR) -> Executor
         let ast = super::parser::parse(sql)?;
         let squeal = Squeal::from(ast);
-        self.exec_squeal(squeal, params, transaction_id, username)
-            .await
+        self.exec_squeal(squeal, params, session).await
     }
 
     pub async fn execute_squeal(
         &self,
         squeal: Squeal,
         params: Vec<Value>,
-        transaction_id: Option<String>,
-        username: Option<String>,
+        session: Session,
     ) -> SqlResult<QueryResult> {
-        self.exec_squeal(squeal, params, transaction_id, username)
-            .await
+        self.exec_squeal(squeal, params, session).await
     }
 
     pub fn check_privilege(
@@ -784,6 +795,7 @@ impl Executor {
             rows: vec![],
             rows_affected: 1,
             transaction_id: None,
+            session: None,
         })
     }
 
@@ -802,6 +814,7 @@ impl Executor {
             rows: if value.is_some() { vec![row] } else { vec![] },
             rows_affected: 0,
             transaction_id: None,
+            session: None,
         })
     }
 
@@ -820,8 +833,9 @@ impl Executor {
         Ok(QueryResult {
             columns: vec![],
             rows: vec![],
-            rows_affected: count,
+            rows_affected: count as u64,
             transaction_id: None,
+            session: None,
         })
     }
 
@@ -836,6 +850,7 @@ impl Executor {
             rows: vec![],
             rows_affected: 1,
             transaction_id: None,
+            session: None,
         })
     }
 
@@ -854,6 +869,7 @@ impl Executor {
             rows: if value.is_some() { vec![row] } else { vec![] },
             rows_affected: 0,
             transaction_id: None,
+            session: None,
         })
     }
 
@@ -868,6 +884,7 @@ impl Executor {
             rows: vec![],
             rows_affected: count as u64,
             transaction_id: None,
+            session: None,
         })
     }
 
@@ -885,6 +902,7 @@ impl Executor {
             rows,
             rows_affected: 0,
             transaction_id: None,
+            session: None,
         })
     }
 
@@ -899,6 +917,7 @@ impl Executor {
             rows: vec![],
             rows_affected: count as u64,
             transaction_id: None,
+            session: None,
         })
     }
 
@@ -914,6 +933,7 @@ impl Executor {
             rows,
             rows_affected: 0,
             transaction_id: None,
+            session: None,
         })
     }
 
@@ -928,6 +948,7 @@ impl Executor {
             rows: vec![],
             rows_affected: count as u64,
             transaction_id: None,
+            session: None,
         })
     }
 
@@ -952,6 +973,7 @@ impl Executor {
             rows,
             rows_affected: 0,
             transaction_id: None,
+            session: None,
         })
     }
 
@@ -1058,6 +1080,7 @@ impl Executor {
             rows: vec![vec![Value::Text(id)]],
             rows_affected: 1,
             transaction_id: None,
+            session: None,
         })
     }
 
@@ -1091,6 +1114,7 @@ impl Executor {
             rows,
             rows_affected: 0,
             transaction_id: None,
+            session: None,
         })
     }
 
@@ -1105,6 +1129,7 @@ impl Executor {
             rows: vec![vec![Value::Int(len as i64)]],
             rows_affected: 0,
             transaction_id: None,
+            session: None,
         })
     }
 
@@ -1174,6 +1199,7 @@ impl Executor {
             rows: vec![vec![Value::Int(count as i64)]],
             rows_affected: 0,
             transaction_id: None,
+            session: None,
         })
     }
 }

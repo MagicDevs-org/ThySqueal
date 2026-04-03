@@ -25,9 +25,22 @@ impl From<SqlStmt> for Squeal {
             SqlStmt::Prepare(s) => Squeal::Prepare(s.into()),
             SqlStmt::Execute(s) => Squeal::Execute(s.into()),
             SqlStmt::Deallocate(s) => Squeal::Deallocate(s),
+            SqlStmt::Set(s) => Squeal::Set(s.into()),
             SqlStmt::Begin => Squeal::Begin,
             SqlStmt::Commit => Squeal::Commit,
             SqlStmt::Rollback => Squeal::Rollback,
+        }
+    }
+}
+
+impl From<ast::SetStmt> for Set {
+    fn from(s: ast::SetStmt) -> Self {
+        Set {
+            assignments: s
+                .assignments
+                .into_iter()
+                .map(|(v, e)| (v.into(), e.into()))
+                .collect(),
         }
     }
 }
@@ -151,6 +164,15 @@ impl From<ast::Expression> for Expression {
                 args: f.args.into_iter().map(|a| a.into()).collect(),
             }),
             ast::Expression::Star => Expression::Star,
+            ast::Expression::Variable(v) => Expression::Variable(Variable {
+                name: v.name,
+                is_system: v.is_system,
+                scope: match v.scope {
+                    ast::VariableScope::Global => VariableScope::Global,
+                    ast::VariableScope::Session => VariableScope::Session,
+                    ast::VariableScope::User => VariableScope::User,
+                },
+            }),
             ast::Expression::Subquery(s) => Expression::Subquery(Box::new((*s).into())),
         }
     }

@@ -64,12 +64,13 @@ impl Executor {
         Ok(sql)
     }
 
-    pub async fn execute_batch(&self, sql: &str) -> SqlResult<QueryResult> {
+    pub async fn execute_batch(&self, sql: &str, session: super::Session) -> SqlResult<QueryResult> {
         let mut last_res = QueryResult {
             columns: vec![],
             rows: vec![],
             rows_affected: 0,
             transaction_id: None,
+            session: None,
         };
         let mut total_affected = 0;
 
@@ -86,7 +87,7 @@ impl Executor {
             if line.ends_with(';') {
                 let stmt_sql = current_stmt.trim_end_matches(';').trim();
                 if !stmt_sql.is_empty() {
-                    let res = self.execute(stmt_sql, vec![], None, None).await?;
+                    let res = self.execute(stmt_sql, vec![], session.clone()).await?;
                     total_affected += res.rows_affected;
                     last_res = res;
                 }

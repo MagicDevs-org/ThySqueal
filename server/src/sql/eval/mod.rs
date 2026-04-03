@@ -17,6 +17,7 @@ pub struct EvalContext<'a> {
     pub params: &'a [Value],
     pub outer_contexts: &'a [(&'a Table, Option<&'a str>, &'a Row)],
     pub db_state: &'a DatabaseState,
+    pub session: Option<&'a crate::sql::executor::Session>,
 }
 
 impl<'a> EvalContext<'a> {
@@ -31,7 +32,13 @@ impl<'a> EvalContext<'a> {
             params,
             outer_contexts,
             db_state,
+            session: None,
         }
+    }
+
+    pub fn with_session(mut self, session: &'a crate::sql::executor::Session) -> Self {
+        self.session = Some(session);
+        self
     }
 }
 
@@ -76,9 +83,10 @@ pub fn evaluate_condition(
     params: &[Value],
     row: &Row,
     db_state: &DatabaseState,
+    session: &crate::sql::executor::Session,
 ) -> SqlResult<bool> {
     let contexts = [(table, table_alias, row)];
-    let ctx = EvalContext::new(&contexts, params, &[], db_state);
+    let ctx = EvalContext::new(&contexts, params, &[], db_state).with_session(session);
     evaluate_condition_joined(executor, cond, &ctx)
 }
 
@@ -91,8 +99,9 @@ pub fn evaluate_expression(
     params: &[Value],
     row: &Row,
     db_state: &DatabaseState,
+    session: &crate::sql::executor::Session,
 ) -> SqlResult<Value> {
     let contexts = [(table, table_alias, row)];
-    let ctx = EvalContext::new(&contexts, params, &[], db_state);
+    let ctx = EvalContext::new(&contexts, params, &[], db_state).with_session(session);
     evaluate_expression_joined(executor, expr, &ctx)
 }

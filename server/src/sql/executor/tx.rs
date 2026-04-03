@@ -39,6 +39,7 @@ impl Executor {
             rows: vec![],
             rows_affected: 0,
             transaction_id: Some(tx_id),
+            session: None,
         })
     }
 
@@ -64,6 +65,7 @@ impl Executor {
             rows: vec![],
             rows_affected: 0,
             transaction_id: None,
+            session: None,
         })
     }
 
@@ -82,6 +84,7 @@ impl Executor {
             rows: vec![],
             rows_affected: 0,
             transaction_id: None,
+            session: None,
         })
     }
 }

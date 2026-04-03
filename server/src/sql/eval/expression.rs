@@ -61,5 +61,36 @@ pub fn evaluate_expression_joined(
         Expression::Star => Err(SqlError::Runtime(
             "Star expression must be evaluated at the top level".to_string(),
         )),
+        Expression::Variable(v) => {
+            if v.is_system {
+                Ok(get_system_variable(&v.name))
+            } else if let Some(session) = ctx.session {
+                Ok(session.variables.get(&v.name).cloned().unwrap_or(Value::Null))
+            } else {
+                Ok(Value::Null)
+            }
+        }
+    }
+}
+
+pub fn get_system_variable(name: &str) -> Value {
+    match name.to_lowercase().as_str() {
+        "version" => Value::Text("0.7.0-thy-squeal".to_string()),
+        "version_comment" => Value::Text("ThySqueal - MySQL Compatible".to_string()),
+        "max_allowed_packet" => Value::Int(67108864),
+        "auto_increment_increment" => Value::Int(1),
+        "character_set_client" => Value::Text("utf8mb4".to_string()),
+        "character_set_connection" => Value::Text("utf8mb4".to_string()),
+        "character_set_results" => Value::Text("utf8mb4".to_string()),
+        "character_set_server" => Value::Text("utf8mb4".to_string()),
+        "collation_connection" => Value::Text("utf8mb4_general_ci".to_string()),
+        "collation_server" => Value::Text("utf8mb4_general_ci".to_string()),
+        "interactive_timeout" => Value::Int(28800),
+        "wait_timeout" => Value::Int(28800),
+        "net_write_timeout" => Value::Int(60),
+        "net_read_timeout" => Value::Int(30),
+        "time_zone" => Value::Text("SYSTEM".to_string()),
+        "system_time_zone" => Value::Text("UTC".to_string()),
+        _ => Value::Null,
     }
 }

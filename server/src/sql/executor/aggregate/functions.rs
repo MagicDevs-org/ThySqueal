@@ -11,6 +11,7 @@ impl Executor {
         contexts: &[Vec<(&Table, Option<&str>, &Row)>],
         outer_contexts: &[(&Table, Option<&str>, &Row)],
         db_state: &DatabaseState,
+        session: &super::super::Session,
     ) -> SqlResult<Value> {
         match fc.name {
             AggregateType::Count => {
@@ -19,7 +20,7 @@ impl Executor {
                 } else {
                     let mut count = 0;
                     for ctx_list in contexts {
-                        let eval_ctx = EvalContext::new(ctx_list, &[], outer_contexts, db_state);
+                        let eval_ctx = EvalContext::new(ctx_list, &[], outer_contexts, db_state).with_session(session);
                         let val = evaluate_expression_joined(self, &fc.args[0], &eval_ctx)?;
                         if val != Value::Null {
                             count += 1;
@@ -33,7 +34,7 @@ impl Executor {
                 let mut sum_i = 0;
                 let mut is_float = false;
                 for ctx_list in contexts {
-                    let eval_ctx = EvalContext::new(ctx_list, &[], outer_contexts, db_state);
+                    let eval_ctx = EvalContext::new(ctx_list, &[], outer_contexts, db_state).with_session(session);
                     let val = evaluate_expression_joined(self, &fc.args[0], &eval_ctx)?;
                     match val {
                         Value::Int(i) => {
@@ -61,7 +62,7 @@ impl Executor {
             AggregateType::Min => {
                 let mut min_val: Option<Value> = None;
                 for ctx_list in contexts {
-                    let eval_ctx = EvalContext::new(ctx_list, &[], outer_contexts, db_state);
+                    let eval_ctx = EvalContext::new(ctx_list, &[], outer_contexts, db_state).with_session(session);
                     let val = evaluate_expression_joined(self, &fc.args[0], &eval_ctx)?;
                     if val == Value::Null {
                         continue;
@@ -75,7 +76,7 @@ impl Executor {
             AggregateType::Max => {
                 let mut max_val: Option<Value> = None;
                 for ctx_list in contexts {
-                    let eval_ctx = EvalContext::new(ctx_list, &[], outer_contexts, db_state);
+                    let eval_ctx = EvalContext::new(ctx_list, &[], outer_contexts, db_state).with_session(session);
                     let val = evaluate_expression_joined(self, &fc.args[0], &eval_ctx)?;
                     if val == Value::Null {
                         continue;
@@ -90,7 +91,7 @@ impl Executor {
                 let mut sum = 0.0;
                 let mut count = 0;
                 for ctx_list in contexts {
-                    let eval_ctx = EvalContext::new(ctx_list, &[], outer_contexts, db_state);
+                    let eval_ctx = EvalContext::new(ctx_list, &[], outer_contexts, db_state).with_session(session);
                     let val = evaluate_expression_joined(self, &fc.args[0], &eval_ctx)?;
                     match val {
                         Value::Int(i) => {

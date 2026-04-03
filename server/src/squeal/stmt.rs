@@ -26,6 +26,7 @@ pub enum Squeal {
     Prepare(Prepare),
     Execute(Execute),
     Deallocate(String),
+    Set(Set),
     Begin,
     Commit,
     Rollback,
@@ -139,6 +140,11 @@ pub struct KvStreamLen {
 pub struct PubSubPublish {
     pub channel: String,
     pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Set {
+    pub assignments: Vec<(Expression, Expression)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

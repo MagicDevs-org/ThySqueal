@@ -52,6 +52,7 @@ impl Executor {
                             &eval_contexts,
                             outer_contexts,
                             db_state,
+                            session,
                         )?);
                     }
                     _ => {
@@ -61,7 +62,7 @@ impl Executor {
                                 params,
                                 outer_contexts,
                                 db_state,
-                            );
+                            ).with_session(session);
                             row_values
                                 .push(evaluate_expression_joined(self, &col.expr, &eval_ctx)?);
                         } else {
@@ -78,6 +79,7 @@ impl Executor {
                     params,
                     outer_contexts,
                     db_state,
+                    session,
                 )
                 .await?
             } else {
@@ -96,7 +98,7 @@ impl Executor {
                     .iter()
                     .map(|(t, a, r): &(&Table, Option<String>, Row)| (*t, a.as_deref(), r))
                     .collect();
-                let eval_ctx = EvalContext::new(&eval_ctx_list, params, outer_contexts, db_state);
+                let eval_ctx = EvalContext::new(&eval_ctx_list, params, outer_contexts, db_state).with_session(&session);
                 let mut group_key = Vec::new();
                 for gb_expr in &stmt.group_by {
                     group_key.push(evaluate_expression_joined(self, gb_expr, &eval_ctx)?);
@@ -124,6 +126,7 @@ impl Executor {
                         params,
                         outer_contexts,
                         db_state,
+                        session,
                     )
                     .await?
                 } else {
@@ -140,6 +143,7 @@ impl Executor {
                                     &group_eval_contexts,
                                     outer_contexts,
                                     db_state,
+                                    session,
                                 )?);
                             }
                             _ => {
@@ -149,7 +153,7 @@ impl Executor {
                                         params,
                                         outer_contexts,
                                         db_state,
-                                    );
+                                    ).with_session(session);
                                     row_values.push(evaluate_expression_joined(
                                         self, &col.expr, &eval_ctx,
                                     )?);
@@ -180,6 +184,7 @@ impl Executor {
             rows: result_rows,
             rows_affected: 0,
             transaction_id: session.transaction_id.clone(),
+            session: None,
         })
     }
 }

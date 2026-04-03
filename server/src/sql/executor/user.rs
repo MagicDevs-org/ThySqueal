@@ -38,6 +38,7 @@ impl Executor {
             rows: vec![],
             rows_affected: 0,
             transaction_id: tx_id.map(|s| s.to_string()),
+            session: None,
         })
     }
 
@@ -60,6 +61,7 @@ impl Executor {
             rows: vec![],
             rows_affected: 0,
             transaction_id: tx_id.map(|s| s.to_string()),
+            session: None,
         })
     }
 
@@ -97,6 +99,7 @@ impl Executor {
             rows: vec![],
             rows_affected: 0,
             transaction_id: tx_id.map(|s| s.to_string()),
+            session: None,
         })
     }
 
@@ -128,6 +131,7 @@ impl Executor {
             rows: vec![],
             rows_affected: 0,
             transaction_id: tx_id.map(|s| s.to_string()),
+            session: None,
         })
     }
 }

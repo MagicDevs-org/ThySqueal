@@ -7,11 +7,26 @@ pub enum Expression {
     Literal(Value),
     Placeholder(usize),
     Column(String),
+    Variable(Variable),
     BinaryOp(Box<Expression>, BinaryOp, Box<Expression>),
     FunctionCall(FunctionCall),
     ScalarFunc(ScalarFunction),
     Star,
     Subquery(Box<SelectStmt>),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Variable {
+    pub name: String,
+    pub is_system: bool,
+    pub scope: VariableScope,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum VariableScope {
+    Global,
+    Session,
+    User,
 }
 
 impl Expression {
@@ -50,6 +65,17 @@ impl Expression {
             Expression::Literal(v) => v.to_sql(),
             Expression::Placeholder(i) => format!("${}", i),
             Expression::Column(c) => c.clone(),
+            Expression::Variable(v) => {
+                if v.is_system {
+                    match v.scope {
+                        VariableScope::Global => format!("@@global.{}", v.name),
+                        VariableScope::Session => format!("@@session.{}", v.name),
+                        VariableScope::User => format!("@@{}", v.name),
+                    }
+                } else {
+                    format!("@{}", v.name)
+                }
+            }
             Expression::BinaryOp(l, op, r) => {
                 format!("({} {} {})", l.to_sql(), op.to_sql(), r.to_sql())
             }

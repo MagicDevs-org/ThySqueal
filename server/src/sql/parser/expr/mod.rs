@@ -20,12 +20,64 @@ pub fn parse_any_expression(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expr
         | Rule::number_literal
         | Rule::boolean_literal
         | Rule::KW_NULL => Ok(Expression::Literal(parse_literal(pair)?)),
+        Rule::variable => parse_variable(pair),
         Rule::placeholder => parse_placeholder(pair),
         Rule::aggregate_func => parse_aggregate(pair),
         Rule::scalar_func => parse_scalar_func(pair),
         _ => Err(SqlError::Parse(format!(
             "Unexpected rule for expression: {:?}",
             pair.as_rule()
+        ))),
+    }
+}
+
+pub fn parse_variable(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expression> {
+    let mut inner = pair.into_inner();
+    let var_pair = inner
+        .next()
+        .ok_or_else(|| SqlError::Parse("Empty variable".to_string()))?;
+
+    match var_pair.as_rule() {
+        Rule::system_variable => {
+            let mut sys_inner = var_pair.into_inner();
+            let first = sys_inner
+                .next()
+                .ok_or_else(|| SqlError::Parse("Empty system variable".to_string()))?;
+
+            let (scope, name_pair) = if first.as_rule() == Rule::identifier {
+                (crate::sql::ast::VariableScope::Session, first)
+            } else {
+                let scope = match first.as_str().to_uppercase().as_str() {
+                    "GLOBAL." => crate::sql::ast::VariableScope::Global,
+                    "SESSION." => crate::sql::ast::VariableScope::Session,
+                    _ => crate::sql::ast::VariableScope::Session,
+                };
+                let name = sys_inner.next().ok_or_else(|| {
+                    SqlError::Parse("Missing system variable name".to_string())
+                })?;
+                (scope, name)
+            };
+
+            Ok(Expression::Variable(crate::sql::ast::Variable {
+                name: name_pair.as_str().to_string(),
+                is_system: true,
+                scope,
+            }))
+        }
+        Rule::session_variable => {
+            let mut sess_inner = var_pair.into_inner();
+            let name = sess_inner.next().ok_or_else(|| {
+                SqlError::Parse("Missing session variable name".to_string())
+            })?;
+            Ok(Expression::Variable(crate::sql::ast::Variable {
+                name: name.as_str().to_string(),
+                is_system: false,
+                scope: crate::sql::ast::VariableScope::User,
+            }))
+        }
+        _ => Err(SqlError::Parse(format!(
+            "Unexpected variable rule: {:?}",
+            var_pair.as_rule()
         ))),
     }
 }
@@ -109,6 +161,7 @@ pub fn parse_factor(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expression> 
         | Rule::number_literal
         | Rule::boolean_literal
         | Rule::KW_NULL => Ok(Expression::Literal(parse_literal(first)?)),
+        Rule::variable => parse_variable(first),
         Rule::placeholder => parse_placeholder(first),
         Rule::column_ref => {
             // If it matches KW_NULL exactly, it might be a mistake in rule precedence.

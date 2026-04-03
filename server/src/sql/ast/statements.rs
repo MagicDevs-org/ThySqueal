@@ -4,6 +4,20 @@ use crate::storage::{Column, DataType, ForeignKey, Privilege, Value};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SetStmt {
+    pub assignments: Vec<(Expression, Expression)>,
+}
+
+impl SetStmt {
+    pub fn resolve_placeholders(&mut self, counter: &mut usize) {
+        for (var, expr) in &mut self.assignments {
+            var.resolve_placeholders(counter);
+            expr.resolve_placeholders(counter);
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PrepareStmt {
     pub name: String,
     pub sql: String,
