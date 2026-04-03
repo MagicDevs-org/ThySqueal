@@ -80,16 +80,28 @@
 - [x] **Session Variables**: Support for `SET @var = val` and `SELECT @var`
 
 ## Phase 8: Advanced SQL Capabilities (v0.8) - 🏗 IN PROGRESS
+- [x] **Window Functions**: `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()`, `LAG()`, `LEAD()`, `FIRST_VALUE()`, `LAST_VALUE()`, `NTILE()`, `PARTITION BY`
 - [ ] **Recursive CTEs**: Support for `WITH RECURSIVE` for hierarchical data
-- [ ] **Window Functions**: Implementation of `OVER()`, `RANK()`, `ROW_NUMBER()`, `DENSE_RANK()`, etc.
 - [ ] **Set Operations**: `UNION`, `UNION ALL`, `INTERSECT`, `EXCEPT`
 - [ ] **Advanced Aggregations**: `GROUP_CONCAT`, `JSON_ARRAYAGG`, `JSON_OBJECTAGG`
 - [ ] **Common Table Expressions (CTEs) Expansion**: Support for multiple CTEs in a single query
-- [ ] **Recursive CTEs**: Support for `WITH RECURSIVE` for hierarchical data
-- [ ] **Window Functions**: Implementation of `OVER()`, `RANK()`, `ROW_NUMBER()`, `DENSE_RANK()`, etc.
-- [ ] **Set Operations**: `UNION`, `UNION ALL`, `INTERSECT`, `EXCEPT`
-- [ ] **Advanced Aggregations**: `GROUP_CONCAT`, `JSON_ARRAYAGG`, `JSON_OBJECTAGG`
-- [ ] **Common Table Expressions (CTEs) Expansion**: Support for multiple CTEs in a single query
+
+## MySQL Protocol v2 (v0.8.x) - 🏗 IN PROGRESS
+### High Priority
+- [ ] **Real password authentication**: Implement `mysql_native_password` instead of accepting any credentials
+- [ ] **Fix SQL injection**: `COM_FIELD_LIST` directly interpolates table name - use parameterized queries
+- [ ] **Fix COM_INIT_DB**: Session should use selected database context
+
+### Medium Priority
+- [ ] **Proper column type mapping**: Map Squeal `Value` types to MySQL wire protocol types (INT, BIGINT, DECIMAL, etc.)
+- [ ] **COM_STMT_EXECUTE**: Implement binary protocol parameter binding for prepared statements
+- [ ] **Missing commands**: `USE db`, `SHOW TABLES`, `SHOW DATABASES`, `COM_CREATE_DB`, `COM_DROP_DB`
+- [ ] **SSL/TLS**: Implement actual TLS handshake (capability flags advertise it but handshake missing)
+- [ ] **Real metrics**: `SHOW STATUS` with actual `Uptime`, `Threads_connected`, `Questions` values
+
+### Low Priority
+- [ ] **Character set handling**: Proper UTF-8 encoding/decoding based on connection charset
+- [ ] **Server version consistency**: Match `@@version` with server greeting string
 
 ## Phase 9: Production & Distributed (v1.0) - 🏗 IN PROGRESS
 - [ ] **Distributed Mode**: Multi-node replication via Raft consensus
