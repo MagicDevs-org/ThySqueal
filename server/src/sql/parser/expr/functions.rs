@@ -174,18 +174,10 @@ fn parse_window_spec(
     for inner_pair in pair.into_inner() {
         match inner_pair.as_rule() {
             Rule::window_partition_by => {
-                for expr_pair in inner_pair.into_inner() {
-                    if expr_pair.as_rule() == Rule::expression {
-                        partition_by.push(parse_any_expression(expr_pair)?);
-                    }
-                }
+                parse_window_partition_by(inner_pair, &mut partition_by)?;
             }
             Rule::window_order_by => {
-                for item_pair in inner_pair.into_inner() {
-                    if item_pair.as_rule() == Rule::order_by_item {
-                        order_by.push(parse_window_order_by_item(item_pair)?);
-                    }
-                }
+                parse_window_order_by(inner_pair, &mut order_by)?;
             }
             Rule::window_frame => {
                 frame = Some(parse_window_frame(inner_pair)?);
@@ -195,6 +187,50 @@ fn parse_window_spec(
     }
 
     Ok((partition_by, order_by, frame))
+}
+
+fn parse_window_partition_by(
+    pair: pest::iterators::Pair<Rule>,
+    partition_by: &mut Vec<Expression>,
+) -> SqlResult<()> {
+    for inner_pair in pair.into_inner() {
+        match inner_pair.as_rule() {
+            Rule::expression => {
+                partition_by.push(parse_any_expression(inner_pair)?);
+            }
+            Rule::expression_list => {
+                for expr_pair in inner_pair.into_inner() {
+                    if expr_pair.as_rule() == Rule::expression {
+                        partition_by.push(parse_any_expression(expr_pair)?);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+fn parse_window_order_by(
+    pair: pest::iterators::Pair<Rule>,
+    order_by: &mut Vec<WindowOrderByItem>,
+) -> SqlResult<()> {
+    for inner_pair in pair.into_inner() {
+        match inner_pair.as_rule() {
+            Rule::order_by_item => {
+                order_by.push(parse_window_order_by_item(inner_pair)?);
+            }
+            Rule::order_by_list => {
+                for item_pair in inner_pair.into_inner() {
+                    if item_pair.as_rule() == Rule::order_by_item {
+                        order_by.push(parse_window_order_by_item(item_pair)?);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 fn parse_window_order_by_item(pair: pest::iterators::Pair<Rule>) -> SqlResult<WindowOrderByItem> {

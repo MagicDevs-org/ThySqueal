@@ -6,3 +6,4 @@ pub mod joins;
 pub mod jsqueal;
 pub mod prepared;
 pub mod subqueries;
+pub mod windows;
