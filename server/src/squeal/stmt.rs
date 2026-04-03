@@ -160,6 +160,21 @@ pub struct Select {
     pub having: Option<Condition>,
     pub order_by: Vec<OrderByItem>,
     pub limit: Option<LimitClause>,
+    pub set_operations: Vec<SetOperationClause>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SetOperator {
+    Union,
+    UnionAll,
+    Intersect,
+    Except,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SetOperationClause {
+    pub operator: SetOperator,
+    pub select: Box<Select>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

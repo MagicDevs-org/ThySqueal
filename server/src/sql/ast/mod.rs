@@ -82,6 +82,7 @@ impl From<squeal::Select> for SelectStmt {
             having: s.having.map(|h| h.into()),
             order_by: s.order_by.into_iter().map(|o| o.into()).collect(),
             limit: s.limit.map(|l| l.into()),
+            set_operations: s.set_operations.into_iter().map(|s| s.into()).collect(),
         }
     }
 }
@@ -305,6 +306,20 @@ impl From<squeal::FrameBound> for FrameBound {
             squeal::FrameBound::CurrentRow => FrameBound::CurrentRow,
             squeal::FrameBound::Preceding(e) => FrameBound::Preceding(Box::new((*e).into())),
             squeal::FrameBound::Following(e) => FrameBound::Following(Box::new((*e).into())),
+        }
+    }
+}
+
+impl From<squeal::SetOperationClause> for SetOperationClause {
+    fn from(s: squeal::SetOperationClause) -> Self {
+        SetOperationClause {
+            operator: match s.operator {
+                squeal::SetOperator::Union => SetOperator::Union,
+                squeal::SetOperator::UnionAll => SetOperator::UnionAll,
+                squeal::SetOperator::Intersect => SetOperator::Intersect,
+                squeal::SetOperator::Except => SetOperator::Except,
+            },
+            select: Box::new((*s.select).into()),
         }
     }
 }

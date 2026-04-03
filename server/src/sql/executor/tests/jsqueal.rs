@@ -53,6 +53,7 @@ mod tests {
             having: None,
             order_by: vec![],
             limit: None,
+            set_operations: vec![],
         });
 
         let result = executor

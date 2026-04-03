@@ -22,7 +22,10 @@ deallocate_stmt = { (KW_DEALLOCATE ~ KW_PREPARE? ~ identifier) | (KW_DROP ~ KW_P
 expression_list = { expression ~ ("," ~ expression)* }
 
 // SELECT statement
-select_stmt = { with_clause? ~ select_stmt_inner }
+select_stmt = { with_clause? ~ select_stmt_inner ~ set_operation* }
+set_operation = { set_op ~ select_stmt_inner }
+set_op = { KW_UNION ~ all? | KW_INTERSECT | KW_EXCEPT }
+all = { KW_ALL }
 select_stmt_inner = { KW_SELECT ~ distinct? ~ select_columns ~ from_clause? }
 from_clause = { KW_FROM ~ table_name_with_alias ~ join_clause* ~ where_clause? ~ group_by_clause? ~ having_clause? ~ order_by_clause? ~ limit_clause? }
 
@@ -193,7 +196,8 @@ keyword = {
     KW_MODIFY | KW_DEFAULT | KW_NOT_NULL | KW_BETWEEN | KW_ROW |
     KW_ROW_NUMBER | KW_RANK | KW_DENSE_RANK | KW_NTILE | KW_PERCENT_RANK | KW_CUME_DIST |
     KW_FIRST_VALUE | KW_LAST_VALUE | KW_NTH_VALUE | KW_LAG | KW_LEAD |
-    KW_OVER | KW_PARTITION | KW_ROWS | KW_RANGE | KW_UNBOUNDED | KW_PRECEDING | KW_FOLLOWING | KW_CURRENT
+    KW_OVER | KW_PARTITION | KW_ROWS | KW_RANGE | KW_UNBOUNDED | KW_PRECEDING | KW_FOLLOWING | KW_CURRENT |
+    KW_UNION | KW_INTERSECT | KW_EXCEPT
 }
 
 // Keywords (reserved)
@@ -291,6 +295,9 @@ KW_FOLLOWING = @{ ^"FOLLOWING" ~ !id_char }
 KW_CURRENT = @{ ^"CURRENT" ~ !id_char }
 KW_BETWEEN = @{ ^"BETWEEN" ~ !id_char }
 KW_ROW = @{ ^"ROW" ~ !id_char }
+KW_UNION = @{ ^"UNION" ~ !id_char }
+KW_INTERSECT = @{ ^"INTERSECT" ~ !id_char }
+KW_EXCEPT = @{ ^"EXCEPT" ~ !id_char }
 
 id_char = _{ ASCII_ALPHA | ASCII_DIGIT | "_" }
 

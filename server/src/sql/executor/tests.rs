@@ -5,5 +5,6 @@ pub mod index;
 pub mod joins;
 pub mod jsqueal;
 pub mod prepared;
+pub mod set_ops;
 pub mod subqueries;
 pub mod windows;

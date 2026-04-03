@@ -160,6 +160,7 @@ pub struct SelectStmt {
     pub having: Option<Condition>,
     pub order_by: Vec<OrderByItem>,
     pub limit: Option<LimitClause>,
+    pub set_operations: Vec<SetOperationClause>,
 }
 
 impl SelectStmt {
@@ -187,6 +188,9 @@ impl SelectStmt {
         for item in &mut self.order_by {
             item.expr.resolve_placeholders(counter);
         }
+        for set_op in &mut self.set_operations {
+            set_op.resolve_placeholders(counter);
+        }
     }
 }
 
@@ -213,6 +217,26 @@ pub struct Join {
 pub enum JoinType {
     Inner,
     Left,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SetOperator {
+    Union,
+    UnionAll,
+    Intersect,
+    Except,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SetOperationClause {
+    pub operator: SetOperator,
+    pub select: Box<SelectStmt>,
+}
+
+impl SetOperationClause {
+    pub fn resolve_placeholders(&mut self, counter: &mut usize) {
+        self.select.resolve_placeholders(counter);
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

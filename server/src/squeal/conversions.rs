@@ -59,6 +59,21 @@ impl From<ast::SelectStmt> for Select {
             having: s.having.map(|h| h.into()),
             order_by: s.order_by.into_iter().map(|o| o.into()).collect(),
             limit: s.limit.map(|l| l.into()),
+            set_operations: s.set_operations.into_iter().map(|s| s.into()).collect(),
+        }
+    }
+}
+
+impl From<ast::SetOperationClause> for SetOperationClause {
+    fn from(s: ast::SetOperationClause) -> Self {
+        SetOperationClause {
+            operator: match s.operator {
+                ast::SetOperator::Union => SetOperator::Union,
+                ast::SetOperator::UnionAll => SetOperator::UnionAll,
+                ast::SetOperator::Intersect => SetOperator::Intersect,
+                ast::SetOperator::Except => SetOperator::Except,
+            },
+            select: Box::new((*s.select).into()),
         }
     }
 }

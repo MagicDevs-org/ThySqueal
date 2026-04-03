@@ -2,7 +2,7 @@ pub mod clauses;
 pub mod columns;
 pub mod joins;
 
-use super::super::ast::{SelectStmt, SqlStmt};
+use super::super::ast::{SelectStmt, SetOperationClause, SetOperator, SqlStmt};
 use super::super::error::{SqlError, SqlResult};
 use super::expr::parse_condition;
 use crate::sql::parser::Rule;
@@ -18,6 +18,7 @@ pub fn parse_select(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
 
     let mut inner = pair.into_inner();
     let mut with_clause = None;
+    let mut set_operations = Vec::new();
 
     let mut first = inner.next().unwrap();
     if first.as_rule() == Rule::with_clause {
@@ -26,7 +27,6 @@ pub fn parse_select(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
             if cte_pair.as_rule() == Rule::cte_definition {
                 let mut cte_inner = cte_pair.into_inner();
                 let name = cte_inner.next().unwrap().as_str().trim().to_string();
-                // Skip KW_AS
                 let _ = cte_inner.next();
                 let query_pair = cte_inner.next().unwrap();
                 let query = parse_select_inner(query_pair)?;
@@ -41,7 +41,74 @@ pub fn parse_select(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
 
     let mut stmt = parse_select_inner(first)?;
     stmt.with_clause = with_clause;
+
+    for remaining in inner {
+        if remaining.as_rule() == Rule::set_operation {
+            let set_op = parse_set_operation(remaining)?;
+            set_operations.push(set_op);
+        }
+    }
+
+    stmt.set_operations = set_operations;
     Ok(SqlStmt::Select(stmt))
+}
+
+fn parse_set_operation(pair: pest::iterators::Pair<Rule>) -> SqlResult<SetOperationClause> {
+    let mut inner = pair.into_inner();
+    let first = inner.next().unwrap();
+
+    let operator = match first.as_rule() {
+        Rule::KW_UNION => {
+            let mut op_inner = first.clone().into_inner();
+            let union_keyword = op_inner.next().unwrap();
+            if union_keyword.as_rule() == Rule::KW_UNION {
+                if let Some(all_kw) = op_inner.next() {
+                    if all_kw.as_rule() == Rule::all {
+                        SetOperator::UnionAll
+                    } else {
+                        SetOperator::Union
+                    }
+                } else {
+                    SetOperator::Union
+                }
+            } else {
+                SetOperator::Union
+            }
+        }
+        Rule::KW_INTERSECT => SetOperator::Intersect,
+        Rule::KW_EXCEPT => SetOperator::Except,
+        Rule::set_op => {
+            let set_op_inner = first.into_inner().collect::<Vec<_>>();
+            if let Some(op) = set_op_inner.first() {
+                match op.as_rule() {
+                    Rule::KW_UNION => {
+                        if set_op_inner.len() > 1 && set_op_inner[1].as_rule() == Rule::all {
+                            SetOperator::UnionAll
+                        } else {
+                            SetOperator::Union
+                        }
+                    }
+                    Rule::KW_INTERSECT => SetOperator::Intersect,
+                    Rule::KW_EXCEPT => SetOperator::Except,
+                    _ => return Err(SqlError::Parse("Unknown set operator".to_string())),
+                }
+            } else {
+                return Err(SqlError::Parse("Empty set operation".to_string()));
+            }
+        }
+        _ => return Err(SqlError::Parse("Expected set operator".to_string())),
+    };
+
+    let select_pair = inner
+        .next()
+        .ok_or_else(|| SqlError::Parse("Missing SELECT after set operator".to_string()))?;
+
+    let select = parse_select_inner(select_pair)?;
+
+    Ok(SetOperationClause {
+        operator,
+        select: Box::new(select),
+    })
 }
 
 pub fn parse_select_inner(pair: pest::iterators::Pair<Rule>) -> SqlResult<SelectStmt> {
@@ -120,5 +187,6 @@ pub fn parse_select_inner(pair: pest::iterators::Pair<Rule>) -> SqlResult<Select
         having,
         order_by,
         limit,
+        set_operations: Vec::new(),
     })
 }

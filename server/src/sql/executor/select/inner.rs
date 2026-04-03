@@ -141,6 +141,58 @@ impl Executor {
                 });
             }
 
+            // 5c. Handle Set Operations
+            if !stmt.set_operations.is_empty() {
+                let result_columns: Vec<String> = self.get_result_column_names(
+                    stmt,
+                    base_table,
+                    &stmt.joins,
+                    db_state,
+                    &cte_tables,
+                );
+
+                let mut projected_rows = Vec::new();
+                for ctx in matched_rows {
+                    let eval_ctx_list: Vec<(&Table, Option<&str>, &Row)> =
+                        ctx.iter().map(|(t, a, r)| (*t, a.as_deref(), r)).collect();
+                    let eval_ctx =
+                        EvalContext::new(&eval_ctx_list, params, outer_contexts, db_state)
+                            .with_session(&session);
+                    let mut row_values = Vec::new();
+                    for col in &stmt.columns {
+                        match &col.expr {
+                            squeal::Expression::Star => {
+                                for (_table, _alias, row) in &ctx {
+                                    row_values.extend(row.values.clone());
+                                }
+                            }
+                            _ => {
+                                row_values
+                                    .push(evaluate_expression_joined(self, &col.expr, &eval_ctx)?);
+                            }
+                        }
+                    }
+                    projected_rows.push(row_values);
+                }
+
+                let initial_result = QueryResult {
+                    columns: result_columns,
+                    rows: projected_rows,
+                    rows_affected: 0,
+                    transaction_id: session.transaction_id.clone(),
+                    session: None,
+                };
+
+                return self.exec_set_operations(
+                    initial_result,
+                    &stmt.set_operations,
+                    db_state,
+                    session,
+                    params,
+                    outer_contexts,
+                );
+            }
+
             // 6. Apply ORDER BY
             if !stmt.order_by.is_empty() {
                 self.apply_order_by(
@@ -206,6 +258,92 @@ impl Executor {
             })
         }
         .boxed()
+    }
+
+    fn exec_set_operations(
+        &self,
+        initial_result: QueryResult,
+        set_ops: &[squeal::SetOperationClause],
+        db_state: &crate::storage::DatabaseState,
+        session: crate::sql::executor::Session,
+        _params: &[crate::storage::Value],
+        _outer_contexts: &[(&crate::storage::Table, Option<&str>, &crate::storage::Row)],
+    ) -> SqlResult<QueryResult> {
+        let mut result = initial_result;
+
+        for set_op in set_ops {
+            let select_plan =
+                SelectQueryPlan::new((*set_op.select).clone(), db_state, session.clone());
+            let next_result = futures::executor::block_on(self.exec_select_recursive(select_plan))?;
+
+            result = match &set_op.operator {
+                squeal::SetOperator::Union => self.set_union(&result, &next_result, true)?,
+                squeal::SetOperator::UnionAll => self.set_union(&result, &next_result, false)?,
+                squeal::SetOperator::Intersect => self.set_intersect(&result, &next_result)?,
+                squeal::SetOperator::Except => self.set_except(&result, &next_result)?,
+            };
+        }
+
+        Ok(result)
+    }
+
+    fn set_union(
+        &self,
+        a: &QueryResult,
+        b: &QueryResult,
+        distinct: bool,
+    ) -> SqlResult<QueryResult> {
+        let mut rows = a.rows.clone();
+        rows.extend(b.rows.clone());
+
+        if distinct {
+            let mut seen = std::collections::HashSet::new();
+            rows.retain(|row| seen.insert(row.clone()));
+        }
+
+        Ok(QueryResult {
+            columns: a.columns.clone(),
+            rows,
+            rows_affected: 0,
+            transaction_id: a.transaction_id.clone(),
+            session: a.session.clone(),
+        })
+    }
+
+    fn set_intersect(&self, a: &QueryResult, b: &QueryResult) -> SqlResult<QueryResult> {
+        let b_rows: std::collections::HashSet<_> = b.rows.iter().collect();
+        let rows: Vec<_> = a
+            .rows
+            .iter()
+            .filter(|row| b_rows.contains(row))
+            .cloned()
+            .collect();
+
+        Ok(QueryResult {
+            columns: a.columns.clone(),
+            rows,
+            rows_affected: 0,
+            transaction_id: a.transaction_id.clone(),
+            session: a.session.clone(),
+        })
+    }
+
+    fn set_except(&self, a: &QueryResult, b: &QueryResult) -> SqlResult<QueryResult> {
+        let b_rows: std::collections::HashSet<_> = b.rows.iter().collect();
+        let rows: Vec<_> = a
+            .rows
+            .iter()
+            .filter(|row| !b_rows.contains(row))
+            .cloned()
+            .collect();
+
+        Ok(QueryResult {
+            columns: a.columns.clone(),
+            rows,
+            rows_affected: 0,
+            transaction_id: a.transaction_id.clone(),
+            session: a.session.clone(),
+        })
     }
 
     fn apply_order_by(
