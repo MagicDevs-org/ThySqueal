@@ -81,8 +81,8 @@
 
 ## Phase 8: Advanced SQL Capabilities (v0.8) - 🏗 IN PROGRESS
 - [x] **Window Functions**: `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()`, `LAG()`, `LEAD()`, `FIRST_VALUE()`, `LAST_VALUE()`, `NTILE()`, `PARTITION BY`
+- [x] **Set Operations**: `UNION`, `UNION ALL`, `INTERSECT`, `EXCEPT`
 - [ ] **Recursive CTEs**: Support for `WITH RECURSIVE` for hierarchical data
-- [ ] **Set Operations**: `UNION`, `UNION ALL`, `INTERSECT`, `EXCEPT`
 - [ ] **Advanced Aggregations**: `GROUP_CONCAT`, `JSON_ARRAYAGG`, `JSON_OBJECTAGG`
 - [ ] **Common Table Expressions (CTEs) Expansion**: Support for multiple CTEs in a single query
 
