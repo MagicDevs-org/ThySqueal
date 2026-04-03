@@ -3,7 +3,7 @@ mod tests {
     use crate::sql::executor::{Executor, Session};
     use crate::squeal::{Expression, Insert, Select, SelectColumn, Squeal};
     use crate::squeal::{
-        KvDel, KvGet, KvHashGet, KvHashSet, KvListPush, KvListRange, KvSet, KvSetAdd, KvSetMembers,
+        KvGet, KvHashGet, KvHashSet, KvListPush, KvListRange, KvSet, KvSetAdd, KvSetMembers,
         KvZSetAdd, KvZSetRange,
     };
     use crate::storage::{Database, Value};

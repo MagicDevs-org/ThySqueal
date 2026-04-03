@@ -48,7 +48,7 @@ async fn test_subqueries() {
 
     // Correlated subquery in SELECT
     let result = executor
-            .execute("SELECT name, (SELECT COUNT(*) FROM users u2 WHERE u2.id <= users.id) as rank FROM users ORDER BY id", vec![], Session::new(None, None))
+            .execute("SELECT name, (SELECT COUNT(*) FROM users u2 WHERE u2.id <= users.id) as user_rank FROM users ORDER BY id", vec![], Session::new(None, None))
             .await
             .unwrap();
     assert_eq!(result.rows[0][1], Value::Int(1));
