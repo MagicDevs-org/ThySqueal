@@ -51,7 +51,8 @@ impl Executor {
                         .map(|(t, a, r): &(&Table, Option<String>, Row)| (*t, a.as_deref(), r))
                         .collect();
                     let eval_ctx =
-                        EvalContext::new(&eval_ctx_list, params, outer_contexts, db_state).with_session(&session);
+                        EvalContext::new(&eval_ctx_list, params, outer_contexts, db_state)
+                            .with_session(&session);
                     if evaluate_condition_joined(self, where_cond, &eval_ctx)? {
                         matched_rows.push(ctx);
                     }
@@ -87,11 +88,12 @@ impl Executor {
                         .collect();
 
                     let eval_ctx_a =
-                        EvalContext::new(&eval_ctx_list_a, params, outer_contexts, db_state).with_session(&session);
+                        EvalContext::new(&eval_ctx_list_a, params, outer_contexts, db_state)
+                            .with_session(&session);
 
                     let eval_ctx_b =
-                        EvalContext::new(&eval_ctx_list_b, params, outer_contexts, db_state).with_session(&session);
-
+                        EvalContext::new(&eval_ctx_list_b, params, outer_contexts, db_state)
+                            .with_session(&session);
 
                     for item in &stmt.order_by {
                         let val_a = match evaluate_expression_joined(self, &item.expr, &eval_ctx_a)
@@ -150,7 +152,8 @@ impl Executor {
                     .iter()
                     .map(|(t, a, r): &(&Table, Option<String>, Row)| (*t, a.as_deref(), r))
                     .collect();
-                let eval_ctx = EvalContext::new(&eval_ctx_list, params, outer_contexts, db_state).with_session(&session);
+                let eval_ctx = EvalContext::new(&eval_ctx_list, params, outer_contexts, db_state)
+                    .with_session(&session);
                 let mut row_values = Vec::new();
                 for col in &stmt.columns {
                     match &col.expr {

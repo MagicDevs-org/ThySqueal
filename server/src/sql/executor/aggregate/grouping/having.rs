@@ -253,7 +253,8 @@ impl Executor {
             Expression::ScalarFunc(_sf) => {
                 if let Some(first_ctx_list) = contexts.first() {
                     let eval_ctx =
-                        EvalContext::new(first_ctx_list, params, outer_contexts, db_state).with_session(session);
+                        EvalContext::new(first_ctx_list, params, outer_contexts, db_state)
+                            .with_session(session);
                     evaluate_expression_joined(self as &dyn Evaluator, expr, &eval_ctx)
                 } else {
                     Ok(Value::Null)
@@ -280,10 +281,14 @@ impl Executor {
                     Ok(result.rows[0][0].clone())
                 }
             }
-            Expression::Column(_) | Expression::BinaryOp(_, _, _) | Expression::Variable(_) => {
+            Expression::Column(_)
+            | Expression::BinaryOp(_, _, _)
+            | Expression::Variable(_)
+            | Expression::UnaryNot(_) => {
                 if let Some(first_ctx_list) = contexts.first() {
                     let eval_ctx =
-                        EvalContext::new(first_ctx_list, params, outer_contexts, db_state).with_session(session);
+                        EvalContext::new(first_ctx_list, params, outer_contexts, db_state)
+                            .with_session(session);
                     evaluate_expression_joined(self as &dyn Evaluator, expr, &eval_ctx)
                 } else {
                     Ok(Value::Null)
@@ -292,7 +297,8 @@ impl Executor {
             Expression::Placeholder(_) => {
                 if let Some(first_ctx_list) = contexts.first() {
                     let eval_ctx =
-                        EvalContext::new(first_ctx_list, params, outer_contexts, db_state).with_session(session);
+                        EvalContext::new(first_ctx_list, params, outer_contexts, db_state)
+                            .with_session(session);
                     evaluate_expression_joined(self as &dyn Evaluator, expr, &eval_ctx)
                 } else {
                     Ok(Value::Null)

@@ -50,7 +50,10 @@ impl Executor {
 
                 // Prepared statements
                 Squeal::Prepare(p) => self.exec_prepare(p).await?,
-                Squeal::Execute(e) => self.exec_execute(e, ctx.params.clone(), ctx.session.clone()).await?,
+                Squeal::Execute(e) => {
+                    self.exec_execute(e, ctx.params.clone(), ctx.session.clone())
+                        .await?
+                }
                 Squeal::Deallocate(name) => self.exec_deallocate(&name).await?,
 
                 // KV Store operations
@@ -399,7 +402,8 @@ impl Executor {
                     db.state().clone()
                 };
 
-                let eval_ctx = crate::sql::eval::EvalContext::new(&[], &params, &[], &state).with_session(&session);
+                let eval_ctx = crate::sql::eval::EvalContext::new(&[], &params, &[], &state)
+                    .with_session(&session);
                 let val = crate::sql::eval::evaluate_expression_joined(self, p, &eval_ctx)?;
                 exec_params.push(val);
             }

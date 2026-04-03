@@ -42,6 +42,7 @@ impl Session {
         }
     }
 
+    #[allow(dead_code)]
     pub fn with_variables(
         username: Option<String>,
         transaction_id: Option<String>,

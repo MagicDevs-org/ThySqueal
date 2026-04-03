@@ -37,6 +37,8 @@ async-trait = "0.1"
 base64 = "0.22"
 futures = "0.3"
 regex = "1"
+md5 = "0.7"
+sha2 = "0.10"
 
 [features]
 default = []

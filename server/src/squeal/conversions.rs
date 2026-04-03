@@ -160,6 +160,12 @@ impl From<ast::Expression> for Expression {
                     ast::ScalarFuncType::Concat => ScalarFuncType::Concat,
                     ast::ScalarFuncType::Coalesce => ScalarFuncType::Coalesce,
                     ast::ScalarFuncType::Replace => ScalarFuncType::Replace,
+                    ast::ScalarFuncType::IfNull => ScalarFuncType::IfNull,
+                    ast::ScalarFuncType::If => ScalarFuncType::If,
+                    ast::ScalarFuncType::DateDiff => ScalarFuncType::DateDiff,
+                    ast::ScalarFuncType::DateFormat => ScalarFuncType::DateFormat,
+                    ast::ScalarFuncType::Md5 => ScalarFuncType::Md5,
+                    ast::ScalarFuncType::Sha2 => ScalarFuncType::Sha2,
                 },
                 args: f.args.into_iter().map(|a| a.into()).collect(),
             }),
@@ -174,6 +180,7 @@ impl From<ast::Expression> for Expression {
                 },
             }),
             ast::Expression::Subquery(s) => Expression::Subquery(Box::new((*s).into())),
+            ast::Expression::UnaryNot(e) => Expression::UnaryNot(Box::new((*e).into())),
         }
     }
 }

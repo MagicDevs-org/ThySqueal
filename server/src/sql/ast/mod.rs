@@ -183,6 +183,12 @@ impl From<squeal::Expression> for Expression {
                     squeal::ScalarFuncType::Concat => ScalarFuncType::Concat,
                     squeal::ScalarFuncType::Coalesce => ScalarFuncType::Coalesce,
                     squeal::ScalarFuncType::Replace => ScalarFuncType::Replace,
+                    squeal::ScalarFuncType::IfNull => ScalarFuncType::IfNull,
+                    squeal::ScalarFuncType::If => ScalarFuncType::If,
+                    squeal::ScalarFuncType::DateDiff => ScalarFuncType::DateDiff,
+                    squeal::ScalarFuncType::DateFormat => ScalarFuncType::DateFormat,
+                    squeal::ScalarFuncType::Md5 => ScalarFuncType::Md5,
+                    squeal::ScalarFuncType::Sha2 => ScalarFuncType::Sha2,
                 },
                 args: f.args.into_iter().map(|a| a.into()).collect(),
             }),
@@ -197,6 +203,7 @@ impl From<squeal::Expression> for Expression {
                 },
             }),
             squeal::Expression::Subquery(s) => Expression::Subquery(Box::new((*s).into())),
+            squeal::Expression::UnaryNot(e) => Expression::UnaryNot(Box::new((*e).into())),
         }
     }
 }

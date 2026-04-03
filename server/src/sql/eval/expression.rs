@@ -65,9 +65,23 @@ pub fn evaluate_expression_joined(
             if v.is_system {
                 Ok(get_system_variable(&v.name))
             } else if let Some(session) = ctx.session {
-                Ok(session.variables.get(&v.name).cloned().unwrap_or(Value::Null))
+                Ok(session
+                    .variables
+                    .get(&v.name)
+                    .cloned()
+                    .unwrap_or(Value::Null))
             } else {
                 Ok(Value::Null)
+            }
+        }
+        Expression::UnaryNot(e) => {
+            let val = evaluate_expression_joined(executor, e, ctx)?;
+            match val {
+                Value::Bool(b) => Ok(Value::Bool(!b)),
+                Value::Null => Ok(Value::Null),
+                _ => Err(SqlError::TypeMismatch(
+                    "NOT requires boolean value".to_string(),
+                )),
             }
         }
     }

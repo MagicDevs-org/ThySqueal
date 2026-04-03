@@ -92,6 +92,12 @@ pub fn parse_scalar_func_type(pair: pest::iterators::Pair<Rule>) -> SqlResult<Sc
         "CONCAT" => Ok(ScalarFuncType::Concat),
         "COALESCE" => Ok(ScalarFuncType::Coalesce),
         "REPLACE" => Ok(ScalarFuncType::Replace),
+        "IFNULL" => Ok(ScalarFuncType::IfNull),
+        "IF" => Ok(ScalarFuncType::If),
+        "DATEDIFF" => Ok(ScalarFuncType::DateDiff),
+        "DATE_FORMAT" => Ok(ScalarFuncType::DateFormat),
+        "MD5" => Ok(ScalarFuncType::Md5),
+        "SHA2" => Ok(ScalarFuncType::Sha2),
         _ => Err(SqlError::Parse(format!(
             "Unknown scalar function: {}",
             name

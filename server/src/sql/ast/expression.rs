@@ -13,6 +13,7 @@ pub enum Expression {
     ScalarFunc(ScalarFunction),
     Star,
     Subquery(Box<SelectStmt>),
+    UnaryNot(Box<Expression>),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -88,7 +89,8 @@ impl Expression {
                 format!("{}({})", sf.name.to_sql(), args.join(", "))
             }
             Expression::Star => "*".to_string(),
-            Expression::Subquery(_) => "(SELECT ...)".to_string(), // Simplified for now
+            Expression::Subquery(_) => "(SELECT ...)".to_string(),
+            Expression::UnaryNot(e) => format!("NOT ({})", e.to_sql()),
         }
     }
 }
@@ -115,6 +117,12 @@ pub enum ScalarFuncType {
     Concat,
     Coalesce,
     Replace,
+    IfNull,
+    If,
+    DateDiff,
+    DateFormat,
+    Md5,
+    Sha2,
 }
 
 impl ScalarFuncType {
@@ -128,6 +136,12 @@ impl ScalarFuncType {
             ScalarFuncType::Concat => "CONCAT",
             ScalarFuncType::Coalesce => "COALESCE",
             ScalarFuncType::Replace => "REPLACE",
+            ScalarFuncType::IfNull => "IFNULL",
+            ScalarFuncType::If => "IF",
+            ScalarFuncType::DateDiff => "DATEDIFF",
+            ScalarFuncType::DateFormat => "DATE_FORMAT",
+            ScalarFuncType::Md5 => "MD5",
+            ScalarFuncType::Sha2 => "SHA2",
         }
     }
 }

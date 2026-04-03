@@ -1,9 +1,9 @@
 use super::super::super::error::{SqlError, SqlResult};
 use super::super::super::eval::{EvalContext, Evaluator, evaluate_condition_joined};
 use super::super::{Executor, QueryResult};
+use crate::sql::executor::Session;
 use crate::squeal::Delete;
 use crate::storage::WalRecord;
-use crate::sql::executor::Session;
 
 impl Executor {
     pub(crate) async fn exec_delete(
@@ -34,7 +34,8 @@ impl Executor {
 
         for row in table.rows() {
             let context_list = [(table, None, row)];
-            let eval_ctx = EvalContext::new(&context_list, params, &[], &state).with_session(&session);
+            let eval_ctx =
+                EvalContext::new(&context_list, params, &[], &state).with_session(&session);
 
             let matched = if let Some(ref cond) = stmt.where_clause {
                 evaluate_condition_joined(self, cond, &eval_ctx)?
@@ -83,4 +84,3 @@ impl Executor {
         })
     }
 }
-

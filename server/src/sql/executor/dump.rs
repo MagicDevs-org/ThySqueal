@@ -64,7 +64,11 @@ impl Executor {
         Ok(sql)
     }
 
-    pub async fn execute_batch(&self, sql: &str, session: super::Session) -> SqlResult<QueryResult> {
+    pub async fn execute_batch(
+        &self,
+        sql: &str,
+        session: super::Session,
+    ) -> SqlResult<QueryResult> {
         let mut last_res = QueryResult {
             columns: vec![],
             rows: vec![],

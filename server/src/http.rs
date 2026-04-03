@@ -69,14 +69,7 @@ impl HttpServer {
         Json(payload): Json<QueryRequest>,
     ) -> impl IntoResponse {
         let session = Session::new(payload.username.clone(), payload.transaction_id.clone());
-        match executor
-            .execute(
-                &payload.sql,
-                vec![],
-                session,
-            )
-            .await
-        {
+        match executor.execute(&payload.sql, vec![], session).await {
             Ok(result) => (StatusCode::OK, Json(Self::map_result(result, None))),
             Err(e) => {
                 error!("Query error: {:?}", e);
@@ -89,8 +82,7 @@ impl HttpServer {
                             rows_affected: 0,
                             transaction_id: None,
                             session: None,
-                        }
-,
+                        },
                         Some(format!("{:?}", e)),
                     )),
                 )
@@ -104,11 +96,7 @@ impl HttpServer {
     ) -> impl IntoResponse {
         let session = Session::new(payload.username.clone(), payload.transaction_id.clone());
         match executor
-            .execute_squeal(
-                payload.squeal,
-                vec![],
-                session,
-            )
+            .execute_squeal(payload.squeal, vec![], session)
             .await
         {
             Ok(result) => (StatusCode::OK, Json(Self::map_result(result, None))),
@@ -123,8 +111,7 @@ impl HttpServer {
                             rows_affected: 0,
                             transaction_id: None,
                             session: None,
-                        }
-,
+                        },
                         Some(format!("{:?}", e)),
                     )),
                 )
@@ -156,8 +143,7 @@ impl HttpServer {
                             rows_affected: 0,
                             transaction_id: None,
                             session: None,
-                        }
-,
+                        },
                         Some(format!("{:?}", e)),
                     )),
                 )

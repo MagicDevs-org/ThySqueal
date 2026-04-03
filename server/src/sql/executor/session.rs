@@ -1,10 +1,14 @@
 use super::super::error::SqlResult;
 use super::{ExecutionContext, Executor, QueryResult};
-use crate::sql::eval::{evaluate_expression_joined, EvalContext};
+use crate::sql::eval::{EvalContext, evaluate_expression_joined};
 use crate::squeal::{Expression, Set};
 
 impl Executor {
-    pub(crate) async fn exec_set(&self, stmt: Set, ctx: &ExecutionContext) -> SqlResult<QueryResult> {
+    pub(crate) async fn exec_set(
+        &self,
+        stmt: Set,
+        ctx: &ExecutionContext,
+    ) -> SqlResult<QueryResult> {
         let mut session = ctx.session.clone();
 
         for (var_expr, val_expr) in &stmt.assignments {
@@ -18,7 +22,8 @@ impl Executor {
                 db.state().clone()
             };
 
-            let eval_ctx = EvalContext::new(&[], &ctx.params, &[], &state).with_session(&ctx.session);
+            let eval_ctx =
+                EvalContext::new(&[], &ctx.params, &[], &state).with_session(&ctx.session);
             let value = evaluate_expression_joined(self, val_expr, &eval_ctx)?;
 
             match var_expr {

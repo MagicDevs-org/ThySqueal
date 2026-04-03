@@ -74,7 +74,7 @@ impl Evaluator for RecoveryEvaluator {
     }
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, clippy::too_many_arguments)]
 pub fn evaluate_condition(
     executor: &dyn Evaluator,
     cond: &Condition,
@@ -90,7 +90,7 @@ pub fn evaluate_condition(
     evaluate_condition_joined(executor, cond, &ctx)
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, clippy::too_many_arguments)]
 pub fn evaluate_expression(
     executor: &dyn Evaluator,
     expr: &Expression,

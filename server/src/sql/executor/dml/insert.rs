@@ -1,9 +1,9 @@
 use super::super::super::error::{SqlError, SqlResult};
 use super::super::super::eval::{EvalContext, Evaluator, evaluate_expression_joined};
 use super::super::{Executor, QueryResult};
+use crate::sql::executor::Session;
 use crate::squeal::Insert;
 use crate::storage::{Value, WalRecord};
-use crate::sql::executor::Session;
 
 impl Executor {
     pub(crate) async fn exec_insert(
@@ -139,4 +139,3 @@ impl Executor {
         })
     }
 }
-

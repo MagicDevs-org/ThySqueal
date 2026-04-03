@@ -52,9 +52,9 @@ pub fn parse_variable(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expression
                     "SESSION." => crate::sql::ast::VariableScope::Session,
                     _ => crate::sql::ast::VariableScope::Session,
                 };
-                let name = sys_inner.next().ok_or_else(|| {
-                    SqlError::Parse("Missing system variable name".to_string())
-                })?;
+                let name = sys_inner
+                    .next()
+                    .ok_or_else(|| SqlError::Parse("Missing system variable name".to_string()))?;
                 (scope, name)
             };
 
@@ -66,9 +66,9 @@ pub fn parse_variable(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expression
         }
         Rule::session_variable => {
             let mut sess_inner = var_pair.into_inner();
-            let name = sess_inner.next().ok_or_else(|| {
-                SqlError::Parse("Missing session variable name".to_string())
-            })?;
+            let name = sess_inner
+                .next()
+                .ok_or_else(|| SqlError::Parse("Missing session variable name".to_string()))?;
             Ok(Expression::Variable(crate::sql::ast::Variable {
                 name: name.as_str().to_string(),
                 is_system: false,
@@ -191,10 +191,8 @@ pub fn parse_factor(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expression> 
             let next_factor = inner
                 .next()
                 .ok_or_else(|| SqlError::Parse("Missing factor after NOT".to_string()))?;
-            let _ = parse_factor(next_factor)?;
-            Err(SqlError::Parse(
-                "NOT in expression factor not yet implemented".to_string(),
-            ))
+            let negated = parse_factor(next_factor)?;
+            Ok(Expression::UnaryNot(Box::new(negated)))
         }
         _ => {
             if first.as_str().starts_with('(')

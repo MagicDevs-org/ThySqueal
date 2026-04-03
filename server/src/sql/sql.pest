@@ -155,7 +155,7 @@ agg_type = { KW_COUNT | KW_SUM | KW_AVG | KW_MIN | KW_MAX }
 star = { "*" }
 
 scalar_func = { scalar_func_name ~ "(" ~ (expression ~ ("," ~ expression)*)? ~ ")" }
-scalar_func_name = { ^"LOWER" | ^"UPPER" | ^"LENGTH" | ^"ABS" | ^"NOW" | ^"CONCAT" | ^"COALESCE" | ^"REPLACE" }
+scalar_func_name = { ^"LOWER" | ^"UPPER" | ^"LENGTH" | ^"ABS" | ^"NOW" | ^"CONCAT" | ^"COALESCE" | ^"REPLACE" | ^"IFNULL" | ^"IF" | ^"DATEDIFF" | ^"DATE_FORMAT" | ^"MD5" | ^"SHA2" }
 
 literal = { string_literal | number_literal | boolean_literal | KW_NULL }
 
