@@ -230,6 +230,9 @@ pub enum AggregateType {
     Avg,
     Min,
     Max,
+    GroupConcat,
+    JsonArrayAgg,
+    JsonObjectAgg,
 }
 
 impl AggregateType {
@@ -240,6 +243,9 @@ impl AggregateType {
             AggregateType::Avg => "AVG",
             AggregateType::Min => "MIN",
             AggregateType::Max => "MAX",
+            AggregateType::GroupConcat => "GROUP_CONCAT",
+            AggregateType::JsonArrayAgg => "JSON_ARRAYAGG",
+            AggregateType::JsonObjectAgg => "JSON_OBJECTAGG",
         }
     }
 }

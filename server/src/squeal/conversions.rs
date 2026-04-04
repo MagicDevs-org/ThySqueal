@@ -81,6 +81,7 @@ impl From<ast::SetOperationClause> for SetOperationClause {
 impl From<ast::WithClause> for WithClause {
     fn from(w: ast::WithClause) -> Self {
         WithClause {
+            recursive: w.recursive,
             ctes: w.ctes.into_iter().map(|c| c.into()).collect(),
         }
     }
@@ -171,6 +172,9 @@ impl From<ast::Expression> for Expression {
                     ast::AggregateType::Avg => AggregateType::Avg,
                     ast::AggregateType::Min => AggregateType::Min,
                     ast::AggregateType::Max => AggregateType::Max,
+                    ast::AggregateType::GroupConcat => AggregateType::GroupConcat,
+                    ast::AggregateType::JsonArrayAgg => AggregateType::JsonArrayAgg,
+                    ast::AggregateType::JsonObjectAgg => AggregateType::JsonObjectAgg,
                 },
                 args: f.args.into_iter().map(|a| a.into()).collect(),
             }),

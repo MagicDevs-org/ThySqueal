@@ -22,18 +22,31 @@ pub fn parse_select(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
 
     let mut first = inner.next().unwrap();
     if first.as_rule() == Rule::with_clause {
+        let mut recursive = false;
         let mut ctes = Vec::new();
         for cte_pair in first.into_inner() {
+            if cte_pair.as_rule() == Rule::KW_RECURSIVE {
+                recursive = true;
+                continue;
+            }
             if cte_pair.as_rule() == Rule::cte_definition {
                 let mut cte_inner = cte_pair.into_inner();
                 let name = cte_inner.next().unwrap().as_str().trim().to_string();
                 let _ = cte_inner.next();
                 let query_pair = cte_inner.next().unwrap();
-                let query = parse_select_inner(query_pair)?;
+                let sql_stmt = parse_select(query_pair)?;
+                let query = match sql_stmt {
+                    SqlStmt::Select(s) => s,
+                    _ => {
+                        return Err(SqlError::Parse(
+                            "CTE must contain a SELECT statement".to_string(),
+                        ));
+                    }
+                };
                 ctes.push(crate::sql::ast::Cte { name, query });
             }
         }
-        with_clause = Some(crate::sql::ast::WithClause { ctes });
+        with_clause = Some(crate::sql::ast::WithClause { recursive, ctes });
         first = inner
             .next()
             .ok_or_else(|| SqlError::Parse("Missing SELECT after WITH".to_string()))?;

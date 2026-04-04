@@ -179,6 +179,7 @@ pub struct SetOperationClause {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WithClause {
+    pub recursive: bool,
     pub ctes: Vec<Cte>,
 }
 

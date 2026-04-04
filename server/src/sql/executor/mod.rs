@@ -81,6 +81,7 @@ pub struct SelectQueryPlan<'a> {
     pub params: &'a [Value],
     pub db_state: &'a DatabaseState,
     pub session: Session,
+    pub cte_tables: Option<&'a HashMap<String, Table>>,
 }
 
 impl<'a> SelectQueryPlan<'a> {
@@ -91,6 +92,7 @@ impl<'a> SelectQueryPlan<'a> {
             params: &[],
             db_state,
             session,
+            cte_tables: None,
         }
     }
 
@@ -104,6 +106,11 @@ impl<'a> SelectQueryPlan<'a> {
 
     pub fn with_params(mut self, params: &'a [Value]) -> Self {
         self.params = params;
+        self
+    }
+
+    pub fn with_cte_tables(mut self, cte_tables: &'a HashMap<String, Table>) -> Self {
+        self.cte_tables = Some(cte_tables);
         self
     }
 }

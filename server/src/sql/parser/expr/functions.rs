@@ -14,22 +14,25 @@ pub fn parse_aggregate(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expressio
     let agg_type = parse_aggregate_type(agg_type_pair)?;
 
     let mut args = Vec::new();
-    let arg_pair = inner
-        .next()
-        .ok_or_else(|| SqlError::Parse("Missing aggregate argument".to_string()))?;
-    match arg_pair.as_rule() {
-        Rule::star => args.push(Expression::Star),
-        Rule::expression => args.push(parse_any_expression(arg_pair)?),
-        _ => {
-            if arg_pair.as_str() == "*" {
-                args.push(Expression::Star);
-            } else {
-                return Err(SqlError::Parse(format!(
-                    "Unexpected aggregate argument: {:?}",
-                    arg_pair.as_rule()
-                )));
+    for arg_pair in inner {
+        match arg_pair.as_rule() {
+            Rule::star => args.push(Expression::Star),
+            Rule::expression => args.push(parse_any_expression(arg_pair)?),
+            _ => {
+                if arg_pair.as_str() == "*" {
+                    args.push(Expression::Star);
+                } else {
+                    return Err(SqlError::Parse(format!(
+                        "Unexpected aggregate argument: {:?}",
+                        arg_pair.as_rule()
+                    )));
+                }
             }
         }
+    }
+
+    if args.is_empty() {
+        return Err(SqlError::Parse("Missing aggregate argument".to_string()));
     }
 
     Ok(Expression::FunctionCall(FunctionCall {
@@ -49,6 +52,9 @@ pub fn parse_aggregate_type(pair: pest::iterators::Pair<Rule>) -> SqlResult<Aggr
         Rule::KW_AVG => Ok(AggregateType::Avg),
         Rule::KW_MIN => Ok(AggregateType::Min),
         Rule::KW_MAX => Ok(AggregateType::Max),
+        Rule::KW_GROUP_CONCAT => Ok(AggregateType::GroupConcat),
+        Rule::KW_JSON_ARRAYAGG => Ok(AggregateType::JsonArrayAgg),
+        Rule::KW_JSON_OBJECTAGG => Ok(AggregateType::JsonObjectAgg),
         _ => Err(SqlError::Parse(format!(
             "Unknown aggregate type: {:?}",
             kw.as_rule()

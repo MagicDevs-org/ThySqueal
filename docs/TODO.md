@@ -79,12 +79,12 @@
 - [x] **Advanced Functions**: `IFNULL`, `IF`, `DATEDIFF`, `DATE_FORMAT`, `MD5`, `SHA2`
 - [x] **Session Variables**: Support for `SET @var = val` and `SELECT @var`
 
-## Phase 8: Advanced SQL Capabilities (v0.8) - 🏗 IN PROGRESS
+## Phase 8: Advanced SQL Capabilities (v0.8) - ✅ COMPLETE
 - [x] **Window Functions**: `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()`, `LAG()`, `LEAD()`, `FIRST_VALUE()`, `LAST_VALUE()`, `NTILE()`, `PARTITION BY`
 - [x] **Set Operations**: `UNION`, `UNION ALL`, `INTERSECT`, `EXCEPT`
-- [ ] **Recursive CTEs**: Support for `WITH RECURSIVE` for hierarchical data
-- [ ] **Advanced Aggregations**: `GROUP_CONCAT`, `JSON_ARRAYAGG`, `JSON_OBJECTAGG`
-- [ ] **Common Table Expressions (CTEs) Expansion**: Support for multiple CTEs in a single query
+- [x] **Recursive CTEs**: Support for `WITH RECURSIVE` for hierarchical data
+- [x] **Advanced Aggregations**: `GROUP_CONCAT`, `JSON_ARRAYAGG`, `JSON_OBJECTAGG`
+- [x] **Common Table Expressions (CTEs) Expansion**: Support for multiple CTEs in a single query
 
 ## MySQL Protocol v2 (v0.8.x) - 🏗 IN PROGRESS
 ### High Priority

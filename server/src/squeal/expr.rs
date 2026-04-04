@@ -68,6 +68,9 @@ pub enum AggregateType {
     Avg,
     Min,
     Max,
+    GroupConcat,
+    JsonArrayAgg,
+    JsonObjectAgg,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -90,6 +90,7 @@ impl From<squeal::Select> for SelectStmt {
 impl From<squeal::WithClause> for WithClause {
     fn from(w: squeal::WithClause) -> Self {
         WithClause {
+            recursive: w.recursive,
             ctes: w.ctes.into_iter().map(|c| c.into()).collect(),
         }
     }
@@ -180,6 +181,9 @@ impl From<squeal::Expression> for Expression {
                     squeal::AggregateType::Avg => AggregateType::Avg,
                     squeal::AggregateType::Min => AggregateType::Min,
                     squeal::AggregateType::Max => AggregateType::Max,
+                    squeal::AggregateType::GroupConcat => AggregateType::GroupConcat,
+                    squeal::AggregateType::JsonArrayAgg => AggregateType::JsonArrayAgg,
+                    squeal::AggregateType::JsonObjectAgg => AggregateType::JsonObjectAgg,
                 },
                 args: f.args.into_iter().map(|a| a.into()).collect(),
             }),

@@ -121,6 +121,90 @@ impl Executor {
                     Ok(Value::Float(sum / count as f64))
                 }
             }
+            AggregateType::GroupConcat => {
+                let mut values: Vec<String> = Vec::new();
+                let separator = if fc.args.len() > 1 {
+                    let eval_ctx =
+                        EvalContext::new(&[], &[], outer_contexts, db_state).with_session(session);
+                    match evaluate_expression_joined(self, &fc.args[1], &eval_ctx)? {
+                        Value::Text(s) => s,
+                        _ => ",".to_string(),
+                    }
+                } else {
+                    ",".to_string()
+                };
+                for ctx_list in contexts {
+                    let eval_ctx = EvalContext::new(ctx_list, &[], outer_contexts, db_state)
+                        .with_session(session);
+                    let val = evaluate_expression_joined(self, &fc.args[0], &eval_ctx)?;
+                    match val {
+                        Value::Null => {}
+                        Value::Text(s) => values.push(s),
+                        Value::Int(i) => values.push(i.to_string()),
+                        Value::Float(f) => values.push(f.to_string()),
+                        _ => values.push(format!("{:?}", val)),
+                    }
+                }
+                Ok(Value::Text(values.join(&separator)))
+            }
+            AggregateType::JsonArrayAgg => {
+                let mut values: Vec<String> = Vec::new();
+                for ctx_list in contexts {
+                    let eval_ctx = EvalContext::new(ctx_list, &[], outer_contexts, db_state)
+                        .with_session(session);
+                    let val = evaluate_expression_joined(self, &fc.args[0], &eval_ctx)?;
+                    match val {
+                        Value::Null => values.push("null".to_string()),
+                        Value::Text(s) => values.push(format!(
+                            "\"{}\"",
+                            s.replace('\\', "\\\\").replace('"', "\\\"")
+                        )),
+                        Value::Int(i) => values.push(i.to_string()),
+                        Value::Float(f) => values.push(f.to_string()),
+                        Value::Bool(b) => values.push(b.to_string()),
+                        _ => values.push(format!("\"{:?}\"", val)),
+                    }
+                }
+                Ok(Value::Text(format!("[{}]", values.join(","))))
+            }
+            AggregateType::JsonObjectAgg => {
+                if fc.args.len() < 2 {
+                    return Err(SqlError::Parse(
+                        "JSON_OBJECTAGG requires two arguments".to_string(),
+                    ));
+                }
+                let mut map: std::collections::BTreeMap<String, String> =
+                    std::collections::BTreeMap::new();
+                for ctx_list in contexts {
+                    let eval_ctx = EvalContext::new(ctx_list, &[], outer_contexts, db_state)
+                        .with_session(session);
+                    let key_val = evaluate_expression_joined(self, &fc.args[0], &eval_ctx)?;
+                    let val_val = evaluate_expression_joined(self, &fc.args[1], &eval_ctx)?;
+                    let key = match key_val {
+                        Value::Text(s) => s,
+                        Value::Int(i) => i.to_string(),
+                        _ => continue,
+                    };
+                    let val_str = match val_val {
+                        Value::Null => "null".to_string(),
+                        Value::Text(s) => {
+                            format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""))
+                        }
+                        Value::Int(i) => i.to_string(),
+                        Value::Float(f) => f.to_string(),
+                        Value::Bool(b) => b.to_string(),
+                        _ => format!("\"{:?}\"", val_val),
+                    };
+                    map.insert(key, val_str);
+                }
+                let pairs: Vec<String> = map
+                    .iter()
+                    .map(|(k, v)| {
+                        format!("\"{}\":{}", k.replace('\\', "\\\\").replace('"', "\\\""), v)
+                    })
+                    .collect();
+                Ok(Value::Text(format!("{{{}}}", pairs.join(","))))
+            }
         }
     }
 }

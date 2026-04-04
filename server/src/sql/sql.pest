@@ -29,7 +29,7 @@ all = { KW_ALL }
 select_stmt_inner = { KW_SELECT ~ distinct? ~ select_columns ~ from_clause? }
 from_clause = { KW_FROM ~ table_name_with_alias ~ join_clause* ~ where_clause? ~ group_by_clause? ~ having_clause? ~ order_by_clause? ~ limit_clause? }
 
-with_clause = { KW_WITH ~ cte_definition ~ ("," ~ cte_definition)* }
+with_clause = { KW_WITH ~ KW_RECURSIVE? ~ cte_definition ~ ("," ~ cte_definition)* }
 cte_definition = { identifier ~ KW_AS ~ "(" ~ select_stmt_inner ~ ")" }
 
 table_name_with_alias = { table_name ~ alias? }
@@ -162,8 +162,8 @@ variable = { system_variable | session_variable }
 system_variable = { "@@" ~ ( ^"GLOBAL." | ^"SESSION." )? ~ identifier }
 session_variable = { "@" ~ identifier }
 
-aggregate_func = { agg_type ~ "(" ~ ( star | expression ) ~ ")" }
-agg_type = { KW_COUNT | KW_SUM | KW_AVG | KW_MIN | KW_MAX }
+aggregate_func = { agg_type ~ "(" ~ ( star | expression ~ ("," ~ expression)* ) ~ ")" }
+agg_type = { KW_COUNT | KW_SUM | KW_AVG | KW_MIN | KW_MAX | KW_GROUP_CONCAT | KW_JSON_ARRAYAGG | KW_JSON_OBJECTAGG }
 star = { "*" }
 
 scalar_func = { scalar_func_name ~ "(" ~ (expression ~ ("," ~ expression)*)? ~ ")" }
@@ -242,6 +242,9 @@ KW_SUM      = @{ ^"SUM" ~ !id_char }
 KW_AVG      = @{ ^"AVG" ~ !id_char }
 KW_MIN      = @{ ^"MIN" ~ !id_char }
 KW_MAX      = @{ ^"MAX" ~ !id_char }
+KW_GROUP_CONCAT = @{ ^"GROUP_CONCAT" ~ !id_char }
+KW_JSON_ARRAYAGG = @{ ^"JSON_ARRAYAGG" ~ !id_char }
+KW_JSON_OBJECTAGG = @{ ^"JSON_OBJECTAGG" ~ !id_char }
 KW_IN       = @{ ^"IN" ~ !id_char }
 KW_BEGIN    = @{ ^"BEGIN" ~ !id_char }
 KW_COMMIT   = @{ ^"COMMIT" ~ !id_char }
@@ -298,6 +301,7 @@ KW_ROW = @{ ^"ROW" ~ !id_char }
 KW_UNION = @{ ^"UNION" ~ !id_char }
 KW_INTERSECT = @{ ^"INTERSECT" ~ !id_char }
 KW_EXCEPT = @{ ^"EXCEPT" ~ !id_char }
+KW_RECURSIVE = @{ ^"RECURSIVE" ~ !id_char }
 
 id_char = _{ ASCII_ALPHA | ASCII_DIGIT | "_" }
 
