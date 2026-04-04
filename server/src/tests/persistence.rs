@@ -9,7 +9,7 @@ use tokio::sync::RwLock;
 #[tokio::test]
 async fn test_persistence() {
     setup();
-    let temp_dir = std::env::temp_dir().join(format!("thy-squeal-test-{}", uuid::Uuid::new_v4()));
+    let temp_dir = std::env::temp_dir().join(format!("thysqueal-test-{}", uuid::Uuid::new_v4()));
     let data_dir = temp_dir.to_str().unwrap().to_string();
 
     {
@@ -60,7 +60,7 @@ async fn test_persistence() {
 #[tokio::test]
 async fn test_wal_recovery() {
     setup();
-    let suffix = format!("thy-squeal-wal-test-{}", uuid::Uuid::new_v4());
+    let suffix = format!("thysqueal-wal-test-{}", uuid::Uuid::new_v4());
     let temp_dir = std::env::temp_dir().join(suffix);
     let data_dir = temp_dir.to_str().unwrap().to_string();
 

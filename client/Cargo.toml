@@ -6,7 +6,7 @@ authors.workspace = true
 license.workspace = true
 
 [[bin]]
-name = "thy-squeal-client"
+name = "thysqueal-cli"
 path = "src/main.rs"
 
 [dependencies]

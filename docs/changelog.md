@@ -1,4 +1,4 @@
-# thy-squeal Changelog
+# ThySqueal Changelog
 
 ## [v0.6.1] - 2026-03-15
 ### Added

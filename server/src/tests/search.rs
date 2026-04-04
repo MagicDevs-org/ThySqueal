@@ -15,7 +15,7 @@ use tower::ServiceExt; // for `oneshot`
 async fn test_full_text_search() {
     setup();
     let temp_dir =
-        std::env::temp_dir().join(format!("thy-squeal-search-test-{}", uuid::Uuid::new_v4()));
+        std::env::temp_dir().join(format!("thysqueal-search-test-{}", uuid::Uuid::new_v4()));
     let data_dir = temp_dir.to_str().unwrap().to_string();
 
     let db = Database::with_persister(

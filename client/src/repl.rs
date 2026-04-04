@@ -11,7 +11,7 @@ pub async fn start(host: String, port: u16) -> Result<()> {
         // Ignore error if history file doesn't exist
     }
 
-    println!("thy-squeal client v{}", env!("CARGO_PKG_VERSION"));
+    println!("ThySqueal client v{}", env!("CARGO_PKG_VERSION"));
     println!("Connected to http://{}:{}", host, port);
     println!("Type .help for commands, .quit to exit\n");
 

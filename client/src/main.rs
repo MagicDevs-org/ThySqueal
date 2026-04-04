@@ -8,8 +8,8 @@ mod http;
 mod repl;
 
 #[derive(Parser)]
-#[command(name = "thy-squeal-client")]
-#[command(about = " thy-squeal SQL client with JavaScript REPL", long_about = None)]
+#[command(name = "thysqueal")]
+#[command(about = "ThySqueal SQL client with JavaScript REPL", long_about = None)]
 struct Cli {
     #[arg(short, long, default_value = "localhost")]
     host: String,

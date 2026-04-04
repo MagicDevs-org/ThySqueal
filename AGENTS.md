@@ -1,8 +1,8 @@
-# AGENTS.md - Developer Guidelines for thy-squeal
+# AGENTS.md - Developer Guidelines for ThySqueal
 
 ## Project Overview
 
-thy-squeal is a SQL server with HTTP JSON API, built with Rust. It's a Cargo workspace with:
+ThySqueal is a SQL server with HTTP JSON API, built with Rust. It's a Cargo workspace with:
 - `server/` - Server binary with Axum HTTP server; in-memory storage; SQL execution (Pest-based parsing)
 - `client/` - CLI client with REPL; `--http -e "SQL"` for one-off queries
 
@@ -45,8 +45,8 @@ server/src/
 cargo build
 
 # Build specific binary
-cargo build -p thy-squeal          # Server
-cargo build -p thy-squeal-client   # Client
+cargo build -p thy-squeal          # Server (thysqueal-server)
+cargo build -p thy-squeal-client   # Client (thysqueal-cli)
 
 # Run server (HTTP on port 9200)
 cargo run -p thy-squeal

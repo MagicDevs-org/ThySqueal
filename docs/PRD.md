@@ -1,9 +1,9 @@
-# thy-squeal PRD - Product Requirements Document
+# ThySqueal PRD - Product Requirements Document
 
 ## 1. Project Overview
 
 ### Project Name
-**thy-squeal** - A lightweight SQL server with HTTP JSON API and Redis-like capabilities
+**ThySqueal** - A lightweight SQL server with HTTP JSON API and Redis-like capabilities
 
 ### Project Type
 Distributed in-memory database with SQL and HTTP interfaces

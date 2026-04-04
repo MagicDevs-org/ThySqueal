@@ -19,10 +19,8 @@ use tower::ServiceExt; // for `oneshot`
 #[tokio::test]
 async fn test_sql_lifecycle() {
     setup();
-    let temp_dir = std::env::temp_dir().join(format!(
-        "thy-squeal-lifecycle-test-{}",
-        uuid::Uuid::new_v4()
-    ));
+    let temp_dir =
+        std::env::temp_dir().join(format!("thysqueal-lifecycle-test-{}", uuid::Uuid::new_v4()));
     let data_dir = temp_dir.to_str().unwrap().to_string();
 
     let db = Database::with_persister(

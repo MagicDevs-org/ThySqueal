@@ -92,7 +92,7 @@ pub fn evaluate_expression_joined(
 
 pub fn get_system_variable(name: &str) -> Value {
     match name.to_lowercase().as_str() {
-        "version" => Value::Text("0.7.0-thy-squeal".to_string()),
+        "version" => Value::Text("0.8.0-ThySqueal".to_string()),
         "version_comment" => Value::Text("ThySqueal - MySQL Compatible".to_string()),
         "max_allowed_packet" => Value::Int(67108864),
         "auto_increment_increment" => Value::Int(1),

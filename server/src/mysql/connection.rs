@@ -201,7 +201,7 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
 async fn send_handshake(socket: &mut TcpStream) -> Result<()> {
     let mut payload = Vec::new();
     payload.push(10); // Protocol version
-    payload.extend_from_slice(b"thy-squeal-0.4.0\0");
+    payload.extend_from_slice(b"ThySqueal-0.8.0\0");
     payload.extend_from_slice(&[0u8; 4]); // Connection ID (dummy)
     payload.extend_from_slice(b"authplug\0"); // Auth plugin data part 1
     WriteBytesExt::write_u16::<LittleEndian>(&mut payload, 0xF7FF)?; // Capability flags (lower)

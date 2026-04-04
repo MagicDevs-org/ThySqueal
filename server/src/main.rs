@@ -44,7 +44,7 @@ fn prepare_tracing() {
 }
 
 fn load_config() -> anyhow::Result<Arc<Config>> {
-    info!("Starting thy-squeal server v{}", env!("CARGO_PKG_VERSION"));
+    info!("Starting thysqueal server v{}", env!("CARGO_PKG_VERSION"));
     let cfg = config::load_config()?;
     let config = Arc::new(cfg);
     info!("Configuration loaded:");

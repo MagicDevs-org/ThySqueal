@@ -124,7 +124,7 @@ fn default_log_level() -> String {
 }
 
 pub fn load_config() -> anyhow::Result<Config> {
-    let config_path = Path::new("thy-squeal.yaml");
+    let config_path = Path::new("thysqueal.yaml");
     if config_path.exists() {
         let content = fs::read_to_string(config_path)?;
         let config: Config = serde_yaml::from_str(&content)?;

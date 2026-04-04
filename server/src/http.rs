@@ -57,7 +57,7 @@ impl HttpServer {
     }
 
     async fn root() -> &'static str {
-        "thy-squeal SQL Server"
+        "ThySqueal SQL Server"
     }
 
     async fn health() -> &'static str {

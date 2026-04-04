@@ -1,4 +1,4 @@
-# thy-squeal Implementation TODO
+# ThySqueal Implementation TODO
 
 ## Phase 1: Foundation (v0.1) - ✅ COMPLETE
 - [x] Project workspace setup (Cargo)
