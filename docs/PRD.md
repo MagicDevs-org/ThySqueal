@@ -205,4 +205,3 @@ thy-squeal/                          # Workspace root (ThySqueal)
 - [ ] **Telemetry**: Prometheus/OpenTelemetry metrics
 - [ ] **Encryption**: TLS for both HTTP and SQL protocols
 - [ ] **Query Optimizer Phase 2**: Cost-based Join ordering
-

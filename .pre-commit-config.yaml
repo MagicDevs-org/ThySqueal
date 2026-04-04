@@ -3,18 +3,15 @@
 # Install: pre-commit install
 
 repos:
-  # Rust formatting
-  - repo: https://github.com/dense-analysis/pre-commit-hooks
-    rev: v5.0.0
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
     hooks:
       - id: check-yaml
       - id: end-of-file-fixer
       - id: trailing-whitespace
-        args: [--markdown-line-length=off]
+        # args: [--markdown-line-length=off]
 
-  # Rust fmt check (must pass before tests)
-  - repo: https://github.com/dense-analysis/pre-commit-hooks
-    rev: v5.0.0
+  - repo: local
     hooks:
       - id: rustfmt
         name: rustfmt (check)
@@ -23,10 +20,6 @@ repos:
         pass_filenames: false
         types: [rust]
 
-  # Rust clippy lints
-  - repo: https://github.com/dense-analysis/pre-commit-hooks
-    rev: v5.0.0
-    hooks:
       - id: clippy
         name: clippy (warnings)
         entry: cargo clippy
@@ -60,10 +53,6 @@ repos:
             "clippy::too_many_arguments",
           ]
 
-  # Unit tests (skip pre-existing failing test)
-  - repo: https://github.com/dense-analysis/pre-commit-hooks
-    rev: v5.0.0
-    hooks:
       - id: cargo
         name: cargo test
         entry: cargo test -- --skip test_subqueries
@@ -71,10 +60,7 @@ repos:
         pass_filenames: false
         types: [rust]
 
-  # Check for test coverage (optional, uncomment if using tarpaulin)
-  # - repo: https://github.com/dense-analysis/pre-commit-hooks
-  #   rev: v5.0.0
-  #   hooks:
+  #     # Check for test coverage (optional, uncomment if using tarpaulin)
   #     - id: cargo-tarpaulin
   #       name: cargo tarpaulin (coverage)
   #       entry: cargo tarpaulin --out Xml

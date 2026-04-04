@@ -42,26 +42,26 @@ POST /_query
 ### 2. Execute Operations
 ```bash
 POST /_query
-{ 
-  "sql": "INSERT INTO users VALUES (1, 'Alice')", 
-  "transaction_id": "tx_abc_123" 
+{
+  "sql": "INSERT INTO users VALUES (1, 'Alice')",
+  "transaction_id": "tx_abc_123"
 }
 ```
 
 ### 3. Commit
 ```bash
 POST /_query
-{ 
-  "sql": "COMMIT", 
-  "transaction_id": "tx_abc_123" 
+{
+  "sql": "COMMIT",
+  "transaction_id": "tx_abc_123"
 }
 ```
 
 ### 4. Rollback (Alternative)
 ```bash
 POST /_query
-{ 
-  "sql": "ROLLBACK", 
-  "transaction_id": "tx_abc_123" 
+{
+  "sql": "ROLLBACK",
+  "transaction_id": "tx_abc_123"
 }
 ```

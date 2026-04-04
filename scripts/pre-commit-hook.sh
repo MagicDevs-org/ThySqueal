@@ -1,7 +1,7 @@
 #!/bin/bash
 # Pre-commit hook for thy-squeal
 # This hook runs code quality checks before each commit
-# 
+#
 # Usage:
 #   - With pre-commit: pre-commit install (after adding to .pre-commit-config.yaml)
 #   - Standalone: ./scripts/pre-commit-hook.sh
