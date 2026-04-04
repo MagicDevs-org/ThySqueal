@@ -1,7 +1,7 @@
 # HTTP JSON API
 
 ## Overview
-REST API for thy-squeal, Elasticsearch-style endpoints for data access.
+REST API for ThySqueal, Elasticsearch-style endpoints for data access.
 
 ## Implementation Status
 

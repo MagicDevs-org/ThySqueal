@@ -1,21 +1,21 @@
 # Transactions
 
 ## Overview
-Support for ACID transactions in thy-squeal, allowing multiple SQL statements to be executed as a single atomic unit.
+Support for ACID transactions in ThySqueal, allowing multiple SQL statements to be executed as a single atomic unit.
 
 **Status**: ✅ Implemented (Snapshot Isolation via CoW)
 
 ## Implementation Details
 
 ### Copy-on-Write (CoW) State
-When a transaction is started with `BEGIN`, thy-squeal creates a lightweight clone of the entire `DatabaseState`. This state is stored in a session-specific map indexed by a `transaction_id`.
+When a transaction is started with `BEGIN`, ThySqueal creates a lightweight clone of the entire `DatabaseState`. This state is stored in a session-specific map indexed by a `transaction_id`.
 
 - **Isolation**: Each transaction operates on its own private snapshot. Changes are not visible to other transactions or the global state until committed.
 - **Atomicity**: Either all changes in the transaction are applied (via `COMMIT`) or none are (via `ROLLBACK`).
 - **Consistency**: Unique constraints and data types are validated against the private state before being merged back to the global state.
 
 ### Multi-Request HTTP Sessions
-Since HTTP is stateless, thy-squeal uses a `transaction_id` to link multiple requests into a single transaction.
+Since HTTP is stateless, ThySqueal uses a `transaction_id` to link multiple requests into a single transaction.
 
 1.  **BEGIN**: Returns a unique `transaction_id`.
 2.  **Operations**: All subsequent queries must include this `transaction_id`.

@@ -4,38 +4,38 @@
 Interactive CLI client with embedded JavaScript runtime for scripting.
 
 ## Binary
-`thy-squeal-client` - CLI tool with JS REPL
+`ThySqueal-client` - CLI tool with JS REPL
 
 ## Installation
 ```bash
-cargo install thy-squeal-client
+cargo install ThySqueal-client
 ```
 
 ## Usage
 
 ```bash
 # Interactive REPL
-thy-squeal-client
+ThySqueal-client
 
 # Execute SQL
-thy-squeal-client -h localhost -p 3306 -e "SELECT * FROM users"
+ThySqueal-client -h localhost -p 3306 -e "SELECT * FROM users"
 
 # HTTP mode
-thy-squeal-client --http localhost:9200 -e "SELECT * FROM users"
+ThySqueal-client --http localhost:9200 -e "SELECT * FROM users"
 
 # Run script
-thy-squeal-client script.js
+ThySqueal-client script.js
 
 # Import/Export
-thy-squeal-client --import data.json
-thy-squeal-client --export data.json
+ThySqueal-client --import data.json
+ThySqueal-client --export data.json
 ```
 
 ## JavaScript API
 
 ### Connection
 ```javascript
-const thy = require('thy-squeal');
+const thy = require('ThySqueal');
 
 // TCP SQL connection
 const conn = thy.connect('thy-sql://localhost:3306');
@@ -119,7 +119,7 @@ try {
 
 ### Configuration
 ```yaml
-# ~/.thy-squeal/config.yaml
+# ~/.ThySqueal/config.yaml
 connection:
   default_host: "localhost"
   default_port: 9200

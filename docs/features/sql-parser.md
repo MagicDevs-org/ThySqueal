@@ -1,7 +1,7 @@
 # SQL Parser
 
 ## Overview
-Pest-based SQL parser for thy-squeal, supporting a MySQL-compatible dialect.
+Pest-based SQL parser for ThySqueal, supporting a MySQL-compatible dialect.
 
 ## Implementation Status
 
@@ -84,7 +84,7 @@ CREATE TABLE users (
 - `ROLLBACK`
 
 ### Prepared Statements
-thy-squeal supports server-side prepared statements for query reuse and performance:
+ThySqueal supports server-side prepared statements for query reuse and performance:
 
 - `PREPARE name FROM 'sql_query'`
 - `EXECUTE name [USING val1, val2, ...]`
@@ -99,7 +99,7 @@ DEALLOCATE PREPARE inst;
 ```
 
 ### Common Table Expressions (CTEs)
-thy-squeal supports non-recursive CTEs using the `WITH` clause:
+ThySqueal supports non-recursive CTEs using the `WITH` clause:
 
 - `WITH name AS (subquery) [, ...] SELECT ...`
 
@@ -114,7 +114,7 @@ SELECT * FROM regional_sales WHERE total > 1000;
 ```
 
 ### Parameterized Queries
-thy-squeal supports parameterized queries to prevent SQL injection and improve performance:
+ThySqueal supports parameterized queries to prevent SQL injection and improve performance:
 
 #### Positional Placeholders (`?`)
 ```sql
@@ -140,7 +140,7 @@ Content-Type: application/json
 ```
 
 ### System Metadata
-thy-squeal supports the standard `information_schema` for discovering database metadata.
+ThySqueal supports the standard `information_schema` for discovering database metadata.
 
 **Query Tables:**
 ```sql
@@ -159,7 +159,7 @@ SELECT index_name, is_unique FROM information_schema.indexes WHERE table_name = 
 
 ## Advanced Indexing
 
-thy-squeal supports several advanced indexing techniques:
+ThySqueal supports several advanced indexing techniques:
 
 ### 1. Composite Indexes
 Index multiple columns or expressions together.

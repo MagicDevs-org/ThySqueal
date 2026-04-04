@@ -14,8 +14,8 @@ Server -> Client: OKPacket (auth success)
 
 ### Connection URI
 ```bash
-thy-squeal-client thy-sql://localhost:3306
-thy-squeal-client 127.0.0.1:3306
+ThySqueal-client thy-sql://localhost:3306
+ThySqueal-client 127.0.0.1:3306
 ```
 
 ## Packet Format

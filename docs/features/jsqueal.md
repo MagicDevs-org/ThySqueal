@@ -1,6 +1,6 @@
 # JSqueal - JSON Query Language
 
-JSqueal is a structured JSON representation for SQL queries in **thy-squeal**. It maps directly to the **Squeal IR** (Internal Representation), bypassing the standard SQL parser (`sql.pest`).
+JSqueal is a structured JSON representation for SQL queries in **ThySqueal**. It maps directly to the **Squeal IR** (Internal Representation), bypassing the standard SQL parser (`sql.pest`).
 
 ## Architecture
 

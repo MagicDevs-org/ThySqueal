@@ -1,7 +1,7 @@
 # Authentication & Security
 
 ## Overview
-User authentication and transport security for thy-squeal server.
+User authentication and transport security for ThySqueal server.
 
 ## Configuration
 ```yaml
@@ -70,7 +70,7 @@ security:
 ### Connection URIs
 ```bash
 # SQL with TLS
-thy-squeal-client thy-sqls://localhost:3306
+ThySqueal-client thy-sqls://localhost:3306
 
 # HTTP with TLS
 curl https://localhost:9200/health

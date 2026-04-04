@@ -22,14 +22,14 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 ### Binary Distribution
 | Binary | Port | Purpose |
 |--------|------|---------|
-| `thy-squeal` | 3306 (SQL), 9200 (HTTP) | Server daemon |
-| `thy-squeal-client` | CLI | Interactive JS REPL + CLI tool |
+| `thysqueal-server` | 3306 (SQL), 9200 (HTTP) | Server daemon |
+| `thysqueal-cli` | CLI | Interactive JS REPL + CLI tool |
 
 ---
 
 ## 3. Functional Requirements
 
-### 3.1 SQL Server ( thy-squeal )
+### 3.1 SQL Server ( ThySqueal )
 
 #### 3.1.1 SQL Dialect
 - MySQL-compatible syntax (simplified subset)
@@ -80,7 +80,7 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 ## 7. File Structure
 
 ```
-thy-squeal/                          # Cargo workspace
+thy-squeal/                          # Workspace root (ThySqueal)
 ├── Cargo.toml                       # Workspace config
 ├── server/                          # Server crate
 │   ├── Cargo.toml

@@ -1,6 +1,6 @@
 # MVP Architecture Suggestions
 
-This document reflects the current architecture of **thy-squeal**, reaching beyond the initial MVP goals into a highly modular and robust SQL server.
+This document reflects the current architecture of **ThySqueal**, reaching beyond the initial MVP goals into a highly modular and robust SQL server.
 
 ---
 
