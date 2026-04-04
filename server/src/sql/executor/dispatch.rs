@@ -2,6 +2,7 @@ use super::super::error::{SqlError, SqlResult};
 use super::super::parser::parse;
 use crate::squeal::Squeal;
 
+use super::privilege::check_privilege;
 use super::{ExecutionContext, Executor, QueryResult, SelectQueryPlan, Session};
 use crate::storage::{Privilege, Value};
 use futures::future::{BoxFuture, FutureExt};
@@ -148,12 +149,7 @@ impl Executor {
             Squeal::CreateTable(ct) => {
                 {
                     let db = self.db.read().await;
-                    self.check_privilege(
-                        &ctx.session.username,
-                        None,
-                        Privilege::Create,
-                        db.state(),
-                    )?;
+                    check_privilege(&ctx.session.username, None, Privilege::Create, db.state())?;
                 }
                 self.exec_create_table(ct, ctx.session.transaction_id.as_deref())
                     .await
@@ -161,12 +157,7 @@ impl Executor {
             Squeal::CreateMaterializedView(mv) => {
                 {
                     let db = self.db.read().await;
-                    self.check_privilege(
-                        &ctx.session.username,
-                        None,
-                        Privilege::Create,
-                        db.state(),
-                    )?;
+                    check_privilege(&ctx.session.username, None, Privilege::Create, db.state())?;
                 }
                 self.exec_create_materialized_view(mv, ctx.session.transaction_id.as_deref())
                     .await
@@ -174,7 +165,7 @@ impl Executor {
             Squeal::AlterTable(at) => {
                 {
                     let db = self.db.read().await;
-                    self.check_privilege(
+                    check_privilege(
                         &ctx.session.username,
                         Some(&at.table),
                         Privilege::Create,
@@ -187,7 +178,7 @@ impl Executor {
             Squeal::DropTable(dt) => {
                 {
                     let db = self.db.read().await;
-                    self.check_privilege(
+                    check_privilege(
                         &ctx.session.username,
                         Some(&dt.name),
                         Privilege::Drop,
@@ -200,7 +191,7 @@ impl Executor {
             Squeal::CreateIndex(ci) => {
                 {
                     let db = self.db.read().await;
-                    self.check_privilege(
+                    check_privilege(
                         &ctx.session.username,
                         Some(&ci.table),
                         Privilege::Create,
@@ -219,7 +210,7 @@ impl Executor {
             Squeal::Insert(i) => {
                 {
                     let db = self.db.read().await;
-                    self.check_privilege(
+                    check_privilege(
                         &ctx.session.username,
                         Some(&i.table),
                         Privilege::Insert,
@@ -231,7 +222,7 @@ impl Executor {
             Squeal::Update(u) => {
                 {
                     let db = self.db.read().await;
-                    self.check_privilege(
+                    check_privilege(
                         &ctx.session.username,
                         Some(&u.table),
                         Privilege::Update,
@@ -243,7 +234,7 @@ impl Executor {
             Squeal::Delete(d) => {
                 {
                     let db = self.db.read().await;
-                    self.check_privilege(
+                    check_privilege(
                         &ctx.session.username,
                         Some(&d.table),
                         Privilege::Delete,
@@ -259,7 +250,7 @@ impl Executor {
     async fn dispatch_user(&self, stmt: Squeal, ctx: &ExecutionContext) -> SqlResult<QueryResult> {
         {
             let db = self.db.read().await;
-            self.check_privilege(&ctx.session.username, None, Privilege::Grant, db.state())?;
+            check_privilege(&ctx.session.username, None, Privilege::Grant, db.state())?;
         }
         match stmt {
             Squeal::CreateUser(cu) => {
@@ -292,7 +283,7 @@ impl Executor {
                         .get(id)
                         .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
                     if !table.is_empty() && !table.starts_with("information_schema.") {
-                        self.check_privilege(
+                        check_privilege(
                             &ctx.session.username,
                             Some(&table),
                             Privilege::Select,
@@ -307,7 +298,7 @@ impl Executor {
                 } else {
                     let db = self.db.read().await;
                     if !table.is_empty() && !table.starts_with("information_schema.") {
-                        self.check_privilege(
+                        check_privilege(
                             &ctx.session.username,
                             Some(&table),
                             Privilege::Select,
@@ -327,7 +318,7 @@ impl Executor {
                         .transactions
                         .get(id)
                         .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
-                    self.check_privilege(
+                    check_privilege(
                         &ctx.session.username,
                         Some(&s.table),
                         Privilege::Select,
@@ -336,7 +327,7 @@ impl Executor {
                     self.exec_search(s, &state, Some(id)).await
                 } else {
                     let db = self.db.read().await;
-                    self.check_privilege(
+                    check_privilege(
                         &ctx.session.username,
                         Some(&s.table),
                         Privilege::Select,

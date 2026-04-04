@@ -14,6 +14,7 @@ pub mod kv_string;
 pub mod kv_zset;
 pub mod materialized;
 pub mod plan;
+pub mod privilege;
 pub mod pubsub;
 pub mod result;
 pub mod search;
@@ -31,9 +32,9 @@ pub use pubsub::PubSubState;
 pub use result::QueryResult;
 pub use session::{ExecutionContext, Session};
 
-use super::error::{SqlError, SqlResult};
+use super::error::SqlResult;
 use crate::squeal::{Select, Squeal};
-use crate::storage::{Database, DatabaseState, Privilege, Row, Table, Value};
+use crate::storage::{Database, DatabaseState, Row, Table, Value};
 use dashmap::DashMap;
 use futures::future::BoxFuture;
 use std::sync::Arc;
@@ -82,44 +83,6 @@ impl Executor {
         session: Session,
     ) -> SqlResult<QueryResult> {
         self.exec_squeal(squeal, params, session).await
-    }
-
-    pub fn check_privilege(
-        &self,
-        username: &str,
-        table: Option<&str>,
-        privilege: Privilege,
-        db_state: &DatabaseState,
-    ) -> SqlResult<()> {
-        let user = db_state
-            .users
-            .get(username)
-            .ok_or_else(|| SqlError::Runtime(format!("User {} not found", username)))?;
-
-        // root always has All
-        if user.global_privileges.contains(&Privilege::All) {
-            return Ok(());
-        }
-
-        if let Some(t) = table
-            && let Some(privs) = user.table_privileges.get(t)
-            && (privs.contains(&Privilege::All) || privs.contains(&privilege))
-        {
-            return Ok(());
-        }
-
-        if user.global_privileges.contains(&privilege) {
-            return Ok(());
-        }
-
-        Err(SqlError::PermissionDenied(format!(
-            "User {} does not have {:?} privilege{}",
-            username,
-            privilege,
-            table
-                .map(|t| format!(" on table {}", t))
-                .unwrap_or_default()
-        )))
     }
 }
 
