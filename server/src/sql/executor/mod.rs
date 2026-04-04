@@ -4,15 +4,21 @@ pub mod dispatch;
 pub mod dml;
 pub mod dump;
 pub mod explain;
+pub mod plan;
 pub mod result;
 pub mod search;
 pub mod select;
 pub mod session;
+pub mod set;
 #[cfg(test)]
 mod tests;
 pub mod tx;
 pub mod user;
 pub mod window;
+
+pub use plan::SelectQueryPlan;
+pub use result::QueryResult;
+pub use session::{ExecutionContext, Session};
 
 use super::error::{SqlError, SqlResult};
 use crate::squeal;
@@ -23,97 +29,6 @@ use futures::future::BoxFuture;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-
-pub use result::QueryResult;
-
-/// A user session containing authentication and transaction state.
-#[derive(Clone, Debug)]
-pub struct Session {
-    pub username: String,
-    pub transaction_id: Option<String>,
-    pub variables: HashMap<String, Value>,
-}
-
-impl Session {
-    pub fn new(username: Option<String>, transaction_id: Option<String>) -> Self {
-        Self {
-            username: username.unwrap_or_else(|| "root".to_string()),
-            transaction_id,
-            variables: HashMap::new(),
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn with_variables(
-        username: Option<String>,
-        transaction_id: Option<String>,
-        variables: HashMap<String, Value>,
-    ) -> Self {
-        Self {
-            username: username.unwrap_or_else(|| "root".to_string()),
-            transaction_id,
-            variables,
-        }
-    }
-
-    pub fn root() -> Self {
-        Self::new(None, None)
-    }
-}
-
-/// Context for statement execution
-pub struct ExecutionContext {
-    pub params: Vec<Value>,
-    pub session: Session,
-}
-
-impl ExecutionContext {
-    pub fn new(params: Vec<Value>, session: Session) -> Self {
-        Self { params, session }
-    }
-}
-
-/// A builder-style plan for executing a SELECT query.
-/// Reduces argument count in internal executor functions.
-pub struct SelectQueryPlan<'a> {
-    pub stmt: Select,
-    pub outer_contexts: &'a [(&'a Table, Option<&'a str>, &'a Row)],
-    pub params: &'a [Value],
-    pub db_state: &'a DatabaseState,
-    pub session: Session,
-    pub cte_tables: Option<&'a HashMap<String, Table>>,
-}
-
-impl<'a> SelectQueryPlan<'a> {
-    pub fn new(stmt: Select, db_state: &'a DatabaseState, session: Session) -> Self {
-        Self {
-            stmt,
-            outer_contexts: &[],
-            params: &[],
-            db_state,
-            session,
-            cte_tables: None,
-        }
-    }
-
-    pub fn with_outer_contexts(
-        mut self,
-        contexts: &'a [(&'a Table, Option<&'a str>, &'a Row)],
-    ) -> Self {
-        self.outer_contexts = contexts;
-        self
-    }
-
-    pub fn with_params(mut self, params: &'a [Value]) -> Self {
-        self.params = params;
-        self
-    }
-
-    pub fn with_cte_tables(mut self, cte_tables: &'a HashMap<String, Table>) -> Self {
-        self.cte_tables = Some(cte_tables);
-        self
-    }
-}
 
 pub struct Executor {
     pub(crate) db: Arc<RwLock<Database>>,
