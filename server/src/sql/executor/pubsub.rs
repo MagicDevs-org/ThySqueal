@@ -1,6 +1,11 @@
 use super::Executor;
 use crate::sql::error::SqlResult;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+
+#[derive(Default)]
+pub struct PubSubState {
+    pub subscriptions: HashMap<String, HashSet<String>>, // client_id -> channels
+}
 
 impl Executor {
     pub async fn pubsub_subscribe(&self, client_id: String, channel: String) -> SqlResult<()> {

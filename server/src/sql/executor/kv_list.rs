@@ -1,4 +1,4 @@
-use super::Executor;
+use super::{Executor, helpers};
 use crate::sql::error::SqlResult;
 use crate::storage::Value;
 
@@ -42,7 +42,7 @@ impl Executor {
             let db = self.db.read().await;
             db.state().kv_list.get(key).cloned().unwrap_or_default()
         };
-        Ok(super::Executor::range_slice(&list, start, stop))
+        Ok(helpers::range_slice(&list, start, stop))
     }
 
     pub async fn kv_list_pop(

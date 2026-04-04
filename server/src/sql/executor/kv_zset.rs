@@ -1,4 +1,4 @@
-use super::Executor;
+use super::{Executor, helpers};
 use crate::sql::error::SqlResult;
 use crate::storage::Value;
 
@@ -38,7 +38,7 @@ impl Executor {
             let db = self.db.read().await;
             db.state().kv_zset.get(key).cloned().unwrap_or_default()
         };
-        Ok(super::Executor::zset_range(zset, start, stop, with_scores))
+        Ok(helpers::zset_range(zset, start, stop, with_scores))
     }
 
     pub async fn kv_zsetrangebyscore(
@@ -58,12 +58,7 @@ impl Executor {
             let db = self.db.read().await;
             db.state().kv_zset.get(key).cloned().unwrap_or_default()
         };
-        Ok(super::Executor::zset_filter_by_score(
-            zset,
-            min,
-            max,
-            with_scores,
-        ))
+        Ok(helpers::zset_filter_by_score(zset, min, max, with_scores))
     }
 
     pub async fn kv_zset_remove(
