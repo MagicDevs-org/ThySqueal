@@ -15,9 +15,10 @@ use crate::sql::Executor;
 use crate::storage::Database;
 use crate::storage::persistence::SledPersister;
 
+use futures::future;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::{sync::RwLock, task::JoinHandle};
 use tracing::{Level, error, info};
 use tracing_subscriber::FmtSubscriber;
 
@@ -27,9 +28,15 @@ async fn main() -> anyhow::Result<()> {
     let config = load_config()?;
     let db = load_db(config.clone());
     let executor = create_executor(config.clone(), db);
-    let _ = run_mysql(executor.clone(), config.clone()).await;
-    let _ = run_redis(executor.clone(), config.clone()).await;
-    let _ = run_http(executor.clone(), config.clone()).await;
+
+    let option_handles = vec![
+        handle_mysql(executor.clone(), config.clone()),
+        handle_redis(executor.clone(), config.clone()),
+        handle_http(executor.clone(), config.clone()),
+    ];
+
+    let handles: Vec<JoinHandle<()>> = option_handles.into_iter().flatten().collect();
+    let _ = future::join_all(handles).await;
 
     Ok(())
 }
@@ -71,52 +78,62 @@ fn create_executor(config: Arc<Config>, db: Arc<RwLock<Database>>) -> Arc<Execut
     Arc::new(Executor::new(db).with_data_dir(data_dir))
 }
 
-// HTTP Server Task
-async fn run_http(executor: Arc<Executor>, config: Arc<Config>) -> anyhow::Result<()> {
-    let http_addr: SocketAddr =
-        format!("{}:{}", config.server.host, config.server.http_port).parse()?;
-    let http_handle = tokio::spawn(async move {
-        let app = http::create_app(executor, config);
-        info!("HTTP server listening on http://{}", http_addr);
-        let listener = match tokio::net::TcpListener::bind(http_addr).await {
-            Ok(l) => l,
-            Err(e) => {
-                error!("Failed to bind HTTP listener: {}", e);
-                return;
-            }
-        };
-        if let Err(e) = axum::serve(listener, app).await {
-            error!("HTTP server error: {}", e);
+// HTTP Server handle
+fn handle_http(executor: Arc<Executor>, config: Arc<Config>) -> Option<JoinHandle<()>> {
+    match config.server.http_port {
+        None => None,
+        Some(port) => {
+            let addr = format!("{}:{}", config.server.host, port);
+            let http_addr: SocketAddr = addr.parse().expect("Invalid http address");
+            let handle = tokio::spawn(async move {
+                let app = http::create_app(executor, config);
+                info!("HTTP server listening on http://{}", http_addr);
+                let listener = match tokio::net::TcpListener::bind(http_addr).await {
+                    Ok(l) => l,
+                    Err(e) => {
+                        error!("Failed to bind HTTP listener: {}", e);
+                        return;
+                    }
+                };
+                if let Err(e) = axum::serve(listener, app).await {
+                    error!("HTTP server error: {}", e);
+                }
+            });
+            Some(handle)
         }
-    });
-    let _ = tokio::join!(http_handle);
-    Ok(())
-}
-
-// MySQL Protocol Task
-async fn run_mysql(executor: Arc<Executor>, config: Arc<Config>) -> anyhow::Result<()> {
-    let mysql_addr = format!("{}:{}", config.server.host, config.server.sql_port);
-    let mysql_handle = tokio::spawn(async move {
-        let protocol = MySqlProtocol::new(executor);
-        if let Err(e) = protocol.run(&mysql_addr).await {
-            error!("MySQL protocol error: {}", e);
-        }
-    });
-    let _ = tokio::join!(mysql_handle);
-    Ok(())
-}
-
-// Redis Protocol Task
-async fn run_redis(executor: Arc<Executor>, config: Arc<Config>) -> anyhow::Result<()> {
-    if let Some(redis_port) = config.server.redis_port {
-        let redis_addr = format!("{}:{}", config.server.host, redis_port);
-        let redis_handle = tokio::spawn(async move {
-            let protocol = RedisProtocol::new(executor);
-            if let Err(e) = protocol.run(&redis_addr).await {
-                error!("Redis protocol error: {}", e);
-            }
-        });
-        let _ = tokio::join!(redis_handle);
     }
-    Ok(())
+}
+
+// MySQL Protocol handle
+fn handle_mysql(executor: Arc<Executor>, config: Arc<Config>) -> Option<JoinHandle<()>> {
+    match config.server.sql_port {
+        None => None,
+        Some(port) => {
+            let mysql_addr = format!("{}:{}", config.server.host, port);
+            let handle = tokio::spawn(async move {
+                let protocol = MySqlProtocol::new(executor);
+                if let Err(e) = protocol.run(&mysql_addr).await {
+                    error!("MySQL protocol error: {}", e);
+                }
+            });
+            Some(handle)
+        }
+    }
+}
+
+// Redis Protocol handle
+fn handle_redis(executor: Arc<Executor>, config: Arc<Config>) -> Option<JoinHandle<()>> {
+    match config.server.redis_port {
+        None => None,
+        Some(redis_port) => {
+            let redis_addr = format!("{}:{}", config.server.host, redis_port);
+            let handle = tokio::spawn(async move {
+                let protocol = RedisProtocol::new(executor);
+                if let Err(e) = protocol.run(&redis_addr).await {
+                    error!("Redis protocol error: {}", e);
+                }
+            });
+            Some(handle)
+        }
+    }
 }

@@ -18,10 +18,8 @@ pub struct Config {
 pub struct ServerConfig {
     #[serde(default = "default_host")]
     pub host: String,
-    #[serde(default = "default_sql_port")]
-    pub sql_port: u16,
-    #[serde(default = "default_http_port")]
-    pub http_port: u16,
+    pub http_port: Option<u16>,
+    pub sql_port: Option<u16>,
     pub redis_port: Option<u16>,
 }
 
@@ -29,21 +27,23 @@ impl Default for ServerConfig {
     fn default() -> Self {
         Self {
             host: default_host(),
-            sql_port: default_sql_port(),
-            http_port: default_http_port(),
+            http_port: None,
+            sql_port: None,
             redis_port: None,
         }
     }
 }
 
 fn default_host() -> String {
-    "0.0.0.0".to_string()
+    "127.0.0.0".to_string()
 }
 
+#[allow(unused)]
 fn default_sql_port() -> u16 {
     3306
 }
 
+#[allow(unused)]
 fn default_http_port() -> u16 {
     9200
 }
