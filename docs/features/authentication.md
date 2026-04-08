@@ -1,9 +1,11 @@
 # Authentication & Security
 
 ## Overview
+
 User authentication and transport security for ThySqueal server.
 
 ## Configuration
+
 ```yaml
 security:
   auth_enabled: true
@@ -20,6 +22,7 @@ security:
 ## Authentication Methods
 
 ### Password (SQL)
+
 ```sql
 -- Authenticate user
 AUTH 'username' 'password';
@@ -33,6 +36,7 @@ GRANT ALL ON *.* TO 'admin';
 ```
 
 ### Token (HTTP)
+
 ```bash
 # Login
 POST /_auth/login
@@ -48,7 +52,7 @@ GET /mydb/users -H "Authorization: Bearer eyJ..."
 ## Roles & Privileges
 
 | Privilege | Description |
-|-----------|-------------|
+| --------- | ----------- |
 | SELECT | Read data |
 | INSERT | Insert rows |
 | UPDATE | Update rows |
@@ -60,6 +64,7 @@ GET /mydb/users -H "Authorization: Bearer eyJ..."
 ## TLS/SSL
 
 ### Server Certificate
+
 ```yaml
 security:
   tls_enabled: true
@@ -68,9 +73,10 @@ security:
 ```
 
 ### Connection URIs
+
 ```bash
 # SQL with TLS
-ThySqueal-client thy-sqls://localhost:3306
+thysqueal-cli thysqueal://localhost:3306
 
 # HTTP with TLS
 curl https://localhost:9200/health
@@ -79,18 +85,21 @@ curl https://localhost:9200/health
 ## SQL Injection Prevention
 
 ### Parameterized Queries (Recommended)
+
 ```javascript
 // Safe - parameters escaped automatically
 conn.query('SELECT * FROM users WHERE id = ?', [userId]);
 ```
 
 ### Raw Query (Avoid)
+
 ```javascript
 // DANGEROUS - SQL injection vulnerable
 conn.query(`SELECT * FROM users WHERE name = '${name}'`);
 ```
 
 ### Whitelist
+
 - Use stored procedures
 - Validate input types
 - Escape special characters

@@ -12,7 +12,7 @@ ThySqueal is a **hybrid in-memory database** designed for high-performance, deve
 | **Storage** | In-Mem (+ Sled) | Disk (B-Tree) | In-Mem (+ RDB) | Disk (B+Tree) | Disk (B-Tree) | Disk (Lucene) |
 | **Language** | Rust | C | C | C++ | C | Java |
 | **Full-Text Search** | Native (Tantivy) | FTS extension | RediSearch | Basic (MyISAM/Inno) | Advanced (GIN/GiST) | Native / Core |
-| **Protocols** | HTTP + MySQL + RESP| C API | RESP | MySQL Binary | Postgres Binary | HTTP JSON |
+| **Protocols** | HTTP + MySQL + RESP | C API | RESP | MySQL Binary | Postgres Binary | HTTP JSON |
 | **Joins** | Inner/Left | Full Support | No | Full Support | Full Support | Limited |
 | **ACID** | Supported (WAL) | Full Support | Limited | Full Support | Full Support | No |
 
@@ -67,33 +67,38 @@ While ThySqueal implements a significant subset of the MySQL dialect, it is opti
 | **Prepared Statements** | ✅ Supported | ✅ Supported | `PREPARE`, `EXECUTE`, `DEALLOCATE` commands. |
 | **User & RBAC** | ✅ Supported | ✅ Full Support | `GRANT`, `REVOKE`, and privilege-based access control. |
 | **Key-Value API** | ✅ RESP (Redis) | ❌ No | ThySqueal exposes a Redis-compatible port (6379). |
-| **JSON Query (JSqueal)**| ✅ Native | ❌ No | Programmatic JSON-to-IR interface bypassing the SQL parser. |
-| **Stored Procs / Triggers**| ❌ No | ✅ Supported | Logic is preferred in the application layer. |
+| **JSON Query (JSqueal)** | ✅ Native | ❌ No | Programmatic JSON-to-IR interface bypassing the SQL parser. |
+| **Stored Procs / Triggers** | ❌ No | ✅ Supported | Logic is preferred in the application layer. |
 
 ---
 
 ## Detailed Comparison: ThySqueal vs. MySQL
 
 ### 1. Storage Architecture
+
 - **MySQL**: Primarily uses InnoDB, which is a disk-oriented B+Tree engine. It relies heavily on a buffer pool to cache pages in memory.
 - **ThySqueal**: An in-memory first engine. Data resides in optimized Rust structures for maximum speed, with durability provided by a Write-Ahead Log (WAL) and periodic snapshots via Sled.
 
 ### 2. Full-Text Search
+
 - **MySQL**: Full-text search is available via `MATCH() AGAINST()` on InnoDB/MyISAM tables. It is functional but often lacks the performance and features of dedicated search engines.
 - **ThySqueal**: Integrates **Tantivy** (a Lucene-inspired Rust library) directly into the core. The `SEARCH` command provides professional-grade search capabilities (stemming, ranking, tokenization) alongside relational joins.
 
 ### 3. Protocol & Integration
+
 - **MySQL**: Uses the MySQL binary protocol. Requires specific drivers for every language.
 - **ThySqueal**: Triple-threat connectivity:
-    - **MySQL Protocol**: Use any existing MySQL client/ORM.
-    - **HTTP JSON API**: Perfect for serverless, web, and quick integrations without persistent connections.
-    - **RESP (Redis)**: High-speed key-value operations using standard Redis clients.
+  - **MySQL Protocol**: Use any existing MySQL client/ORM.
+  - **HTTP JSON API**: Perfect for serverless, web, and quick integrations without persistent connections.
+  - **RESP (Redis)**: High-speed key-value operations using standard Redis clients.
 
 ### 4. Schema Evolution
+
 - **MySQL**: `ALTER TABLE` operations in MySQL can be complex (Online DDL vs. Copy).
 - **ThySqueal**: `ALTER TABLE` is designed to be lightweight. Since data is in-memory, structural changes like adding or dropping columns are extremely fast.
 
 ### 5. Programming Interface
+
 - **MySQL**: SQL is the only primary interface.
 - **ThySqueal**: Introduces **JSqueal**, a JSON representation of the query IR. This allows developers to build complex queries programmatically without string concatenation or SQL injection risks, while still having the option of standard SQL.
 

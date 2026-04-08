@@ -3,12 +3,15 @@
 ## 1. Project Overview
 
 ### Project Name
+
 **ThySqueal** - A lightweight SQL server with HTTP JSON API and Redis-like capabilities
 
 ### Project Type
+
 Distributed in-memory database with SQL and HTTP interfaces
 
 ### Core Feature Summary
+
 A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JSON API), featuring full-text search, dynamic caching, and Redis-like key-value operations. Includes an interactive JavaScript REPL client.
 
 ---
@@ -16,12 +19,14 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 ## 2. Architecture Overview
 
 ### Query Lifecycle
+
 1. **SQL Workflow**: `SQL string` -> `AST (Pest)` -> `Squeal (IR)` -> `Executor`
 2. **JSqueal Workflow**: `JSON` -> `Squeal (IR)` -> `Executor`
 
 ### Binary Distribution
+
 | Binary | Port | Purpose |
-|--------|------|---------|
+| --- | --- | --- |
 | `thysqueal-server` | 3306 (SQL), 9200 (HTTP) | Server daemon |
 | `thysqueal-cli` | CLI | Interactive JS REPL + CLI tool |
 
@@ -32,6 +37,7 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 ### 3.1 SQL Server ( ThySqueal )
 
 #### 3.1.1 SQL Dialect
+
 - MySQL-compatible syntax (simplified subset)
 - Support for: SELECT, INSERT, UPDATE, DELETE, CREATE TABLE, DROP TABLE
 - Transactions: BEGIN, COMMIT, ROLLBACK
@@ -45,11 +51,13 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 - **Information Schema**: Metadata querying (tables, columns, statistics)
 
 #### 3.1.2 Squeal - Internal Query Representation
+
 - **Unified IR**: A strongly-typed internal representation that decouples the query logic from the surface syntax (SQL or JSON).
 - **Extensible**: Designed to easily add new query operations without modifying multiple parsers.
 - **Optimizable**: The IR can be transformed for query optimization before execution.
 
 #### 3.1.3 JSqueal - JSON Query Language
+
 - **JSON Interface**: A structured JSON representation for SQL queries, mapping directly to Squeal IR.
 - **Direct IR Mapping**: Maps JSON query structures directly to Squeal IR for execution.
 - **Protocol Agnostic**: Accessible via both HTTP JSON API (`POST /_jsqueal`) and standard MySQL protocol (if extended).
@@ -57,6 +65,7 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 - **Validation**: Strict JSON schema validation for query structures.
 
 #### 3.1.4 Performance & Reliability
+
 - **Indexes**: B-Tree, Hash, Composite, JSON Path, Functional, and Partial indexes
 - **Explain Plan**: Visualizing query execution strategy
 - **Transactions**: ACID compliance with Snapshot Isolation
@@ -66,11 +75,13 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 ### 3.2 Key-Value Store ( Redis-like )
 
 #### 3.2.1 Redis Protocol Compatibility
+
 - **RESP Support**: Implementation of Redis Serialization Protocol.
 - **Core Commands**: Support for standard commands (GET, SET, DEL, EXPIRE, TTL, etc.).
 - **Data Structures**: Support for Strings, Lists, Sets, Hashes, Sorted Sets, and **Streams (XADD, XREAD, etc.)**.
 
 #### 3.2.2 Unified Storage Engine
+
 - **Shared Persistence**: KV operations utilize the same WAL and snapshotting mechanism as the SQL engine.
 - **SQL Interoperability**: Virtual tables to expose KV namespaces as SQL-queryable datasets.
 - **Atomicity**: Atomic operations across both SQL and KV domains.
@@ -79,8 +90,8 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 
 ## 7. File Structure
 
-```
-thy-squeal/                          # Workspace root (ThySqueal)
+```code
+.                                    # Workspace root (ThySqueal)
 ├── Cargo.toml                       # Workspace config
 ├── server/                          # Server crate
 │   ├── Cargo.toml
@@ -109,6 +120,7 @@ thy-squeal/                          # Workspace root (ThySqueal)
 ```
 
 ### Current Status (as of v0.6)
+
 - [x] Workspace setup
 - [x] Server binary with Axum HTTP, MySQL TCP (3306), and RESP (6379)
 - [x] Client binary with REPL
@@ -130,6 +142,7 @@ thy-squeal/                          # Workspace root (ThySqueal)
 ## 8. Phases
 
 ### Phase 1: Foundation (v0.1) - ✅ COMPLETE
+
 - [x] Set up workspace with Cargo workspace
 - [x] Server binary with Axum HTTP (port 9200)
 - [x] Client binary with REPL
@@ -139,6 +152,7 @@ thy-squeal/                          # Workspace root (ThySqueal)
 - [x] Persistence (Sled snapshots)
 
 ### Phase 2: HTTP API (v0.2) - ✅ COMPLETE
+
 - [x] HTTP JSON API (basic Axum server running)
 - [x] `POST /_query` endpoint
 - [x] `GET /`, `GET /health`
@@ -147,6 +161,7 @@ thy-squeal/                          # Workspace root (ThySqueal)
 - [x] CRUD endpoints for tables (REST)
 
 ### Phase 3: Advanced SQL (v0.3) - ✅ COMPLETE
+
 - [x] Wire Pest parser into executor
 - [x] WHERE clause filtering
 - [x] UPDATE, DELETE support
@@ -157,6 +172,7 @@ thy-squeal/                          # Workspace root (ThySqueal)
 - [x] Advanced Indexing (Hash, Composite, JSON, Functional, Partial)
 
 ### Phase 4: ACID & Protocol (v0.4) - ✅ COMPLETE
+
 - [x] **Transactions**: BEGIN, COMMIT, ROLLBACK
 - [x] **Write-Ahead Logging (WAL)**: Durability beyond snapshots
 - [x] **Information Schema**: Metadata discoverability
@@ -165,6 +181,7 @@ thy-squeal/                          # Workspace root (ThySqueal)
 - [x] **MySQL Protocol Compatibility**: Native TCP support (Port 3306)
 
 ### Phase 5: Compatibility & Ecosystem (v0.5) - ✅ COMPLETE
+
 - [x] Parameterized Queries (Prepared statements)
 - [x] Client CLI (Clap)
 - [x] REPL with history and HTTP execution
@@ -178,6 +195,7 @@ thy-squeal/                          # Workspace root (ThySqueal)
 - [x] **User Authentication & RBAC**: Secure access control
 
 ### Phase 6: Key-Value Storage (v0.6) - ✅ COMPLETE
+
 - [x] **Redis Protocol Compatibility**: Support for RESP protocol on port 6379
 - [x] **Core Commands**: GET, SET, DEL, EXISTS, EXPIRE, TTL, KEYS
 - [x] **Data Structures**: Lists, Sets, Hashes, Sorted Sets, **Streams (XADD, XREAD, etc.)**
@@ -186,6 +204,7 @@ thy-squeal/                          # Workspace root (ThySqueal)
 - [x] **SQL Integration**: Querying Key-Value data via SQL virtual tables
 
 ### Phase 7: MySQL Compatibility Improvements (v0.7) - 🏗 IN PROGRESS
+
 - [ ] **System Variables**: Support for common global and session variables
 - [ ] **Extended Protocol Support**: Multi-result sets and binary protocol enhancements
 - [ ] **Error Code Alignment**: Mapping to MySQL-specific `errno`
@@ -193,6 +212,7 @@ thy-squeal/                          # Workspace root (ThySqueal)
 - [ ] **Session Management**: Support for user-defined variables (`SET @var`)
 
 ### Phase 8: Advanced SQL Capabilities (v0.8) - 🏗 IN PROGRESS
+
 - [ ] **Recursive CTEs**: Support for `WITH RECURSIVE`
 - [ ] **Window Functions**: Support for `RANK`, `DENSE_RANK`, `ROW_NUMBER`, etc.
 - [ ] **Set Operations**: `UNION`, `INTERSECT`, `EXCEPT`
@@ -200,6 +220,7 @@ thy-squeal/                          # Workspace root (ThySqueal)
 - [ ] **Extended CTEs**: Support for multiple CTEs in a single `WITH` clause
 
 ### Phase 9: Production & Distributed (v1.0) - 🏗 IN PROGRESS
+
 - [ ] **JavaScript Query Interface**: QuickJS integration
 - [ ] **Distributed Mode**: multi-node replication (Raft)
 - [ ] **Telemetry**: Prometheus/OpenTelemetry metrics

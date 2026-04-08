@@ -1,5 +1,5 @@
 #!/bin/bash
-# Pre-commit hook for thy-squeal
+# Pre-commit hook for ThySqueal
 # This hook runs code quality checks before each commit
 #
 # Usage:

@@ -22,7 +22,7 @@ A lightweight, MySQL-compatible SQL server with dual-protocol support (SQL over 
 
 ```bash
 # Start the server (default HTTP port 9200)
-cargo run -p thy-squeal
+cargo run -p thysqueal-server
 ```
 
 ### JSqueal Example (JSON Query)
@@ -49,13 +49,13 @@ curl -X POST http://localhost:9200/_jsqueal -H "Content-Type: application/json" 
 
 ```bash
 # Start the interactive REPL
-cargo run -p thy-squeal-client
+cargo run -p thysqueal-cli
 
 # Export database to a file
-cargo run -p thy-squeal-client -- --export backup.sql
+cargo run -p thysqueal-cli -- --export backup.sql
 
 # Import database from a file
-cargo run -p thy-squeal-client -- --import backup.sql
+cargo run -p thysqueal-cli -- --import backup.sql
 ```
 
 ### Example Queries

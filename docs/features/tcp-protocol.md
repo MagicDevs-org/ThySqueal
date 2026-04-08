@@ -1,27 +1,31 @@
 # TCP SQL Protocol
 
 ## Overview
+
 MySQL-compatible TCP wire protocol for SQL connections.
 
 ## Connection
 
 ### Handshake
-```
+
+```code
 Client -> Server: HandshakeResponse41
 Server -> Client: OKPacket (auth success)
              or ErrorPacket (auth failed)
 ```
 
 ### Connection URI
+
 ```bash
-ThySqueal-client thy-sql://localhost:3306
-ThySqueal-client 127.0.0.1:3306
+thysqueal-cli thysqueal://localhost:3306
+thysqueal-cli 127.0.0.1:3306
 ```
 
 ## Packet Format
 
 ### Header (4 bytes)
-```
+
+```code
 [0-1] Length (little-endian)
 [2]   Packet number
 [3]   Reserved
@@ -30,7 +34,8 @@ ThySqueal-client 127.0.0.1:3306
 ### Packet Types
 
 #### OK Packet
-```
+
+```code
 [0]   0x00 (OK)
 [1-4] Affected rows
 [5-8] Insert ID
@@ -40,7 +45,8 @@ ThySqueal-client 127.0.0.1:3306
 ```
 
 #### Error Packet
-```
+
+```code
 [0]   0xFF (ERROR)
 [1-2] Error code
 [1]   SQL state marker ('#')
@@ -49,7 +55,8 @@ ThySqueal-client 127.0.0.1:3306
 ```
 
 #### Result Set
-```
+
+```code
 [4]   Column count (little-endian)
 ...   Column definitions
 [0xFF] Row data marker
@@ -59,19 +66,22 @@ ThySqueal-client 127.0.0.1:3306
 ## Commands
 
 ### COM_QUERY
-```
+
+```code
 [0]   0x03
 [n]   Query string
 ```
 
 ### COM_STMT_PREPARE
-```
+
+```code
 [0]   0x16
 [n]   SQL statement
 ```
 
 ### COM_STMT_EXECUTE
-```
+
+```code
 [0]   0x17
 [1-4] Statement ID
 [1]   Flags
@@ -80,14 +90,15 @@ ThySqueal-client 127.0.0.1:3306
 ```
 
 ### COM_PING
-```
+
+```code
 [0]   0x0E
 ```
 
 ## Message Types
 
 | Code | Name | Description |
-|------|------|-------------|
+| ---- | ---- | ----------- |
 | 0x00 | OK | Success |
 | 0xFF | ERR | Error |
 | 0xFB | LOCAL_INFILE | Local infile |
@@ -97,14 +108,14 @@ ThySqueal-client 127.0.0.1:3306
 ## Status Flags
 
 | Flag | Value | Description |
-|------|-------|-------------|
+| ---- | ----- | ----------- |
 | SERVER_STATUS_IN_TRANS | 0x0001 | In transaction |
 | SERVER_STATUS_AUTOCOMMIT | 0x0002 | Auto-commit mode |
 | SERVER_MORE_RESULTS_EXISTS | 0x0008 | More results |
 
 ## Example Session
 
-```
+```code
 Client: [0x16] "SELECT * FROM users WHERE id = ?"
 Server: [0x01] [0x01] columns: 3
         [table] "users"
@@ -122,6 +133,7 @@ Server: [0xFE]
 ## Implementation
 
 ### Rust Types
+
 ```rust
 enum Packet {
     Handshake,
@@ -136,6 +148,7 @@ enum Packet {
 ```
 
 ### Async Processing
+
 - Use `tokio` for async I/O
 - Per-connection state machine
 - Connection pooling for efficiency

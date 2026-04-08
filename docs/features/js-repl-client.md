@@ -1,50 +1,55 @@
 # JavaScript REPL Client
 
 ## Overview
+
 Interactive CLI client with embedded JavaScript runtime for scripting.
 
 ## Binary
-`ThySqueal-client` - CLI tool with JS REPL
+
+`thysqueal-cli` - CLI tool with JS REPL
 
 ## Installation
+
 ```bash
-cargo install ThySqueal-client
+cargo install thysqueal-cli
 ```
 
 ## Usage
 
 ```bash
 # Interactive REPL
-ThySqueal-client
+thysqueal-cli
 
 # Execute SQL
-ThySqueal-client -h localhost -p 3306 -e "SELECT * FROM users"
+thysqueal-cli -h localhost -p 3306 -e "SELECT * FROM users"
 
 # HTTP mode
-ThySqueal-client --http localhost:9200 -e "SELECT * FROM users"
+thysqueal-cli --http localhost:9200 -e "SELECT * FROM users"
 
 # Run script
-ThySqueal-client script.js
+thysqueal-cli script.js
 
 # Import/Export
-ThySqueal-client --import data.json
-ThySqueal-client --export data.json
+thysqueal-cli --import data.json
+thysqueal-cli --export data.json
 ```
 
 ## JavaScript API
 
 ### Connection
+
 ```javascript
 const thy = require('ThySqueal');
 
 // TCP SQL connection
-const conn = thy.connect('thy-sql://localhost:3306');
+const conn = thy.connect('thysqueal://localhost:3306');
 
 // HTTP connection
-const conn = thy.connect('thy-http://localhost:9200');
+const conn = thy.connect('http://localhost:9200');
 ```
 
 ### Query
+
 ```javascript
 // Simple query
 const result = conn.query('SELECT * FROM users');
@@ -62,6 +67,7 @@ console.log(`Deleted ${result.affected} rows`);
 ```
 
 ### Key-Value
+
 ```javascript
 // Set value
 thy.kv.set('session:123', { user: 'alice', exp: 3600 });
@@ -77,6 +83,7 @@ thy.kv.incr('counter');
 ```
 
 ### Full-Text Search
+
 ```javascript
 const hits = conn.search('users', 'developer', {
   fields: ['name', 'bio'],
@@ -89,6 +96,7 @@ for (const hit of hits) {
 ```
 
 ### Transaction (Future)
+
 ```javascript
 const tx = conn.begin();
 try {
@@ -103,7 +111,8 @@ try {
 ## REPL Features
 
 ### Commands
-```
+
+```code
 .help           Show help
 .load script.js Load and execute JS file
 .quit           Exit
@@ -112,14 +121,16 @@ try {
 ```
 
 ### Keyboard Shortcuts
+
 - `Ctrl+C` - Cancel current input
 - `Ctrl+D` - Exit REPL
 - `Up/Down` - History navigation
 - `Tab` - Autocomplete
 
 ### Configuration
+
 ```yaml
-# ~/.ThySqueal/config.yaml
+# ~/.thysqueal-cli/config.yaml
 connection:
   default_host: "localhost"
   default_port: 9200
@@ -131,6 +142,7 @@ repl:
 ```
 
 ## Script Example
+
 ```javascript
 // batch.js - Import users from JSON file
 const fs = require('fs');

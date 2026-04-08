@@ -1,12 +1,13 @@
 # HTTP JSON API
 
 ## Overview
+
 REST API for ThySqueal, Elasticsearch-style endpoints for data access.
 
 ## Implementation Status
 
 | Endpoint | Status |
-|----------|--------|
+| -------- | ------ |
 | GET `/` | ✅ Implemented |
 | GET `/health` | ✅ Implemented |
 | POST `/_query` | ✅ Implemented |
@@ -17,6 +18,7 @@ REST API for ThySqueal, Elasticsearch-style endpoints for data access.
 | Search, KV | ❌ Not implemented |
 
 ## Server Configuration
+
 ```yaml
 server:
   host: "0.0.0.0"
@@ -29,31 +31,36 @@ logging:
 ## Endpoints
 
 ### Server
+
 | Method | Path | Description |
-|--------|------|-------------|
+| ------ | ---- | ----------- |
 | GET | `/` | Server info (version, uptime) |
 | GET | `/health` | Health check |
 
 ### Statistics
+
 | Method | Path | Description |
-|--------|------|-------------|
+| ------ | ---- | ----------- |
 | GET | `/_stats` | Storage & cache statistics |
 
 ### Query
+
 | Method | Path | Description |
-|--------|------|-------------|
+| ------ | ---- | ----------- |
 | POST | `/_query` | Execute SQL query |
 | GET | `/_dump` | Export full database as SQL script |
 | POST | `/_restore` | Import database from SQL script |
 
 ### Database
+
 | Method | Path | Description |
-|--------|------|-------------|
+| ------ | ---- | ----------- |
 | GET | `/<db>` | List tables in database |
 
 ### Table CRUD
+
 | Method | Path | Description |
-|--------|------|-------------|
+| ------ | ---- | ----------- |
 | GET | `/<db>/<table>` | List rows (paginated) |
 | GET | `/<db>/<table>/<id>` | Get row by ID |
 | POST | `/<db>/<table>` | Insert row |
@@ -61,13 +68,15 @@ logging:
 | DELETE | `/<db>/<table>/<id>` | Delete row |
 
 ### Search
+
 | Method | Path | Description |
-|--------|------|-------------|
+| ------ | ---- | ----------- |
 | POST | `/<db>/<table>/_search` | Full-text search |
 
 ### Key-Value
+
 | Method | Path | Description |
-|--------|------|-------------|
+| ------ | ---- | ----------- |
 | GET | `/kv` | List keys (query param: `pattern`) |
 | GET | `/kv/<key>` | Get value |
 | PUT | `/kv/<key>` | Set value |
@@ -76,6 +85,7 @@ logging:
 ## Request/Response Examples
 
 ### Execute SQL
+
 ```bash
 POST /_query
 Content-Type: application/json
@@ -86,6 +96,7 @@ Content-Type: application/json
 ```
 
 ### Execute Parameterized SQL
+
 ```bash
 POST /_query
 Content-Type: application/json
@@ -97,6 +108,7 @@ Content-Type: application/json
 ```
 
 ### Response
+
 ```json
 {
   "success": true,
@@ -110,6 +122,7 @@ Content-Type: application/json
 ```
 
 ### Error Response
+
 ```json
 {
   "success": false,
@@ -125,6 +138,7 @@ Content-Type: application/json
 ```
 
 ### Search
+
 ```bash
 POST /mydb/users/_search
 Content-Type: application/json
@@ -139,6 +153,7 @@ Content-Type: application/json
 ```
 
 ### Search Response
+
 ```json
 {
   "hits": {

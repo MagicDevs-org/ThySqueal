@@ -3,10 +3,12 @@
 ## Project Overview
 
 ThySqueal is a SQL server with HTTP JSON API, built with Rust. It's a Cargo workspace with:
+
 - `server/` - Server binary with Axum HTTP server; in-memory storage; SQL execution (Pest-based parsing)
 - `client/` - CLI client with REPL; `--http -e "SQL"` for one-off queries
 
 ### Current Implementation Notes
+
 - **SQL Parsing**: Uses Pest grammar (`server/src/sql/sql.pest`). Maps SQL strings to **Squeal IR**.
 - **JSqueal**: Programmatic JSON-based query interface that maps directly to **Squeal IR**, bypassing the parser.
 - **Squeal IR**: Unified Internal Representation for all queries, decoupling the surface syntax from execution logic.
@@ -19,7 +21,7 @@ ThySqueal is a SQL server with HTTP JSON API, built with Rust. It's a Cargo work
 
 ## Project Structure (Server)
 
-```
+```code
 server/src/
 ├── main.rs          # Entry point
 ├── http.rs          # Axum HTTP handlers (SQL & JSqueal)
@@ -40,22 +42,24 @@ server/src/
 ## Build, Test, and Development Commands
 
 ### Workspace Commands
+
 ```bash
 # Build all binaries
 cargo build
 
 # Build specific binary
-cargo build -p thy-squeal          # Server (thysqueal-server)
-cargo build -p thy-squeal-client   # Client (thysqueal-cli)
+cargo build -p thysqueal-server   # Server
+cargo build -p thysqueal-cli      # Client
 
 # Run server (HTTP on port 9200)
-cargo run -p thy-squeal
+cargo run -p thysqueal-server
 
 # Run client
-cargo run -p thy-squeal-client
+cargo run -p thysqueal-cli
 ```
 
 ### Testing
+
 ```bash
 # Run all tests (29+ integration and unit tests)
 cargo test
@@ -65,6 +69,7 @@ cargo test -- --nocapture
 ```
 
 ### Linting and Formatting
+
 ```bash
 # Run clippy for linting (Workspace is kept -D warnings clean)
 cargo clippy -- -D warnings

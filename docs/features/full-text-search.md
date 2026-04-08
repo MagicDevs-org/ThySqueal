@@ -1,6 +1,7 @@
 # Full-Text Search
 
 ## Overview
+
 Tantivy-powered full-text search engine with MySQL-compatible syntax.
 
 ## Index Creation
@@ -13,12 +14,14 @@ CREATE FULLTEXT INDEX idx_content ON posts(title, content);
 ## Search Syntax
 
 ### Basic Search
+
 ```sql
 SELECT * FROM users WHERE MATCH(name, bio) AGAINST('developer');
 SELECT * FROM posts WHERE MATCH(content) AGAINST('rust programming');
 ```
 
 ### Boolean Mode
+
 ```sql
 -- Must contain 'rust'
 SELECT * FROM posts WHERE MATCH(content) AGAINST('+rust' IN BOOLEAN MODE);
@@ -37,6 +40,7 @@ SELECT * FROM posts WHERE MATCH(content) AGAINST('prog*' IN BOOLEAN MODE);
 ```
 
 ### Natural Language Mode (Default)
+
 ```sql
 SELECT * FROM posts WHERE MATCH(content) AGAINST('rust database');
 -- Orders by relevance by default

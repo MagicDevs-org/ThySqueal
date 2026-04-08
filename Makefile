@@ -1,10 +1,10 @@
 .PHONY: help build build-release run run-server run-client test lint fmt clean deps
 
 help:
-	@echo "thy-squeal Makefile"
+	@echo "ThySqueal Makefile"
 	@echo ""
 	@echo "Available commands:"
-	@echo "  make build          - Build all binaries (debug)"
+	@echo "  make build         - Build all binaries (debug)"
 	@echo "  make build-release - Build all binaries (release)"
 	@echo "  make run-server    - Run the server"
 	@echo "  make run-client    - Run the client"
@@ -23,10 +23,10 @@ build-release:
 	cargo build --release
 
 run-server:
-	cargo run -p thy-squeal
+	cargo run -p thysqueal-server
 
 run-client:
-	cargo run -p thy-squeal-client
+	cargo run -p thysqueal-cli
 
 test:
 	cargo test
@@ -61,12 +61,12 @@ doc:
 # Run server in background
 server-bg:
 	@echo "Starting server in background..."
-	@cargo run -p thy-squeal &
+	@cargo run -p thysqueal-server &
 
 # Kill server process
 server-stop:
-	@pkill -f "thy-squeal" || true
+	@pkill -f "thysqueal-server" || true
 
 # Quick rebuild and run
 rebuild:
-	cargo build -p thy-squeal && cargo run -p thy-squeal
+	cargo build -p thysqueal-server && cargo run -p thysqueal-server

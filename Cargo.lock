@@ -2578,7 +2578,25 @@ dependencies = [
 ]
 
 [[package]]
-name = "thy-squeal"
+name = "thysqueal-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "reqwest",
+ "rustyline",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "shellexpand",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "thysqueal-server"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -2609,24 +2627,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
-]
-
-[[package]]
-name = "thy-squeal-client"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "reqwest",
- "rustyline",
- "serde",
- "serde_json",
- "serde_yaml",
- "shellexpand",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]

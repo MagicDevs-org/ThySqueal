@@ -1,6 +1,7 @@
 # ThySqueal Implementation TODO
 
 ## Phase 1: Foundation (v0.1) - ✅ COMPLETE
+
 - [x] Project workspace setup (Cargo)
 - [x] Basic in-memory storage (Database, Table, Row, Value)
 - [x] Axum HTTP server with `/` and `/health`
@@ -9,6 +10,7 @@
 - [x] Client CLI with REPL
 
 ## Phase 2: HTTP & Persistence (v0.2) - ✅ COMPLETE
+
 - [x] Move to Pest-based parser for robust SQL
 - [x] Map SQL errors to HTTP responses
 - [x] Implement JSON API `POST /_query`
@@ -16,6 +18,7 @@
 - [x] Periodic and DML-triggered background saving
 
 ## Phase 3: Advanced SQL (v0.3) - ✅ COMPLETE
+
 - [x] Implement WHERE clause with complex logic
 - [x] Implement ORDER BY and LIMIT/OFFSET
 - [x] Implement DISTINCT
@@ -34,6 +37,7 @@
 - [x] Unique Constraints / Indexes
 
 ## Phase 4: ACID & Protocol (v0.4) - ✅ COMPLETE
+
 - [x] Transactions (BEGIN, COMMIT, ROLLBACK)
 - [x] Write-Ahead Logging (WAL) for durability
 - [x] Information Schema (tables, columns metadata)
@@ -42,6 +46,7 @@
 - [x] Parameterized Queries (Prepared Statements)
 
 ## Code Quality & Refactoring - ✅ COMPLETE
+
 - [x] Decompose `eval.rs` (Expression vs Condition logic)
 - [x] Decompose `executor/aggregate.rs` (Grouping vs Functions)
 - [x] Decompose `parser/expr.rs` (Literals vs Logic)
@@ -51,6 +56,7 @@
 - [x] Modularize test suite (`tests/` and `executor/tests/` directories)
 
 ## Phase 5: Compatibility & Ecosystem (v0.5) - ✅ COMPLETE
+
 - [x] **ALTER TABLE**: Support for `ADD COLUMN`, `DROP COLUMN`, `RENAME COLUMN`, `RENAME TABLE`
 - [x] **Advanced Schema Evolution**: Type changes and constraint modifications
 - [x] **Constraints**: Proper `PRIMARY KEY` and `FOREIGN KEY` (Referential Integrity)
@@ -64,6 +70,7 @@
 - [x] User Authentication & RBAC
 
 ## Phase 6: Key-Value Storage (v0.6) - ✅ COMPLETE
+
 - [x] **Redis Protocol Compatibility**: Support for RESP protocol on port 6379
 - [x] **Core Commands**: GET, SET, DEL, EXISTS, EXPIRE, TTL, KEYS
 - [x] **Data Structures**: Hash (HSET/HGET/HDEL/HGETALL), Lists (LPUSH/RPUSH/LRANGE/LPOP/RPOP/LLEN), Sets (SADD/SREM/SMEMBERS/SISMEMBER), Sorted Sets (ZADD/ZRANGE/ZRANGEBYSCORE/ZREM)
@@ -73,6 +80,7 @@
 - [x] **SQL Integration**: Querying Key-Value data via SQL virtual tables
 
 ## Phase 7: MySQL Compatibility Improvements (v0.7) - ✅ COMPLETE
+
 - [x] **System Variables**: Support for `@@version`, `@@max_allowed_packet`, etc.
 - [x] **Extended Protocol**: Support for `COM_FIELD_LIST`, `COM_STATISTICS`, and better multi-result handling
 - [x] **MySQL Error Codes**: Map `SqlError` to exact MySQL numeric error codes
@@ -80,6 +88,7 @@
 - [x] **Session Variables**: Support for `SET @var = val` and `SELECT @var`
 
 ## Phase 8: Advanced SQL Capabilities (v0.8) - ✅ COMPLETE
+
 - [x] **Window Functions**: `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()`, `LAG()`, `LEAD()`, `FIRST_VALUE()`, `LAST_VALUE()`, `NTILE()`, `PARTITION BY`
 - [x] **Set Operations**: `UNION`, `UNION ALL`, `INTERSECT`, `EXCEPT`
 - [x] **Recursive CTEs**: Support for `WITH RECURSIVE` for hierarchical data
@@ -87,12 +96,15 @@
 - [x] **Common Table Expressions (CTEs) Expansion**: Support for multiple CTEs in a single query
 
 ## MySQL Protocol v2 (v0.8.x) - 🏗 IN PROGRESS
+
 ### High Priority
+
 - [ ] **Real password authentication**: Implement `mysql_native_password` instead of accepting any credentials
 - [ ] **Fix SQL injection**: `COM_FIELD_LIST` directly interpolates table name - use parameterized queries
 - [ ] **Fix COM_INIT_DB**: Session should use selected database context
 
 ### Medium Priority
+
 - [ ] **Proper column type mapping**: Map Squeal `Value` types to MySQL wire protocol types (INT, BIGINT, DECIMAL, etc.)
 - [ ] **COM_STMT_EXECUTE**: Implement binary protocol parameter binding for prepared statements
 - [ ] **Missing commands**: `USE db`, `SHOW TABLES`, `SHOW DATABASES`, `COM_CREATE_DB`, `COM_DROP_DB`
@@ -100,10 +112,12 @@
 - [ ] **Real metrics**: `SHOW STATUS` with actual `Uptime`, `Threads_connected`, `Questions` values
 
 ### Low Priority
+
 - [ ] **Character set handling**: Proper UTF-8 encoding/decoding based on connection charset
 - [ ] **Server version consistency**: Match `@@version` with server greeting string
 
 ## Phase 9: Production & Distributed (v1.0) - 🏗 IN PROGRESS
+
 - [ ] **Distributed Mode**: Multi-node replication via Raft consensus
 - [ ] **Telemetry**: Prometheus metrics and OpenTelemetry tracing
 - [ ] **Encryption**: TLS support for HTTP and MySQL TCP protocols
@@ -111,6 +125,7 @@
 - [ ] JavaScript Query Interface (QuickJS)
 
 ## High-Impact Refactorings - ✅ COMPLETE
+
 - [x] **Squeal IR**: Introduce an internal query representation layer to decouple parser from executor.
 - [x] **Command Pattern Dispatcher**: Split `exec_stmt` into specialized `StatementExecutor` structs.
 - [x] **Session Management**: Introduce a `Session` struct to encapsulate user, transaction, and settings state.

@@ -8,6 +8,7 @@ JSqueal is a structured JSON representation for SQL queries in **ThySqueal**. It
 2. **JSqueal Workflow**: `JSON` -> `Squeal IR` -> `Executor`
 
 This decoupling allows for:
+
 - **Programmatic Query Construction**: Easier to build complex queries in code without string manipulation.
 - **Improved Security**: Reduces the risk of SQL injection as the query structure is pre-defined.
 - **Protocol Flexibility**: Can be easily exposed via HTTP or other non-SQL protocols.
@@ -46,6 +47,7 @@ JSqueal is accessible via the `POST /_jsqueal` endpoint.
 All core SQL operations are supported via JSqueal:
 
 ### 1. SELECT
+
 ```json
 {
   "Select": {
@@ -61,6 +63,7 @@ All core SQL operations are supported via JSqueal:
 ```
 
 ### 2. INSERT
+
 ```json
 {
   "Insert": {
@@ -75,6 +78,7 @@ All core SQL operations are supported via JSqueal:
 ```
 
 ### 3. UPDATE
+
 ```json
 {
   "Update": {
@@ -94,6 +98,7 @@ All core SQL operations are supported via JSqueal:
 ```
 
 ### 4. DELETE
+
 ```json
 {
   "Delete": {

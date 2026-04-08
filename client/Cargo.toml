@@ -1,5 +1,5 @@
 [package]
-name = "thy-squeal-client"
+name = "thysqueal-cli"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

@@ -1,7 +1,9 @@
 # ThySqueal Changelog
 
 ## [v0.6.1] - 2026-03-15
+
 ### Added
+
 - **Redis Protocol Compatibility**: RESP protocol support on port 6379 with comprehensive command implementation.
 - **Core KV Commands**: GET, SET, DEL, EXISTS, EXPIRE, TTL, KEYS
 - **Hash Commands**: HSET, HGET, HDEL, HGETALL
@@ -14,18 +16,23 @@
 - **Enhanced Persistence**: Snapshot-based persistence including all KV data structures (hash, list, set, zset, stream) alongside WAL replay
 
 ## [v0.6.0] - 2026-03-12
+
 ### Added
+
 - **Squeal IR (Internal Representation)**: Introduced a unified, strongly-typed internal query representation. This layer decouples the surface syntax (SQL or JSON) from the execution engine, providing a more robust foundation for optimization and cross-protocol support.
 - **JSqueal (JSON Query Language)**: Added a structured JSON-based query interface accessible via `POST /_jsqueal`. This allows for programmatic query construction and bypassing the SQL parsing stage.
 - **Bidirectional IR Conversions**: Full support for converting between SQL AST and Squeal IR, ensuring consistency across all query paths.
 
 ### Refactored
+
 - **Storage Decoupling**: Deep refactoring of the storage engine (`Database`, `Table`, `WalRecord`, `TableIndex`) to natively use Squeal IR instead of the SQL AST. This eliminates circular dependencies and allows the storage layer to operate independently of the parser.
 - **Unified Schema Types**: Unified `ForeignKey` and `Column` definitions into `crate::storage`, simplifying type management across the AST, IR, and persistence layers.
 - **HTTP Handler Modernization**: Updated the Axum-based HTTP server to support the new unified execution pipeline.
 
 ## [v0.5.0] - 2026-03-10
+
 ### Added
+
 - **Authentication & RBAC**: Implementation of `CREATE USER`, `DROP USER`, `GRANT`, and `REVOKE`. Secure password hashing via `bcrypt`. Fine-grained permission enforcement for all SQL operations.
 - **Cost-Based Index Selection**: Optimizer now uses real-time index statistics (selectivity) to decide between Index Lookup and Full Table Scan.
 - **Materialized Views**: Support for `CREATE MATERIALIZED VIEW` with automatic background data refresh on underlying table mutations (`INSERT`, `UPDATE`, `DELETE`).
@@ -37,6 +44,7 @@
 - **ALTER TABLE**: Robust support for schema evolution including `ADD COLUMN`, `DROP COLUMN`, `RENAME COLUMN`, `RENAME TO` (table renaming), as well as advanced operations like `MODIFY COLUMN` (type changes), `SET/DROP DEFAULT`, and `SET/DROP NOT NULL`.
 
 ### Refactored
+
 - **Architectural Modularization**: Deep decomposition of the codebase for better maintainability:
     - `sql/ast/`: Split into specialized modules for expressions, conditions, and statements.
     - `sql/parser/`: Modularized into `ddl/`, `dml/`, and `select/` subdirectories.
@@ -47,7 +55,9 @@
 - **Improved Robustness**: Refactored SQL join and alias parsing to be more resilient to optional keywords and complex syntax.
 
 ## [v0.4.0] - 2026-03-10
+
 ### Added
+
 - **MySQL Protocol Compatibility**: Native TCP support on port 3306. Allows standard MySQL clients (CLI, DBeaver, etc.) to connect.
 - **Prepared Statements**: Full support for `PREPARE`, `EXECUTE`, and `DEALLOCATE` commands.
 - **Parameterized Queries**: Support for `?` and `$1`, `$2` style placeholders in SELECT, INSERT, UPDATE, and DELETE.
@@ -58,7 +68,9 @@
 - **Transactions**: Full support for ACID transactions with `BEGIN`, `COMMIT`, and `ROLLBACK`.
 
 ## [v0.3.0] - 2026-03-07
+
 ### Added
+
 - **Advanced Indexing**:
     - B-Tree and Hash indexes.
     - Composite indexes (multi-column).
@@ -78,6 +90,7 @@
 - **Query Observability**: `EXPLAIN` command for query plan visualization.
 
 ### Refactored
+
 - Significant codebase modularization:
     - Decoupled Expression evaluation from Condition logic.
     - Separated Grouping from Aggregate functions.
@@ -85,14 +98,18 @@
     - Moved storage mutation logic into dedicated modules.
 
 ## [v0.2.0] - 2026-03-07
+
 ### Added
+
 - **Pest Parser**: Migration to a robust Pest-based grammar for SQL parsing.
 - **HTTP JSON API**: Implementation of `POST /_query` endpoint using Axum.
 - **Persistence**: Hybrid in-memory storage with Sled-based background snapshotting.
 - **Error Mapping**: Structured mapping of SQL and Storage errors to HTTP responses.
 
 ## [v0.1.0] - 2026-03-06
+
 ### Added
+
 - **Core Engine**: Initial in-memory storage implementation (Database, Table, Row, Value).
 - **Basic SQL**: Simple string-based parser for `CREATE`, `INSERT`, and `SELECT`.
 - **CLI Client**: Interactive REPL for database management.
