@@ -5,7 +5,7 @@ use super::types::DataType;
 use super::value::Value;
 use super::wal;
 use crate::engines::mysql::error::SqlResult;
-use crate::engines_mysql::eval::Evaluator;
+use crate::squeal::eval::Evaluator;
 use crate::squeal::ir::{Expression, Select};
 use crate::storage::error::StorageError;
 use serde::{Deserialize, Serialize};
@@ -288,17 +288,15 @@ impl Database {
 
             // Dummy evaluator for index creation on empty table
             struct DummyEvaluator;
-            impl crate::engines_mysql::eval::Evaluator for DummyEvaluator {
+            impl crate::squeal::eval::Evaluator for DummyEvaluator {
                 fn exec_select_internal<'a>(
                     &'a self,
                     _: Select,
                     _: &'a [(&'a Table, Option<&'a str>, &'a Row)],
                     _: &'a [Value],
                     _: &'a DatabaseState,
-                ) -> futures::future::BoxFuture<
-                    'a,
-                    SqlResult<crate::engines_mysql::executor::QueryResult>,
-                > {
+                ) -> futures::future::BoxFuture<'a, SqlResult<crate::squeal::exec::QueryResult>>
+                {
                     unreachable!()
                 }
             }

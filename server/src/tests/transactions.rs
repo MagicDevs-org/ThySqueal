@@ -1,7 +1,7 @@
 use super::common::setup;
 use crate::config::Config;
-use crate::engines_mysql::Executor;
 use crate::http::create_app;
+use crate::squeal::exec::Executor;
 use crate::storage::Database;
 
 use axum::{body::Body, http::Request};

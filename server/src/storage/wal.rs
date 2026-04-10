@@ -1,4 +1,4 @@
-use crate::engines_mysql::eval::{Evaluator, RecoveryEvaluator};
+use crate::squeal::eval::{Evaluator, RecoveryEvaluator};
 use crate::storage::{DatabaseState, StorageError, Table, WalRecord};
 use std::collections::HashMap;
 

@@ -4,7 +4,7 @@ pub mod resp;
 mod tests;
 
 use self::connection::handle_connection;
-use crate::engines_mysql::executor::Executor;
+use crate::squeal::exec::Executor;
 use anyhow::Result;
 use std::sync::Arc;
 use tokio::net::TcpListener;

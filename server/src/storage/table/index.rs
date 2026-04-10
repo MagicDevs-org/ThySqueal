@@ -2,7 +2,7 @@ use super::super::index::TableIndex;
 use super::super::row::Row;
 use super::super::value::Value;
 use super::Table;
-use crate::engines_mysql::eval::{EvalContext, Evaluator, evaluate_condition_joined};
+use crate::squeal::eval::{EvalContext, Evaluator, evaluate_condition_joined};
 use crate::squeal::ir::{Condition, Expression};
 use crate::storage::DatabaseState;
 use crate::storage::error::StorageError;
@@ -97,14 +97,13 @@ impl Table {
         let eval_ctx = EvalContext::new(&context_list, &[], &[], db_state);
 
         for expr in expressions {
-            let val =
-                crate::engines_mysql::eval::evaluate_expression_joined(evaluator, expr, &eval_ctx)
-                    .map_err(|e| {
-                        StorageError::PersistenceError(format!(
-                            "Index expression evaluation error: {:?}",
-                            e
-                        ))
-                    })?;
+            let val = crate::squeal::eval::evaluate_expression_joined(evaluator, expr, &eval_ctx)
+                .map_err(|e| {
+                StorageError::PersistenceError(format!(
+                    "Index expression evaluation error: {:?}",
+                    e
+                ))
+            })?;
             key.push(val);
         }
         Ok(key)

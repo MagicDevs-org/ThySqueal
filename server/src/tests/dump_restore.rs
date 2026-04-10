@@ -1,6 +1,5 @@
 use super::common::setup;
-use crate::engines_mysql::Executor;
-use crate::engines_mysql::executor::Session;
+use crate::squeal::exec::{Executor, Session};
 use crate::storage::{Database, Value};
 use std::sync::Arc;
 use tokio::sync::RwLock;

@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::engines_mysql::executor::{Executor, QueryResult, Session};
+use crate::squeal::exec::{Executor, QueryResult, Session};
 use crate::squeal::ir::Squeal;
 use crate::storage::Value;
 use axum::{

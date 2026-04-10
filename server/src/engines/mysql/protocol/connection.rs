@@ -1,6 +1,6 @@
 use super::packet::*;
 use crate::engines::mysql::error::SqlError;
-use crate::engines_mysql::executor::{Executor, QueryResult, Session};
+use crate::squeal::exec::{Executor, QueryResult, Session};
 use crate::storage::Value;
 use anyhow::Result;
 use byteorder::{LittleEndian, WriteBytesExt};
