@@ -1,4 +1,4 @@
-use crate::sql::eval::{Evaluator, RecoveryEvaluator};
+use crate::engines_mysql::eval::{Evaluator, RecoveryEvaluator};
 use crate::storage::{DatabaseState, StorageError, Table, WalRecord};
 use std::collections::HashMap;
 
@@ -80,7 +80,7 @@ pub fn apply_record(
             state.materialized_views.insert(name, *query);
         }
         WalRecord::AlterTable { table, action, .. } => {
-            use crate::squeal::AlterAction;
+            use crate::squeal::ir::AlterAction;
             if let Some(t) = state.get_table_mut(&table) {
                 match action {
                     AlterAction::AddColumn(col) => t.add_column(col)?,

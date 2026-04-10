@@ -6,12 +6,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use super::error::StorageError;
 use super::index::TableIndex;
 use super::row::{Column, ForeignKey, Row};
 use super::search::SearchIndex;
 use super::types::DataType;
 use super::value::Value;
+use crate::storage::error::StorageError;
 
 /// Schema definitions for a table (metadata, columns, constraints)
 #[derive(Serialize, Deserialize, Clone, Debug)]

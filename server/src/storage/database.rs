@@ -1,12 +1,13 @@
-use super::error::StorageError;
 use super::persistence::{Persister, SnapshotData, WalRecord};
 use super::row::{Column, ForeignKey, Row};
 use super::table::Table;
 use super::types::DataType;
 use super::value::Value;
 use super::wal;
-use crate::sql::eval::Evaluator;
-use crate::squeal::{Expression, Select};
+use crate::engines::mysql::error::SqlResult;
+use crate::engines_mysql::eval::Evaluator;
+use crate::squeal::ir::{Expression, Select};
+use crate::storage::error::StorageError;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
@@ -287,7 +288,7 @@ impl Database {
 
             // Dummy evaluator for index creation on empty table
             struct DummyEvaluator;
-            impl crate::sql::eval::Evaluator for DummyEvaluator {
+            impl crate::engines_mysql::eval::Evaluator for DummyEvaluator {
                 fn exec_select_internal<'a>(
                     &'a self,
                     _: Select,
@@ -296,7 +297,7 @@ impl Database {
                     _: &'a DatabaseState,
                 ) -> futures::future::BoxFuture<
                     'a,
-                    crate::sql::error::SqlResult<crate::sql::executor::QueryResult>,
+                    SqlResult<crate::engines_mysql::executor::QueryResult>,
                 > {
                     unreachable!()
                 }

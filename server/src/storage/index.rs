@@ -26,7 +26,7 @@ impl TableIndex {
         }
     }
 
-    pub fn expressions(&self) -> Vec<crate::squeal::Expression> {
+    pub fn expressions(&self) -> Vec<crate::squeal::ir::Expression> {
         let exprs = match self {
             TableIndex::BTree { expressions, .. } => expressions,
             TableIndex::Hash { expressions, .. } => expressions,
@@ -37,7 +37,7 @@ impl TableIndex {
             .collect()
     }
 
-    pub fn where_clause(&self) -> Option<crate::squeal::Condition> {
+    pub fn where_clause(&self) -> Option<crate::squeal::ir::Condition> {
         let cond = match self {
             TableIndex::BTree { where_clause, .. } => where_clause,
             TableIndex::Hash { where_clause, .. } => where_clause,
@@ -71,13 +71,13 @@ impl TableIndex {
         &mut self,
         key: Vec<Value>,
         row_id: String,
-    ) -> Result<(), super::error::StorageError> {
+    ) -> Result<(), crate::storage::error::StorageError> {
         let unique = self.is_unique();
         match self {
             TableIndex::BTree { data, .. } => {
                 let entry = data.entry(key.clone()).or_default();
                 if unique && !entry.is_empty() && !entry.contains(&row_id) {
-                    return Err(super::error::StorageError::DuplicateKey(format!(
+                    return Err(crate::storage::error::StorageError::DuplicateKey(format!(
                         "{:?}",
                         key
                     )));
@@ -89,7 +89,7 @@ impl TableIndex {
             TableIndex::Hash { data, .. } => {
                 let entry = data.entry(key.clone()).or_default();
                 if unique && !entry.is_empty() && !entry.contains(&row_id) {
-                    return Err(super::error::StorageError::DuplicateKey(format!(
+                    return Err(crate::storage::error::StorageError::DuplicateKey(format!(
                         "{:?}",
                         key
                     )));

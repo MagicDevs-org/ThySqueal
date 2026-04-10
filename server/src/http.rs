@@ -1,6 +1,6 @@
 use crate::config::Config;
-use crate::sql::executor::{Executor, QueryResult, Session};
-use crate::squeal::Squeal;
+use crate::engines_mysql::executor::{Executor, QueryResult, Session};
+use crate::squeal::ir::Squeal;
 use crate::storage::Value;
 use axum::{
     Json, Router,

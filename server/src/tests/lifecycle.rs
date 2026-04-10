@@ -1,8 +1,8 @@
 use super::common::setup;
 use crate::config::{Config, LoggingConfig, SecurityConfig, ServerConfig, StorageConfig};
+use crate::engines_mysql::Executor;
+use crate::engines_mysql::executor::Session;
 use crate::http::create_app;
-use crate::sql::Executor;
-use crate::sql::executor::Session;
 use crate::storage::Database;
 use crate::storage::persistence::SledPersister;
 

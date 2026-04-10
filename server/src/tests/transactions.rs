@@ -1,7 +1,9 @@
 use super::common::setup;
 use crate::config::Config;
+use crate::engines_mysql::Executor;
+use crate::http::create_app;
 use crate::storage::Database;
-use crate::{http::create_app, sql::Executor};
+
 use axum::{body::Body, http::Request};
 use serde_json::{Value, json};
 use std::sync::Arc;

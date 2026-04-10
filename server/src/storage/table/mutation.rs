@@ -1,11 +1,11 @@
-use crate::sql::eval::{EvalContext, Evaluator, evaluate_condition_joined};
+use crate::engines_mysql::eval::{EvalContext, Evaluator, evaluate_condition_joined};
 use crate::storage::DatabaseState;
 use uuid::Uuid;
 
-use super::super::error::StorageError;
 use super::super::row::Row;
 use super::super::value::Value;
 use super::Table;
+use crate::storage::error::StorageError;
 
 impl Table {
     pub fn insert(

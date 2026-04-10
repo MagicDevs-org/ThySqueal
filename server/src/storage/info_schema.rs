@@ -147,7 +147,7 @@ fn statistics_table(db_state: &DatabaseState) -> Table {
             let total_rows = index.total_rows();
             for (i, expr) in index.expressions().iter().enumerate() {
                 let col_name: String = match expr {
-                    crate::squeal::Expression::Column(c) => c.clone(),
+                    crate::squeal::ir::Expression::Column(c) => c.clone(),
                     _ => format!("expr_{}", i),
                 };
                 table.data.rows.push(Row {
