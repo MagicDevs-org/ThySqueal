@@ -1,4 +1,4 @@
-use crate::redis::resp::RespValue;
+use crate::engines::redis::resp::RespValue;
 use crate::sql::executor::Executor;
 use anyhow::{Result, anyhow};
 use std::sync::Arc;
@@ -19,14 +19,14 @@ fn extract_bulk_string(v: &RespValue) -> Result<String> {
     }
 }
 
-fn extract_value(v: &RespValue) -> Result<crate::storage::Value> {
+fn extract_float(v: &RespValue) -> Result<f64> {
     match v {
-        RespValue::BulkString(Some(b)) => Ok(crate::storage::Value::Text(
-            String::from_utf8_lossy(b).to_string(),
-        )),
-        RespValue::SimpleString(s) => Ok(crate::storage::Value::Text(s.clone())),
-        RespValue::Integer(i) => Ok(crate::storage::Value::Int(*i)),
-        _ => Err(anyhow!("invalid value type")),
+        RespValue::BulkString(Some(b)) => String::from_utf8_lossy(b)
+            .parse()
+            .map_err(|e| anyhow!("{}", e)),
+        RespValue::SimpleString(s) => s.parse().map_err(|e| anyhow!("{}", e)),
+        RespValue::Integer(i) => Ok(*i as f64),
+        _ => Err(anyhow!("expected number")),
     }
 }
 
@@ -41,20 +41,22 @@ fn extract_integer(v: &RespValue) -> Result<i64> {
     }
 }
 
-pub async fn push(
+pub async fn add(
     socket: &mut TcpStream,
     cmd_array: &[RespValue],
     executor: &Arc<Executor>,
-    cmd_name: &str,
 ) -> Result<()> {
-    require_args(cmd_array, 3, "lpush/rpush")?;
+    require_args(cmd_array, 4, "zadd")?;
     let key = extract_bulk_string(&cmd_array[1])?;
-    let values: Vec<crate::storage::Value> = cmd_array[2..]
-        .iter()
-        .map(|v| extract_value(v).unwrap_or(crate::storage::Value::Null))
-        .collect();
-    let left = cmd_name == "LPUSH";
-    let count = executor.kv_list_push(key, values, left, None).await?;
+    let mut members = vec![];
+    let mut i = 2;
+    while i + 1 < cmd_array.len() {
+        let score = extract_float(&cmd_array[i])?;
+        let member = extract_bulk_string(&cmd_array[i + 1])?;
+        members.push((score, member));
+        i += 2;
+    }
+    let count = executor.kv_zset_add(key, members, None).await?;
     RespValue::Integer(count as i64).write(socket).await
 }
 
@@ -63,11 +65,15 @@ pub async fn range(
     cmd_array: &[RespValue],
     executor: &Arc<Executor>,
 ) -> Result<()> {
-    require_args(cmd_array, 4, "lrange")?;
+    require_args(cmd_array, 4, "zrange")?;
     let key = extract_bulk_string(&cmd_array[1])?;
-    let start = extract_integer(&cmd_array[2])? as i64;
-    let stop = extract_integer(&cmd_array[3])? as i64;
-    let values = executor.kv_list_range(&key, start, stop, None).await?;
+    let start = extract_integer(&cmd_array[2])?;
+    let stop = extract_integer(&cmd_array[3])?;
+    let with_scores = cmd_array.len() > 4
+        && matches!(&cmd_array[4], RespValue::BulkString(Some(b)) if b == b"WITHSCORES");
+    let values = executor
+        .kv_zset_range(&key, start, stop, with_scores, None)
+        .await?;
     let result: Vec<RespValue> = values
         .into_iter()
         .map(|v| RespValue::BulkString(Some(format!("{:?}", v).into_bytes())))
@@ -75,21 +81,20 @@ pub async fn range(
     RespValue::Array(Some(result)).write(socket).await
 }
 
-pub async fn pop(
+pub async fn rangebyscore(
     socket: &mut TcpStream,
     cmd_array: &[RespValue],
     executor: &Arc<Executor>,
-    cmd_name: &str,
 ) -> Result<()> {
-    require_args(cmd_array, 2, "lpop/rpop")?;
+    require_args(cmd_array, 4, "zrangebyscore")?;
     let key = extract_bulk_string(&cmd_array[1])?;
-    let count = if cmd_array.len() > 2 {
-        extract_integer(&cmd_array[2])? as usize
-    } else {
-        1
-    };
-    let left = cmd_name == "LPOP";
-    let values = executor.kv_list_pop(key, count, left, None).await?;
+    let min = extract_float(&cmd_array[2])?;
+    let max = extract_float(&cmd_array[3])?;
+    let with_scores = cmd_array.len() > 4
+        && matches!(&cmd_array[4], RespValue::BulkString(Some(b)) if b == b"WITHSCORES");
+    let values = executor
+        .kv_zsetrangebyscore(&key, min, max, with_scores, None)
+        .await?;
     let result: Vec<RespValue> = values
         .into_iter()
         .map(|v| RespValue::BulkString(Some(format!("{:?}", v).into_bytes())))
@@ -97,13 +102,17 @@ pub async fn pop(
     RespValue::Array(Some(result)).write(socket).await
 }
 
-pub async fn len(
+pub async fn remove(
     socket: &mut TcpStream,
     cmd_array: &[RespValue],
     executor: &Arc<Executor>,
 ) -> Result<()> {
-    require_args(cmd_array, 2, "llen")?;
+    require_args(cmd_array, 3, "zrem")?;
     let key = extract_bulk_string(&cmd_array[1])?;
-    let len = executor.kv_list_len(&key, None).await?;
-    RespValue::Integer(len as i64).write(socket).await
+    let members: Vec<String> = cmd_array[2..]
+        .iter()
+        .filter_map(|v| extract_bulk_string(v).ok())
+        .collect();
+    let count = executor.kv_zset_remove(key, members, None).await?;
+    RespValue::Integer(count as i64).write(socket).await
 }

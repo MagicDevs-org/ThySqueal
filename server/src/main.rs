@@ -1,7 +1,7 @@
 mod config;
+mod engines;
 mod http;
 mod mysql;
-mod redis;
 mod sql;
 mod squeal;
 mod storage;
@@ -9,8 +9,8 @@ mod storage;
 mod tests;
 
 use crate::config::Config;
+use crate::engines::redis::RedisProtocol;
 use crate::mysql::MySqlProtocol;
-use crate::redis::RedisProtocol;
 use crate::sql::Executor;
 use crate::storage::Database;
 use crate::storage::persistence::SledPersister;
