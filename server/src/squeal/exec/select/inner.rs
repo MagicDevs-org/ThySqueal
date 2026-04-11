@@ -3,9 +3,9 @@ pub mod cte;
 pub mod join;
 pub mod project;
 
-use crate::engines::mysql::error::SqlResult;
 use crate::squeal;
 use crate::squeal::eval::{EvalContext, evaluate_condition_joined, evaluate_expression_joined};
+use crate::squeal::exec::ExecResult;
 use crate::squeal::exec::window::WindowFunctionEvaluator;
 use crate::squeal::exec::{Executor, QueryResult, SelectQueryPlan};
 use crate::squeal::ir::{Expression, OrderByItem, SetOperationClause, SetOperator};
@@ -20,7 +20,7 @@ impl Executor {
     pub fn exec_select_recursive<'a>(
         &'a self,
         plan: SelectQueryPlan<'a>,
-    ) -> BoxFuture<'a, SqlResult<QueryResult>> {
+    ) -> BoxFuture<'a, ExecResult<QueryResult>> {
         async move {
             let stmt = &plan.stmt;
             let outer_contexts = plan.outer_contexts;
@@ -269,7 +269,7 @@ impl Executor {
         session: crate::squeal::exec::Session,
         _params: &[crate::storage::Value],
         _outer_contexts: &[(&crate::storage::Table, Option<&str>, &crate::storage::Row)],
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let mut result = initial_result;
 
         for set_op in set_ops {
@@ -293,7 +293,7 @@ impl Executor {
         a: &QueryResult,
         b: &QueryResult,
         distinct: bool,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let mut rows = a.rows.clone();
         rows.extend(b.rows.clone());
 
@@ -311,7 +311,7 @@ impl Executor {
         })
     }
 
-    fn set_intersect(&self, a: &QueryResult, b: &QueryResult) -> SqlResult<QueryResult> {
+    fn set_intersect(&self, a: &QueryResult, b: &QueryResult) -> ExecResult<QueryResult> {
         let b_rows: std::collections::HashSet<_> = b.rows.iter().collect();
         let rows: Vec<_> = a
             .rows
@@ -329,7 +329,7 @@ impl Executor {
         })
     }
 
-    fn set_except(&self, a: &QueryResult, b: &QueryResult) -> SqlResult<QueryResult> {
+    fn set_except(&self, a: &QueryResult, b: &QueryResult) -> ExecResult<QueryResult> {
         let b_rows: std::collections::HashSet<_> = b.rows.iter().collect();
         let rows: Vec<_> = a
             .rows
@@ -355,7 +355,7 @@ impl Executor {
         outer_contexts: &[(&Table, Option<&str>, &Row)],
         db_state: &crate::storage::DatabaseState,
         session: &crate::squeal::exec::Session,
-    ) -> SqlResult<()> {
+    ) -> ExecResult<()> {
         let mut err = None;
         rows.sort_by(|a, b| {
             let eval_ctx_list_a: Vec<(&Table, Option<&str>, &Row)> =

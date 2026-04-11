@@ -3,10 +3,12 @@ mod engines;
 mod http;
 mod squeal;
 mod storage;
+
 #[cfg(test)]
 mod tests;
 
 use crate::config::Config;
+use crate::engines::available::available_engines;
 use crate::engines::mysql::protocol::MySqlProtocol;
 use crate::engines::redis::RedisProtocol;
 use crate::squeal::exec::Executor;
@@ -23,6 +25,10 @@ use tracing_subscriber::FmtSubscriber;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     prepare_tracing();
+
+    let available = available_engines();
+    info!("Available engines: {:?}", available);
+
     let config = load_config()?;
     let db = load_db(config.clone());
     let executor = create_executor(config.clone(), db);

@@ -1,8 +1,8 @@
-use crate::engines::mysql::error::{SqlError, SqlResult};
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::ir::BinaryOp;
 use crate::storage::Value;
 
-pub fn evaluate_binary_op(l: Value, op: &BinaryOp, r: Value) -> SqlResult<Value> {
+pub fn evaluate_binary_op(l: Value, op: &BinaryOp, r: Value) -> ExecResult<Value> {
     match (l, r) {
         (Value::Int(a), Value::Int(b)) => match op {
             BinaryOp::Add => Ok(Value::Int(a + b)),
@@ -10,7 +10,7 @@ pub fn evaluate_binary_op(l: Value, op: &BinaryOp, r: Value) -> SqlResult<Value>
             BinaryOp::Mul => Ok(Value::Int(a * b)),
             BinaryOp::Div => {
                 if b == 0 {
-                    return Err(SqlError::Runtime("Division by zero".to_string()));
+                    return Err(ExecError::Runtime("Division by zero".to_string()));
                 }
                 Ok(Value::Int(a / b))
             }
@@ -39,7 +39,7 @@ pub fn evaluate_binary_op(l: Value, op: &BinaryOp, r: Value) -> SqlResult<Value>
                 BinaryOp::Div => Ok(Value::Float(a / b)),
             }
         }
-        _ => Err(SqlError::TypeMismatch(
+        _ => Err(ExecError::TypeMismatch(
             "Unsupported types for binary operation".to_string(),
         )),
     }

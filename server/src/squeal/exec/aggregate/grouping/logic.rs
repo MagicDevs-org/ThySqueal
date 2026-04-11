@@ -1,6 +1,6 @@
-use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::squeal::eval::{EvalContext, evaluate_expression_joined};
 use crate::squeal::exec::select::JoinedContext;
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::exec::{Executor, QueryResult, SelectQueryPlan};
 use crate::squeal::ir::Expression;
 use crate::storage::{Row, Table, Value};
@@ -12,7 +12,7 @@ impl Executor {
         plan: SelectQueryPlan<'_>,
         matched_rows: Vec<JoinedContext<'_>>,
         cte_tables: &HashMap<String, Table>,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let stmt = &plan.stmt;
         let outer_contexts = plan.outer_contexts;
         let params = plan.params;
@@ -22,13 +22,13 @@ impl Executor {
         let base_table = if let Some(t) = cte_tables.get(&stmt.table) {
             t
         } else if stmt.table.starts_with("information_schema.") {
-            return Err(SqlError::Runtime(
+            return Err(ExecError::Runtime(
                 "GROUP BY with information_schema is not yet supported".to_string(),
             ));
         } else {
             db_state
                 .get_table(&stmt.table)
-                .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?
+                .ok_or_else(|| ExecError::TableNotFound(stmt.table.clone()))?
         };
 
         let mut result_rows: Vec<Vec<Value>> = Vec::new();

@@ -1,6 +1,6 @@
 use super::{ExecutionContext, Executor, QueryResult};
-use crate::engines::mysql::error::SqlResult;
 use crate::squeal::eval::{EvalContext, evaluate_expression_joined};
+use crate::squeal::exec::ExecResult;
 use crate::squeal::ir::Set;
 
 impl Executor {
@@ -8,7 +8,7 @@ impl Executor {
         &self,
         stmt: Set,
         ctx: &ExecutionContext,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let mut session = ctx.session.clone();
 
         for (var_expr, val_expr) in &stmt.assignments {

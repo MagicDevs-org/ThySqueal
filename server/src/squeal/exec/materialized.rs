@@ -1,9 +1,9 @@
-use crate::engines::mysql::error::SqlResult;
+use crate::squeal::exec::ExecResult;
 use crate::squeal::exec::{Executor, SelectQueryPlan, Session};
 use crate::storage::{DatabaseState, Row};
 
 impl Executor {
-    pub fn refresh_materialized_views(&self, state: &mut DatabaseState) -> SqlResult<()> {
+    pub fn refresh_materialized_views(&self, state: &mut DatabaseState) -> ExecResult<()> {
         let views = state.materialized_views.clone();
         for (name, query) in views {
             let plan = SelectQueryPlan::new(query, state, Session::root());

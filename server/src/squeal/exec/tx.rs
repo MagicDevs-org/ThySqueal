@@ -1,17 +1,17 @@
 use super::{Executor, QueryResult};
-use crate::engines::mysql::error::{SqlError, SqlResult};
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::storage::{DatabaseState, WalRecord};
 
 impl Executor {
-    pub(crate) async fn mutate_state<F, R>(&self, tx_id: Option<&str>, f: F) -> SqlResult<R>
+    pub(crate) async fn mutate_state<F, R>(&self, tx_id: Option<&str>, f: F) -> ExecResult<R>
     where
-        F: FnOnce(&mut DatabaseState) -> SqlResult<R>,
+        F: FnOnce(&mut DatabaseState) -> ExecResult<R>,
     {
         if let Some(id) = tx_id {
             let mut state_ref = self
                 .transactions
                 .get_mut(id)
-                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+                .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?;
             f(state_ref.value_mut())
         } else {
             let mut db = self.db.write().await;
@@ -22,7 +22,7 @@ impl Executor {
         }
     }
 
-    pub(crate) async fn exec_begin(&self) -> SqlResult<QueryResult> {
+    pub(crate) async fn exec_begin(&self) -> ExecResult<QueryResult> {
         let db = self.db.read().await;
         let tx_id = uuid::Uuid::new_v4().to_string();
 
@@ -43,12 +43,12 @@ impl Executor {
         })
     }
 
-    pub(crate) async fn exec_commit(&self, tx_id: Option<&str>) -> SqlResult<QueryResult> {
-        let tx_id = tx_id.ok_or_else(|| SqlError::Runtime("No active transaction".to_string()))?;
+    pub(crate) async fn exec_commit(&self, tx_id: Option<&str>) -> ExecResult<QueryResult> {
+        let tx_id = tx_id.ok_or_else(|| ExecError::Runtime("No active transaction".to_string()))?;
         let state = self
             .transactions
             .remove(tx_id)
-            .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?
+            .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?
             .1;
 
         let mut db = self.db.write().await;
@@ -69,8 +69,8 @@ impl Executor {
         })
     }
 
-    pub(crate) async fn exec_rollback(&self, tx_id: Option<&str>) -> SqlResult<QueryResult> {
-        let tx_id = tx_id.ok_or_else(|| SqlError::Runtime("No active transaction".to_string()))?;
+    pub(crate) async fn exec_rollback(&self, tx_id: Option<&str>) -> ExecResult<QueryResult> {
+        let tx_id = tx_id.ok_or_else(|| ExecError::Runtime("No active transaction".to_string()))?;
         self.transactions.remove(tx_id);
 
         let db = self.db.read().await;

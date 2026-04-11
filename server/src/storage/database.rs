@@ -4,8 +4,8 @@ use super::table::Table;
 use super::types::DataType;
 use super::value::Value;
 use super::wal;
-use crate::engines::mysql::error::SqlResult;
 use crate::squeal::eval::Evaluator;
+use crate::squeal::exec::ExecResult;
 use crate::squeal::ir::{Expression, Select};
 use crate::storage::error::StorageError;
 use serde::{Deserialize, Serialize};
@@ -295,7 +295,7 @@ impl Database {
                     _: &'a [(&'a Table, Option<&'a str>, &'a Row)],
                     _: &'a [Value],
                     _: &'a DatabaseState,
-                ) -> futures::future::BoxFuture<'a, SqlResult<crate::squeal::exec::QueryResult>>
+                ) -> futures::future::BoxFuture<'a, ExecResult<crate::squeal::exec::QueryResult>>
                 {
                     unreachable!()
                 }

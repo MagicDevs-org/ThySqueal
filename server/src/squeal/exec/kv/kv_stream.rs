@@ -1,5 +1,5 @@
-use super::Executor;
-use crate::engines::mysql::error::{SqlError, SqlResult};
+use crate::squeal::exec::Executor;
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::storage::Value;
 use std::collections::HashMap;
 
@@ -10,7 +10,7 @@ impl Executor {
         id: Option<u64>,
         fields: HashMap<String, Value>,
         tx_id: Option<&str>,
-    ) -> SqlResult<String> {
+    ) -> ExecResult<String> {
         let new_id = self
             .mutate_state(tx_id, |state| {
                 let stream = state.kv_stream.entry(key.clone()).or_insert_with(Vec::new);
@@ -31,8 +31,8 @@ impl Executor {
         stop: &str,
         count: Option<usize>,
         tx_id: Option<&str>,
-    ) -> SqlResult<Vec<(String, HashMap<String, Value>)>> {
-        let parse_id = |s: &str| -> SqlResult<u64> {
+    ) -> ExecResult<Vec<(String, HashMap<String, Value>)>> {
+        let parse_id = |s: &str| -> ExecResult<u64> {
             if s == "-" {
                 return Ok(0);
             }
@@ -40,7 +40,7 @@ impl Executor {
                 return Ok(u64::MAX);
             }
             s.parse()
-                .map_err(|_| SqlError::Runtime("Invalid stream ID".to_string()))
+                .map_err(|_| ExecError::Runtime("Invalid stream ID".to_string()))
         };
         let start_id = parse_id(start)?;
         let stop_id = parse_id(stop)?;
@@ -48,7 +48,7 @@ impl Executor {
             let state = self
                 .transactions
                 .get(id)
-                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+                .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?;
             state.kv_stream.get(key).cloned().unwrap_or_default()
         } else {
             let db = self.db.read().await;
@@ -68,12 +68,12 @@ impl Executor {
             .collect())
     }
 
-    pub async fn kv_stream_len(&self, key: &str, tx_id: Option<&str>) -> SqlResult<usize> {
+    pub async fn kv_stream_len(&self, key: &str, tx_id: Option<&str>) -> ExecResult<usize> {
         if let Some(id) = tx_id {
             let state = self
                 .transactions
                 .get(id)
-                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+                .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?;
             Ok(state.kv_stream.get(key).map(|s| s.len()).unwrap_or(0))
         } else {
             let db = self.db.read().await;

@@ -1,6 +1,6 @@
 use super::super::Executor;
-use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::squeal::eval::{EvalContext, evaluate_expression_joined};
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::ir::{AggregateType, Expression, FunctionCall};
 use crate::storage::{DatabaseState, Row, Table, Value};
 
@@ -12,7 +12,7 @@ impl Executor {
         outer_contexts: &[(&Table, Option<&str>, &Row)],
         db_state: &DatabaseState,
         session: &super::super::Session,
-    ) -> SqlResult<Value> {
+    ) -> ExecResult<Value> {
         match fc.name {
             AggregateType::Count => {
                 if fc.args.len() == 1 && matches!(fc.args[0], Expression::Star) {
@@ -49,7 +49,7 @@ impl Executor {
                         }
                         Value::Null => {}
                         _ => {
-                            return Err(SqlError::TypeMismatch(
+                            return Err(ExecError::TypeMismatch(
                                 "SUM requires numeric values".to_string(),
                             ));
                         }
@@ -109,7 +109,7 @@ impl Executor {
                         }
                         Value::Null => {}
                         _ => {
-                            return Err(SqlError::TypeMismatch(
+                            return Err(ExecError::TypeMismatch(
                                 "AVG requires numeric values".to_string(),
                             ));
                         }
@@ -169,7 +169,7 @@ impl Executor {
             }
             AggregateType::JsonObjectAgg => {
                 if fc.args.len() < 2 {
-                    return Err(SqlError::Parse(
+                    return Err(ExecError::Parse(
                         "JSON_OBJECTAGG requires two arguments".to_string(),
                     ));
                 }

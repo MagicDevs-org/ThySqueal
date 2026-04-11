@@ -1,9 +1,9 @@
-use super::Executor;
-use crate::engines::mysql::error::{SqlError, SqlResult};
+use crate::squeal::exec::Executor;
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::storage::{Value, WalRecord};
 
 impl Executor {
-    pub async fn kv_set(&self, key: String, value: Value, tx_id: Option<&str>) -> SqlResult<()> {
+    pub async fn kv_set(&self, key: String, value: Value, tx_id: Option<&str>) -> ExecResult<()> {
         self.mutate_state(tx_id, |state| {
             state.kv.insert(key.clone(), value.clone());
             self.refresh_materialized_views(state)?;
@@ -17,16 +17,16 @@ impl Executor {
             key,
             value,
         })
-        .map_err(SqlError::Storage)?;
+        .map_err(ExecError::Storage)?;
         Ok(())
     }
 
-    pub async fn kv_get(&self, key: &str, tx_id: Option<&str>) -> SqlResult<Option<Value>> {
+    pub async fn kv_get(&self, key: &str, tx_id: Option<&str>) -> ExecResult<Option<Value>> {
         if let Some(id) = tx_id {
             let state = self
                 .transactions
                 .get(id)
-                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+                .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?;
             Ok(state.kv.get(key).cloned())
         } else {
             let db = self.db.read().await;
@@ -34,7 +34,7 @@ impl Executor {
         }
     }
 
-    pub async fn kv_del(&self, key: String, tx_id: Option<&str>) -> SqlResult<()> {
+    pub async fn kv_del(&self, key: String, tx_id: Option<&str>) -> ExecResult<()> {
         self.mutate_state(tx_id, |state| {
             state.kv.remove(&key);
             state.kv_expiry.remove(&key);
@@ -48,11 +48,11 @@ impl Executor {
             tx_id: tx_id.map(|s| s.to_string()),
             key,
         })
-        .map_err(SqlError::Storage)?;
+        .map_err(ExecError::Storage)?;
         Ok(())
     }
 
-    pub async fn kv_exists(&self, key: &str, tx_id: Option<&str>) -> SqlResult<bool> {
+    pub async fn kv_exists(&self, key: &str, tx_id: Option<&str>) -> ExecResult<bool> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -62,7 +62,7 @@ impl Executor {
             let state = self
                 .transactions
                 .get(id)
-                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+                .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?;
             if let Some(expiry) = state.kv_expiry.get(key)
                 && *expiry < now
             {
@@ -86,7 +86,7 @@ impl Executor {
         key: String,
         seconds: u64,
         tx_id: Option<&str>,
-    ) -> SqlResult<bool> {
+    ) -> ExecResult<bool> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -110,11 +110,11 @@ impl Executor {
             key,
             expiry,
         })
-        .map_err(SqlError::Storage)?;
+        .map_err(ExecError::Storage)?;
         Ok(true)
     }
 
-    pub async fn kv_ttl(&self, key: &str, tx_id: Option<&str>) -> SqlResult<i64> {
+    pub async fn kv_ttl(&self, key: &str, tx_id: Option<&str>) -> ExecResult<i64> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -124,7 +124,7 @@ impl Executor {
             let state = self
                 .transactions
                 .get(id)
-                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+                .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?;
             state
                 .kv_expiry
                 .get(key)
@@ -142,12 +142,12 @@ impl Executor {
         Ok(ttl)
     }
 
-    pub async fn kv_keys(&self, pattern: &str, tx_id: Option<&str>) -> SqlResult<Vec<String>> {
+    pub async fn kv_keys(&self, pattern: &str, tx_id: Option<&str>) -> ExecResult<Vec<String>> {
         let keys: Vec<String> = if let Some(id) = tx_id {
             let state = self
                 .transactions
                 .get(id)
-                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+                .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?;
             state.kv.keys().cloned().collect()
         } else {
             let db = self.db.read().await;
@@ -160,7 +160,7 @@ impl Executor {
 
         let regex_pattern = pattern.replace("?", ".").replace("*", ".*");
         let re = regex::Regex::new(&format!("^{}$", regex_pattern))
-            .map_err(|e| SqlError::Runtime(format!("Invalid pattern: {}", e)))?;
+            .map_err(|e| ExecError::Runtime(format!("Invalid pattern: {}", e)))?;
 
         Ok(keys.into_iter().filter(|k| re.is_match(k)).collect())
     }

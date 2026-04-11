@@ -1,7 +1,7 @@
 use super::super::{Executor, QueryResult};
-use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::squeal::eval::{EvalContext, Evaluator, evaluate_condition_joined};
 use crate::squeal::exec::Session;
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::ir::Delete;
 use crate::storage::WalRecord;
 
@@ -11,7 +11,7 @@ impl Executor {
         stmt: Delete,
         params: &[crate::storage::Value],
         session: Session,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let table_name = stmt.table.clone();
         let tx_id = session.transaction_id.as_deref();
         let mut rows_affected = 0;
@@ -20,7 +20,7 @@ impl Executor {
         let state = if let Some(id) = tx_id {
             self.transactions
                 .get(id)
-                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?
+                .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?
                 .clone()
         } else {
             db.state().clone()
@@ -28,7 +28,7 @@ impl Executor {
 
         let table = state
             .get_table(&table_name)
-            .ok_or_else(|| SqlError::TableNotFound(table_name.clone()))?;
+            .ok_or_else(|| ExecError::TableNotFound(table_name.clone()))?;
 
         let mut row_ids_to_delete = Vec::new();
 
@@ -65,7 +65,7 @@ impl Executor {
                 let db_state_copy = state.clone();
                 let table = state
                     .get_table_mut(&table_name)
-                    .ok_or_else(|| SqlError::TableNotFound(table_name.clone()))?;
+                    .ok_or_else(|| ExecError::TableNotFound(table_name.clone()))?;
                 table.delete(self as &dyn Evaluator, &id, &db_state_copy)?;
 
                 self.refresh_materialized_views(state)?;

@@ -1,5 +1,5 @@
-use crate::engines::mysql::error::SqlResult;
 use crate::squeal::eval::evaluate_expression_joined;
+use crate::squeal::exec::ExecResult;
 use crate::squeal::exec::select::project::JoinedContext;
 use crate::squeal::ir::WindowFunction;
 use crate::storage::{Row, Table, Value};
@@ -13,7 +13,7 @@ pub fn sort_partition_by_order_by(
     outer_contexts: &[(&Table, Option<&str>, &Row)],
     db_state: &crate::storage::DatabaseState,
     executor: &dyn crate::squeal::eval::Evaluator,
-) -> SqlResult<Vec<usize>> {
+) -> ExecResult<Vec<usize>> {
     let mut indices_with_values: Vec<(usize, Vec<(Value, bool)>)> = Vec::new();
 
     for &idx in partition_indices {

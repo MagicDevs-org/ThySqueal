@@ -1,5 +1,5 @@
-use crate::engines::mysql::error::SqlResult;
 use crate::squeal::eval::evaluate_expression_joined;
+use crate::squeal::exec::ExecResult;
 use crate::squeal::exec::select::project::JoinedContext;
 use crate::squeal::ir::{Expression, WindowFunction};
 use crate::storage::{Row, Table, Value};
@@ -14,7 +14,7 @@ pub fn compute_rank(
     outer_contexts: &[(&Table, Option<&str>, &Row)],
     db_state: &crate::storage::DatabaseState,
     executor: &dyn crate::squeal::eval::Evaluator,
-) -> SqlResult<i64> {
+) -> ExecResult<i64> {
     if sorted_indices.is_empty() {
         return Ok(1);
     }
@@ -52,7 +52,7 @@ pub fn evaluate_order_by_values(
     outer_contexts: &[(&Table, Option<&str>, &Row)],
     db_state: &crate::storage::DatabaseState,
     executor: &dyn crate::squeal::eval::Evaluator,
-) -> SqlResult<Value> {
+) -> ExecResult<Value> {
     if !wf.order_by.is_empty() {
         let eval_ctx_list: Vec<(&Table, Option<&str>, &Row)> = ctx
             .iter()
@@ -76,7 +76,7 @@ pub fn compute_dense_rank(
     outer_contexts: &[(&Table, Option<&str>, &Row)],
     db_state: &crate::storage::DatabaseState,
     executor: &dyn crate::squeal::eval::Evaluator,
-) -> SqlResult<i64> {
+) -> ExecResult<i64> {
     if sorted_indices.is_empty() {
         return Ok(1);
     }
@@ -118,7 +118,7 @@ pub fn compute_cume_dist(
     outer_contexts: &[(&Table, Option<&str>, &Row)],
     db_state: &crate::storage::DatabaseState,
     executor: &dyn crate::squeal::eval::Evaluator,
-) -> SqlResult<usize> {
+) -> ExecResult<usize> {
     if sorted_indices.is_empty() {
         return Ok(0);
     }
@@ -155,7 +155,7 @@ pub fn evaluate_for_row(
     outer_contexts: &[(&Table, Option<&str>, &Row)],
     db_state: &crate::storage::DatabaseState,
     executor: &dyn crate::squeal::eval::Evaluator,
-) -> SqlResult<Value> {
+) -> ExecResult<Value> {
     if args.is_empty() {
         return Ok(Value::Null);
     }

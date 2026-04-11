@@ -1,4 +1,4 @@
-use crate::engines::mysql::error::SqlResult;
+use crate::squeal::exec::ExecResult;
 use crate::squeal::exec::{Executor, SelectQueryPlan};
 use crate::squeal::ir::WithClause as SquealWithClause;
 use crate::storage::{Column, DataType, Row, Table, Value};
@@ -8,7 +8,7 @@ impl Executor {
     pub(crate) async fn resolve_ctes<'a>(
         &'a self,
         plan: &'a SelectQueryPlan<'a>,
-    ) -> SqlResult<HashMap<String, Table>> {
+    ) -> ExecResult<HashMap<String, Table>> {
         let stmt = &plan.stmt;
         let outer_contexts = plan.outer_contexts;
         let params = plan.params;
@@ -71,7 +71,7 @@ impl Executor {
         outer_contexts: &'a [(&'a Table, Option<&'a str>, &'a Row)],
         params: &'a [Value],
         cte_tables: &mut HashMap<String, Table>,
-    ) -> SqlResult<()> {
+    ) -> ExecResult<()> {
         for cte in &with_clause.ctes {
             let mut all_rows: Vec<Vec<Value>> = Vec::new();
             loop {

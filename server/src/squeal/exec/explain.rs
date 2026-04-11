@@ -1,5 +1,5 @@
 use super::{Executor, QueryResult};
-use crate::engines::mysql::error::{SqlError, SqlResult};
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::ir::{ComparisonOp, Condition, Expression, Select};
 use crate::storage::{DatabaseState, TableIndex, Value};
 
@@ -9,10 +9,10 @@ impl Executor {
         stmt: Select,
         db_state: &DatabaseState,
         tx_id: Option<&str>,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let table = db_state
             .get_table(&stmt.table)
-            .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+            .ok_or_else(|| ExecError::TableNotFound(stmt.table.clone()))?;
 
         let mut plan = Vec::new();
 

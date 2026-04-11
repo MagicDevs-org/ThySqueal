@@ -4,7 +4,7 @@ pub mod subquery;
 
 use super::column::resolve_column;
 use super::{EvalContext, Evaluator};
-use crate::engines::mysql::error::{SqlError, SqlResult};
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::ir::Expression;
 use crate::storage::Value;
 
@@ -12,17 +12,17 @@ pub fn evaluate_expression_joined(
     executor: &dyn Evaluator,
     expr: &Expression,
     ctx: &EvalContext<'_>,
-) -> SqlResult<Value> {
+) -> ExecResult<Value> {
     match expr {
         Expression::Literal(v) => Ok(v.clone()),
         Expression::Placeholder(i) => {
             if *i == 0 {
-                return Err(SqlError::Runtime(
+                return Err(ExecError::Runtime(
                     "Positional placeholder '?' was not correctly numbered".to_string(),
                 ));
             }
             ctx.params.get(*i - 1).cloned().ok_or_else(|| {
-                SqlError::Runtime(format!("Missing parameter for placeholder ${}", i))
+                ExecError::Runtime(format!("Missing parameter for placeholder ${}", i))
             })
         }
         Expression::Column(name) => {
@@ -33,7 +33,7 @@ pub fn evaluate_expression_joined(
                 return Ok(val);
             }
 
-            Err(SqlError::ColumnNotFound(name.clone()))
+            Err(ExecError::ColumnNotFound(name.clone()))
         }
         Expression::Subquery(subquery) => subquery::evaluate_subquery(
             executor,
@@ -55,10 +55,10 @@ pub fn evaluate_expression_joined(
             }
             function::evaluate_scalar_func(&sf.name, &eval_args)
         }
-        Expression::FunctionCall(_) => Err(SqlError::Runtime(
+        Expression::FunctionCall(_) => Err(ExecError::Runtime(
             "Aggregate functions must be evaluated at the top level".to_string(),
         )),
-        Expression::Star => Err(SqlError::Runtime(
+        Expression::Star => Err(ExecError::Runtime(
             "Star expression must be evaluated at the top level".to_string(),
         )),
         Expression::Variable(v) => {
@@ -79,12 +79,12 @@ pub fn evaluate_expression_joined(
             match val {
                 Value::Bool(b) => Ok(Value::Bool(!b)),
                 Value::Null => Ok(Value::Null),
-                _ => Err(SqlError::TypeMismatch(
+                _ => Err(ExecError::TypeMismatch(
                     "NOT requires boolean value".to_string(),
                 )),
             }
         }
-        Expression::WindowFunc(_) => Err(SqlError::Runtime(
+        Expression::WindowFunc(_) => Err(ExecError::Runtime(
             "Window functions must be evaluated at the top level".to_string(),
         )),
     }
@@ -93,7 +93,7 @@ pub fn evaluate_expression_joined(
 pub fn get_system_variable(name: &str) -> Value {
     match name.to_lowercase().as_str() {
         "version" => Value::Text("0.8.0-ThySqueal".to_string()),
-        "version_comment" => Value::Text("ThySqueal - MySQL Compatible".to_string()),
+        "version_comment" => Value::Text("ThySqueal".to_string()),
         "max_allowed_packet" => Value::Int(67108864),
         "auto_increment_increment" => Value::Int(1),
         "character_set_client" => Value::Text("utf8mb4".to_string()),

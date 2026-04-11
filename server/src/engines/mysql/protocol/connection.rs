@@ -78,7 +78,7 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
                             send_result_set(&mut socket, seq + 1, result).await?;
                         }
                     }
-                    Err(e) => send_sql_error(&mut socket, seq + 1, &e).await?,
+                    Err(e) => send_sql_error(&mut socket, seq + 1, &e.into()).await?,
                 }
             }
             0x02 => {
@@ -94,7 +94,7 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
                 let session = Session::new(Some(username.clone()), Some(db_name));
                 match executor.execute("SELECT 1", vec![], session).await {
                     Ok(_) => send_ok(&mut socket, seq + 1).await?,
-                    Err(e) => send_sql_error(&mut socket, seq + 1, &e).await?,
+                    Err(e) => send_sql_error(&mut socket, seq + 1, &e.into()).await?,
                 }
             }
             0x04 => {
@@ -118,7 +118,7 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
                 let session = Session::new(Some(username.clone()), None);
                 match executor.execute(&query, vec![], session).await {
                     Ok(result) => send_result_set(&mut socket, seq + 1, result).await?,
-                    Err(e) => send_sql_error(&mut socket, seq + 1, &e).await?,
+                    Err(e) => send_sql_error(&mut socket, seq + 1, &e.into()).await?,
                 }
             }
             0x0A => {

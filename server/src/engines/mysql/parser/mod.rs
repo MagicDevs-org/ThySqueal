@@ -6,12 +6,19 @@ pub mod utils;
 
 use crate::engines::mysql::ast::SqlStmt;
 use crate::engines::mysql::error::{SqlError, SqlResult};
+use crate::squeal::exec::ParseResult;
+use crate::squeal::ir::Squeal;
 use pest::Parser;
 use pest_derive::Parser;
 
 #[derive(Parser)]
 #[grammar = "engines/mysql/mysql.pest"]
 pub struct SqlParser;
+
+pub fn parse_to_squeal(sql: &str) -> ParseResult<Squeal> {
+    let mysql_stmt = parse(sql)?;
+    Ok(Squeal::from(mysql_stmt))
+}
 
 pub fn parse(sql: &str) -> SqlResult<SqlStmt> {
     let pairs = SqlParser::parse(Rule::statement, sql)

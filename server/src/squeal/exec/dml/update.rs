@@ -1,8 +1,8 @@
 use super::super::{Executor, QueryResult};
-use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::squeal::eval::{EvalContext, Evaluator};
 use crate::squeal::eval::{evaluate_condition_joined, evaluate_expression_joined};
 use crate::squeal::exec::Session;
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::ir::Update;
 use crate::storage::{Value, WalRecord};
 
@@ -12,7 +12,7 @@ impl Executor {
         stmt: Update,
         params: &[Value],
         session: Session,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let table_name = stmt.table.clone();
         let tx_id = session.transaction_id.as_deref();
         let mut rows_affected = 0;
@@ -21,7 +21,7 @@ impl Executor {
         let state = if let Some(id) = tx_id {
             self.transactions
                 .get(id)
-                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?
+                .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?
                 .clone()
         } else {
             db.state().clone()
@@ -29,7 +29,7 @@ impl Executor {
 
         let table = state
             .get_table(&table_name)
-            .ok_or_else(|| SqlError::TableNotFound(table_name.clone()))?;
+            .ok_or_else(|| ExecError::TableNotFound(table_name.clone()))?;
 
         let mut row_updates = Vec::new();
 
@@ -49,13 +49,13 @@ impl Executor {
                 for (col_name, expr) in &stmt.assignments {
                     let col_idx = table
                         .column_index(col_name)
-                        .ok_or_else(|| SqlError::ColumnNotFound(col_name.clone()))?;
+                        .ok_or_else(|| ExecError::ColumnNotFound(col_name.clone()))?;
                     let mut val = evaluate_expression_joined(self, expr, &eval_ctx)?;
 
                     // Perform type casting for UPDATE
                     let target_type = &table.columns()[col_idx].data_type;
                     val = val.cast(target_type).map_err(|e| {
-                        SqlError::TypeMismatch(format!(
+                        ExecError::TypeMismatch(format!(
                             "Error casting value for column '{}': {}",
                             col_name, e
                         ))
@@ -85,7 +85,7 @@ impl Executor {
                 let db_state_copy = state.clone();
                 let table = state
                     .get_table_mut(&table_name)
-                    .ok_or_else(|| SqlError::TableNotFound(table_name.clone()))?;
+                    .ok_or_else(|| ExecError::TableNotFound(table_name.clone()))?;
                 table.update(self as &dyn Evaluator, &id, values, &db_state_copy)?;
 
                 self.refresh_materialized_views(state)?;

@@ -38,21 +38,6 @@ fn default_host() -> String {
     "127.0.0.0".to_string()
 }
 
-#[allow(unused)]
-fn default_sql_port() -> u16 {
-    3306
-}
-
-#[allow(unused)]
-fn default_http_port() -> u16 {
-    9200
-}
-
-#[allow(unused)]
-fn default_redis_port() -> u16 {
-    6379
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct StorageConfig {
     #[serde(default = "default_max_memory")]

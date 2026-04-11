@@ -1,5 +1,5 @@
-use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::squeal;
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::exec::{Executor, SelectQueryPlan};
 use crate::storage::info_schema::get_info_schema_tables;
 use crate::storage::{Row, Table};
@@ -26,7 +26,7 @@ impl Executor {
         &self,
         plan: &SelectQueryPlan<'b>,
         cte_tables: &'b HashMap<String, Table>,
-    ) -> SqlResult<(ResolvedTable<'b>, Vec<Row>)> {
+    ) -> ExecResult<(ResolvedTable<'b>, Vec<Row>)> {
         let stmt = &plan.stmt;
         let db_state = plan.db_state;
 
@@ -44,7 +44,7 @@ impl Executor {
             let info_schema_storage = get_info_schema_tables(db_state);
             let t = info_schema_storage
                 .get(table_name)
-                .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+                .ok_or_else(|| ExecError::TableNotFound(stmt.table.clone()))?;
             Ok((
                 ResolvedTable::Virtual(Box::new(t.clone())),
                 t.data.rows.clone(),
@@ -52,7 +52,7 @@ impl Executor {
         } else {
             let t = db_state
                 .get_table(&stmt.table)
-                .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+                .ok_or_else(|| ExecError::TableNotFound(stmt.table.clone()))?;
 
             let rows = if stmt.joins.is_empty() {
                 self.apply_index_optimization(t, stmt)

@@ -1,5 +1,5 @@
-use super::Executor;
-use crate::engines::mysql::error::{SqlError, SqlResult};
+use crate::squeal::exec::Executor;
+use crate::squeal::exec::{ExecError, ExecResult};
 use std::collections::HashSet;
 
 impl Executor {
@@ -8,7 +8,7 @@ impl Executor {
         key: String,
         members: Vec<String>,
         tx_id: Option<&str>,
-    ) -> SqlResult<usize> {
+    ) -> ExecResult<usize> {
         let count = members.len();
         self.mutate_state(tx_id, |state| {
             let set = state.kv_set.entry(key).or_insert_with(HashSet::new);
@@ -19,12 +19,12 @@ impl Executor {
         .await
     }
 
-    pub async fn kv_set_members(&self, key: &str, tx_id: Option<&str>) -> SqlResult<Vec<String>> {
+    pub async fn kv_set_members(&self, key: &str, tx_id: Option<&str>) -> ExecResult<Vec<String>> {
         if let Some(id) = tx_id {
             let state = self
                 .transactions
                 .get(id)
-                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+                .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?;
             Ok(state
                 .kv_set
                 .get(key)
@@ -46,12 +46,12 @@ impl Executor {
         key: &str,
         member: &str,
         tx_id: Option<&str>,
-    ) -> SqlResult<bool> {
+    ) -> ExecResult<bool> {
         if let Some(id) = tx_id {
             let state = self
                 .transactions
                 .get(id)
-                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+                .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?;
             Ok(state
                 .kv_set
                 .get(key)
@@ -73,7 +73,7 @@ impl Executor {
         key: String,
         members: Vec<String>,
         tx_id: Option<&str>,
-    ) -> SqlResult<usize> {
+    ) -> ExecResult<usize> {
         let count = members.len();
         self.mutate_state(tx_id, |state| {
             if let Some(set) = state.kv_set.get_mut(&key) {

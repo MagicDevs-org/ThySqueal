@@ -1,5 +1,6 @@
-use super::{Executor, helpers};
-use crate::engines::mysql::error::{SqlError, SqlResult};
+use crate::squeal::exec::Executor;
+use crate::squeal::exec::helpers;
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::storage::Value;
 
 impl Executor {
@@ -9,7 +10,7 @@ impl Executor {
         values: Vec<Value>,
         left: bool,
         tx_id: Option<&str>,
-    ) -> SqlResult<usize> {
+    ) -> ExecResult<usize> {
         let count = values.len();
         self.mutate_state(tx_id, |state| {
             let list = state.kv_list.entry(key).or_insert_with(Vec::new);
@@ -32,12 +33,12 @@ impl Executor {
         start: i64,
         stop: i64,
         tx_id: Option<&str>,
-    ) -> SqlResult<Vec<Value>> {
+    ) -> ExecResult<Vec<Value>> {
         let list = if let Some(id) = tx_id {
             let state = self
                 .transactions
                 .get(id)
-                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+                .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?;
             state.kv_list.get(key).cloned().unwrap_or_default()
         } else {
             let db = self.db.read().await;
@@ -52,7 +53,7 @@ impl Executor {
         count: usize,
         left: bool,
         tx_id: Option<&str>,
-    ) -> SqlResult<Vec<Value>> {
+    ) -> ExecResult<Vec<Value>> {
         self.mutate_state(tx_id, |state| {
             let mut vals = vec![];
             if let Some(list) = state.kv_list.get_mut(&key) {
@@ -78,12 +79,12 @@ impl Executor {
         .await
     }
 
-    pub async fn kv_list_len(&self, key: &str, tx_id: Option<&str>) -> SqlResult<usize> {
+    pub async fn kv_list_len(&self, key: &str, tx_id: Option<&str>) -> ExecResult<usize> {
         if let Some(id) = tx_id {
             let state = self
                 .transactions
                 .get(id)
-                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+                .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?;
             Ok(state.kv_list.get(key).map(|l| l.len()).unwrap_or(0))
         } else {
             let db = self.db.read().await;

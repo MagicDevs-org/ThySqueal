@@ -1,5 +1,5 @@
 use super::{Executor, QueryResult};
-use crate::engines::mysql::error::{SqlError, SqlResult};
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::ir::Search;
 use crate::storage::Value;
 
@@ -9,13 +9,13 @@ impl Executor {
         stmt: Search,
         db_state: &crate::storage::DatabaseState,
         tx_id: Option<&str>,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let table = db_state
             .get_table(&stmt.table)
-            .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+            .ok_or_else(|| ExecError::TableNotFound(stmt.table.clone()))?;
 
         let search_index = table.indexes.search.as_ref().ok_or_else(|| {
-            SqlError::Runtime(format!(
+            ExecError::Runtime(format!(
                 "Full-text search index not enabled for table: {}",
                 stmt.table
             ))
@@ -25,7 +25,7 @@ impl Executor {
             .lock()
             .unwrap()
             .search(&stmt.query, 100)
-            .map_err(|e| SqlError::Runtime(format!("Search error: {}", e)))?;
+            .map_err(|e| ExecError::Runtime(format!("Search error: {}", e)))?;
 
         let mut rows = Vec::new();
         for (row_id, score) in results {

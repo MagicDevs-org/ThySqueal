@@ -1,5 +1,5 @@
-use crate::engines::mysql::error::{SqlError, SqlResult};
-use crate::engines::mysql::parser::parse;
+use crate::engines::mysql::parser::parse_to_squeal;
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::ir::Squeal;
 
 use super::privilege::check_privilege;
@@ -13,7 +13,7 @@ impl Executor {
         stmt: Squeal,
         params: Vec<Value>,
         session: Session,
-    ) -> BoxFuture<'a, SqlResult<QueryResult>> {
+    ) -> BoxFuture<'a, ExecResult<QueryResult>> {
         async move {
             let ctx = ExecutionContext::new(params, session);
 
@@ -129,7 +129,7 @@ impl Executor {
         .boxed()
     }
 
-    async fn dispatch_tx(&self, stmt: Squeal, ctx: &ExecutionContext) -> SqlResult<QueryResult> {
+    async fn dispatch_tx(&self, stmt: Squeal, ctx: &ExecutionContext) -> ExecResult<QueryResult> {
         match stmt {
             Squeal::Begin => self.exec_begin().await,
             Squeal::Commit => {
@@ -144,7 +144,7 @@ impl Executor {
         }
     }
 
-    async fn dispatch_ddl(&self, stmt: Squeal, ctx: &ExecutionContext) -> SqlResult<QueryResult> {
+    async fn dispatch_ddl(&self, stmt: Squeal, ctx: &ExecutionContext) -> ExecResult<QueryResult> {
         match stmt {
             Squeal::CreateTable(ct) => {
                 {
@@ -205,7 +205,7 @@ impl Executor {
         }
     }
 
-    async fn dispatch_dml(&self, stmt: Squeal, ctx: &ExecutionContext) -> SqlResult<QueryResult> {
+    async fn dispatch_dml(&self, stmt: Squeal, ctx: &ExecutionContext) -> ExecResult<QueryResult> {
         match stmt {
             Squeal::Insert(i) => {
                 {
@@ -247,7 +247,7 @@ impl Executor {
         }
     }
 
-    async fn dispatch_user(&self, stmt: Squeal, ctx: &ExecutionContext) -> SqlResult<QueryResult> {
+    async fn dispatch_user(&self, stmt: Squeal, ctx: &ExecutionContext) -> ExecResult<QueryResult> {
         {
             let db = self.db.read().await;
             check_privilege(&ctx.session.username, None, Privilege::Grant, db.state())?;
@@ -273,7 +273,11 @@ impl Executor {
         }
     }
 
-    async fn dispatch_query(&self, stmt: Squeal, ctx: &ExecutionContext) -> SqlResult<QueryResult> {
+    async fn dispatch_query(
+        &self,
+        stmt: Squeal,
+        ctx: &ExecutionContext,
+    ) -> ExecResult<QueryResult> {
         match stmt {
             Squeal::Select(s) => {
                 let table = s.table.clone();
@@ -281,7 +285,7 @@ impl Executor {
                     let state = self
                         .transactions
                         .get(id)
-                        .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+                        .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?;
                     if !table.is_empty() && !table.starts_with("information_schema.") {
                         check_privilege(
                             &ctx.session.username,
@@ -317,7 +321,7 @@ impl Executor {
                     let state = self
                         .transactions
                         .get(id)
-                        .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+                        .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?;
                     check_privilege(
                         &ctx.session.username,
                         Some(&s.table),
@@ -341,7 +345,7 @@ impl Executor {
                     let state = self
                         .transactions
                         .get(id)
-                        .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+                        .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?;
                     self.exec_explain(s, &state, Some(id)).await
                 } else {
                     let db = self.db.read().await;
@@ -355,9 +359,8 @@ impl Executor {
     pub(crate) async fn exec_prepare(
         &self,
         stmt: crate::squeal::ir::Prepare,
-    ) -> SqlResult<QueryResult> {
-        let inner_stmt = parse(&stmt.sql)?;
-        let squeal = Squeal::from(inner_stmt);
+    ) -> ExecResult<QueryResult> {
+        let squeal = parse_to_squeal(&stmt.sql)?;
         self.prepared_statements.insert(stmt.name, squeal);
         Ok(QueryResult {
             columns: vec![],
@@ -373,9 +376,9 @@ impl Executor {
         stmt: crate::squeal::ir::Execute,
         params: Vec<Value>,
         session: Session,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let prepared = self.prepared_statements.get(&stmt.name).ok_or_else(|| {
-            SqlError::Runtime(format!("Prepared statement '{}' not found", stmt.name))
+            ExecError::Runtime(format!("Prepared statement '{}' not found", stmt.name))
         })?;
         let inner_stmt = prepared.value().clone();
         drop(prepared); // Release lock before recursive call
@@ -387,7 +390,7 @@ impl Executor {
                 let state = if let Some(id) = &session.transaction_id {
                     self.transactions
                         .get(id)
-                        .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?
+                        .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?
                         .clone()
                 } else {
                     db.state().clone()
@@ -405,7 +408,7 @@ impl Executor {
         self.exec_squeal(inner_stmt, exec_params, session).await
     }
 
-    pub(crate) async fn exec_deallocate(&self, name: &str) -> SqlResult<QueryResult> {
+    pub(crate) async fn exec_deallocate(&self, name: &str) -> ExecResult<QueryResult> {
         self.prepared_statements.remove(name);
         Ok(QueryResult {
             columns: vec![],

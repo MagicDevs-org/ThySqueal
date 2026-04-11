@@ -1,0 +1,16 @@
+version: "1.0"
+
+squeal:
+  http:
+    addr: "http://localhost:8000/"
+  uds:
+    addr: "/run/thysqueal/squeal.sock"
+  admin:
+    addr: "http://localhost:8080/"
+    user: "${THYSQUEAL_ADMIN_USER}"
+    pass: "${THYSQUEAL_ADMIN_PASS}"
+  data_dir: "/usr/local/thysqueal/data"
+
+engines:
+  mysql: "./engines/mysql.yml"
+  redis: "./engines/redis.yml"

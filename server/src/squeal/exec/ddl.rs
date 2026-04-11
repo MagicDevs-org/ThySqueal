@@ -1,5 +1,5 @@
 use super::{Executor, QueryResult, SelectQueryPlan, Session};
-use crate::engines::mysql::error::{SqlError, SqlResult};
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::ir::{
     AlterAction, AlterTable, CreateIndex, CreateMaterializedView, CreateTable, DropTable,
     Expression, IndexType,
@@ -11,7 +11,7 @@ impl Executor {
         &self,
         stmt: CreateTable,
         tx_id: Option<&str>,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let name = stmt.name.clone();
         let columns = stmt.columns.clone();
         let primary_key = stmt.primary_key.clone();
@@ -32,7 +32,7 @@ impl Executor {
         // 2. Mutate state
         self.mutate_state(tx_id, |state| {
             if state.tables.contains_key(&name) {
-                return Err(SqlError::Storage(
+                return Err(ExecError::Storage(
                     crate::storage::error::StorageError::PersistenceError(format!(
                         "Table {} already exists",
                         name
@@ -88,7 +88,7 @@ impl Executor {
         &self,
         stmt: CreateMaterializedView,
         tx_id: Option<&str>,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         // 1. Log to WAL
         {
             let db = self.db.read().await;
@@ -101,7 +101,7 @@ impl Executor {
 
         self.mutate_state(tx_id, |state| {
             if state.tables.contains_key(&stmt.name) {
-                return Err(SqlError::Storage(
+                return Err(ExecError::Storage(
                     crate::storage::error::StorageError::PersistenceError(format!(
                         "Table {} already exists",
                         stmt.name
@@ -155,7 +155,7 @@ impl Executor {
         &self,
         stmt: DropTable,
         tx_id: Option<&str>,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         // 1. Log to WAL
         {
             let db = self.db.read().await;
@@ -170,7 +170,7 @@ impl Executor {
             state
                 .tables
                 .remove(&stmt.name)
-                .ok_or_else(|| SqlError::TableNotFound(stmt.name.clone()))?;
+                .ok_or_else(|| ExecError::TableNotFound(stmt.name.clone()))?;
             state.materialized_views.remove(&stmt.name);
             Ok(())
         })
@@ -189,7 +189,7 @@ impl Executor {
         &self,
         stmt: CreateIndex,
         tx_id: Option<&str>,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let table_name = stmt.table.clone();
         let index_name = stmt.name.clone();
 
@@ -212,7 +212,7 @@ impl Executor {
             let db_state_copy = state.clone();
             let table = state
                 .get_table_mut(&table_name)
-                .ok_or_else(|| SqlError::TableNotFound(table_name.clone()))?;
+                .ok_or_else(|| ExecError::TableNotFound(table_name.clone()))?;
 
             table.create_index(
                 self,
@@ -240,7 +240,7 @@ impl Executor {
         &self,
         stmt: AlterTable,
         tx_id: Option<&str>,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         // 1. Log to WAL
         {
             let db = self.db.read().await;
@@ -257,26 +257,26 @@ impl Executor {
                 AlterAction::AddColumn(col) => {
                     let table = state
                         .get_table_mut(&stmt.table)
-                        .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+                        .ok_or_else(|| ExecError::TableNotFound(stmt.table.clone()))?;
                     table.add_column(col)?;
                 }
                 AlterAction::DropColumn(col_name) => {
                     let table = state
                         .get_table_mut(&stmt.table)
-                        .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+                        .ok_or_else(|| ExecError::TableNotFound(stmt.table.clone()))?;
                     table.drop_column(&col_name)?;
                 }
                 AlterAction::RenameColumn { old_name, new_name } => {
                     let table = state
                         .get_table_mut(&stmt.table)
-                        .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+                        .ok_or_else(|| ExecError::TableNotFound(stmt.table.clone()))?;
                     table.rename_column(&old_name, &new_name)?;
                 }
                 AlterAction::RenameTable(new_name) => {
                     let table = state
                         .tables
                         .remove(&stmt.table)
-                        .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+                        .ok_or_else(|| ExecError::TableNotFound(stmt.table.clone()))?;
                     let mut table = table;
                     table.rename_table(new_name.clone());
                     state.tables.insert(new_name, table);
@@ -284,31 +284,31 @@ impl Executor {
                 AlterAction::ModifyColumn { name, data_type } => {
                     let table = state
                         .get_table_mut(&stmt.table)
-                        .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+                        .ok_or_else(|| ExecError::TableNotFound(stmt.table.clone()))?;
                     table.modify_column_type(&name, data_type.clone())?;
                 }
                 AlterAction::SetDefault { column, value } => {
                     let table = state
                         .get_table_mut(&stmt.table)
-                        .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+                        .ok_or_else(|| ExecError::TableNotFound(stmt.table.clone()))?;
                     table.set_column_default(&column, value.clone())?;
                 }
                 AlterAction::DropDefault { column } => {
                     let table = state
                         .get_table_mut(&stmt.table)
-                        .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+                        .ok_or_else(|| ExecError::TableNotFound(stmt.table.clone()))?;
                     table.set_column_default(&column, None)?;
                 }
                 AlterAction::SetNotNull { column } => {
                     let table = state
                         .get_table_mut(&stmt.table)
-                        .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+                        .ok_or_else(|| ExecError::TableNotFound(stmt.table.clone()))?;
                     table.set_column_not_null(&column, true)?;
                 }
                 AlterAction::DropNotNull { column } => {
                     let table = state
                         .get_table_mut(&stmt.table)
-                        .ok_or_else(|| SqlError::TableNotFound(stmt.table.clone()))?;
+                        .ok_or_else(|| ExecError::TableNotFound(stmt.table.clone()))?;
                     table.set_column_not_null(&column, false)?;
                 }
             }

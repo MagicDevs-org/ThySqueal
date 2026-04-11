@@ -1,5 +1,5 @@
 use super::Executor;
-use crate::engines::mysql::error::SqlResult;
+use crate::squeal::exec::ExecResult;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Default)]
@@ -8,7 +8,7 @@ pub struct PubSubState {
 }
 
 impl Executor {
-    pub async fn pubsub_subscribe(&self, client_id: String, channel: String) -> SqlResult<()> {
+    pub async fn pubsub_subscribe(&self, client_id: String, channel: String) -> ExecResult<()> {
         let mut state = self.pubsub.write().await;
         state
             .subscriptions
@@ -22,7 +22,7 @@ impl Executor {
         &self,
         client_id: String,
         channel: Option<String>,
-    ) -> SqlResult<()> {
+    ) -> ExecResult<()> {
         let mut state = self.pubsub.write().await;
         if let Some(channels) = state.subscriptions.get_mut(&client_id) {
             match channel {
@@ -45,7 +45,7 @@ impl Executor {
         Ok(())
     }
 
-    pub async fn pubsub_publish(&self, channel: String, _message: String) -> SqlResult<usize> {
+    pub async fn pubsub_publish(&self, channel: String, _message: String) -> ExecResult<usize> {
         let state = self.pubsub.read().await;
         let count = state
             .subscriptions
@@ -55,7 +55,7 @@ impl Executor {
         Ok(count)
     }
 
-    pub async fn pubsub_channels(&self) -> SqlResult<Vec<String>> {
+    pub async fn pubsub_channels(&self) -> ExecResult<Vec<String>> {
         let state = self.pubsub.read().await;
         let mut channels: Vec<String> = state
             .subscriptions

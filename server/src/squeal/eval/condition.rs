@@ -1,6 +1,6 @@
 use super::expression::evaluate_expression_joined;
 use super::{EvalContext, Evaluator};
-use crate::engines::mysql::error::{SqlError, SqlResult};
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::ir::{ComparisonOp, Condition, IsOp};
 use crate::storage::Value;
 
@@ -8,7 +8,7 @@ pub fn evaluate_condition_joined(
     executor: &dyn Evaluator,
     cond: &Condition,
     ctx: &EvalContext<'_>,
-) -> SqlResult<bool> {
+) -> ExecResult<bool> {
     match cond {
         Condition::And(left, right) => {
             let l = evaluate_condition_joined(executor, left, ctx)?;
@@ -100,7 +100,7 @@ pub fn evaluate_condition_joined(
         Condition::Like(expr, pattern) => {
             let val = evaluate_expression_joined(executor, expr, ctx)?;
             let l = val.as_text().ok_or_else(|| {
-                SqlError::TypeMismatch("LIKE requires text on the left".to_string())
+                ExecError::TypeMismatch("LIKE requires text on the left".to_string())
             })?;
 
             if pattern.starts_with('%') && pattern.ends_with('%') {
@@ -117,7 +117,7 @@ pub fn evaluate_condition_joined(
         Condition::FullTextSearch(_field, _query) => {
             // This is usually handled at the table level using indexes,
             // but for manual evaluation (if needed):
-            Err(SqlError::Runtime(
+            Err(ExecError::Runtime(
                 "FullTextSearch must be handled by the storage engine".to_string(),
             ))
         }

@@ -1,4 +1,4 @@
-use crate::engines::mysql::error::SqlError;
+use crate::squeal::exec::ExecError;
 use crate::squeal::exec::{Executor, Session};
 use crate::storage::{Database, Value};
 use std::sync::Arc;
@@ -210,7 +210,7 @@ async fn test_alter_table() {
         .execute("SELECT * FROM users", vec![], Session::new(None, None))
         .await
         .unwrap_err();
-    assert!(matches!(err, SqlError::TableNotFound(_)));
+    assert!(matches!(err, ExecError::TableNotFound(_)));
 }
 
 #[tokio::test]

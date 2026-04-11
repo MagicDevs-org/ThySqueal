@@ -1,7 +1,7 @@
 use super::super::{Executor, QueryResult};
-use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::squeal::eval::{EvalContext, Evaluator, evaluate_expression_joined};
 use crate::squeal::exec::Session;
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::ir::Insert;
 use crate::storage::{Value, WalRecord};
 
@@ -11,7 +11,7 @@ impl Executor {
         stmt: Insert,
         params: &[Value],
         session: Session,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let table_name = stmt.table.clone();
         let tx_id = session.transaction_id.as_deref();
 
@@ -19,7 +19,7 @@ impl Executor {
         let state = if let Some(id) = tx_id {
             self.transactions
                 .get(id)
-                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?
+                .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?
                 .clone()
         } else {
             db.state().clone()
@@ -27,7 +27,7 @@ impl Executor {
 
         let table = state
             .get_table(&table_name)
-            .ok_or_else(|| SqlError::TableNotFound(table_name.clone()))?;
+            .ok_or_else(|| ExecError::TableNotFound(table_name.clone()))?;
 
         let column_count = if let Some(ref cols) = stmt.columns {
             cols.len()
@@ -36,7 +36,7 @@ impl Executor {
         };
 
         if stmt.values.len() != column_count {
-            return Err(SqlError::TypeMismatch(format!(
+            return Err(ExecError::TypeMismatch(format!(
                 "Value count mismatch: expected {}, got {}",
                 column_count,
                 stmt.values.len()
@@ -52,12 +52,12 @@ impl Executor {
             for (i, name) in col_names.iter().enumerate() {
                 let col_idx = table
                     .column_index(name)
-                    .ok_or_else(|| SqlError::ColumnNotFound(format!("{}.{}", table_name, name)))?;
+                    .ok_or_else(|| ExecError::ColumnNotFound(format!("{}.{}", table_name, name)))?;
 
                 let mut val = evaluate_expression_joined(self, &stmt.values[i], &eval_ctx)?;
                 let target_type = &table.columns()[col_idx].data_type;
                 val = val.cast(target_type).map_err(|e| {
-                    SqlError::TypeMismatch(format!(
+                    ExecError::TypeMismatch(format!(
                         "Error casting value for column '{}': {}",
                         name, e
                     ))
@@ -72,7 +72,7 @@ impl Executor {
                 let mut val = evaluate_expression_joined(self, expr, &eval_ctx)?;
                 let target_type = &table.columns()[i].data_type;
                 val = val.cast(target_type).map_err(|e| {
-                    SqlError::TypeMismatch(format!(
+                    ExecError::TypeMismatch(format!(
                         "Error casting value for column '{}': {}",
                         table.columns()[i].name,
                         e
@@ -89,7 +89,7 @@ impl Executor {
         self.mutate_state(tx_id, |state| {
             let table = state
                 .get_table_mut(&table_name)
-                .ok_or_else(|| SqlError::TableNotFound(table_name.clone()))?;
+                .ok_or_else(|| ExecError::TableNotFound(table_name.clone()))?;
 
             let mut to_generate = Vec::new();
             for (i, col) in table.columns().iter().enumerate() {
@@ -121,7 +121,7 @@ impl Executor {
             let db_state_copy = state.clone();
             let table = state
                 .get_table_mut(&table_name)
-                .ok_or_else(|| SqlError::TableNotFound(table_name.clone()))?;
+                .ok_or_else(|| ExecError::TableNotFound(table_name.clone()))?;
 
             table.insert(self as &dyn Evaluator, mapped_values, &db_state_copy)?;
 

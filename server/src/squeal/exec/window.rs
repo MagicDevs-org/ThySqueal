@@ -2,8 +2,8 @@ pub mod functions;
 pub mod partition;
 pub mod sort;
 
-use crate::engines::mysql::error::SqlResult;
 use crate::squeal::eval::evaluate_expression_joined;
+use crate::squeal::exec::ExecResult;
 use crate::squeal::exec::select::project::JoinedContext;
 use crate::squeal::ir::{Expression, WindowFuncType, WindowFunction};
 use crate::storage::{Row, Table, Value};
@@ -23,7 +23,7 @@ impl WindowFunctionEvaluator {
         outer_contexts: &[(&Table, Option<&str>, &Row)],
         db_state: &crate::storage::DatabaseState,
         executor: &dyn crate::squeal::eval::Evaluator,
-    ) -> SqlResult<Vec<Vec<Value>>> {
+    ) -> ExecResult<Vec<Vec<Value>>> {
         let window_columns: Vec<(usize, &WindowFunction)> = columns
             .iter()
             .enumerate()
@@ -102,7 +102,7 @@ impl WindowFunctionEvaluator {
         outer_contexts: &[(&Table, Option<&str>, &Row)],
         db_state: &crate::storage::DatabaseState,
         executor: &dyn crate::squeal::eval::Evaluator,
-    ) -> SqlResult<Value> {
+    ) -> ExecResult<Value> {
         let partition = self.find_row_partition(wf, partitions, current_row_idx)?;
 
         if partition.rows.is_empty() {
@@ -276,7 +276,7 @@ impl WindowFunctionEvaluator {
         _wf: &WindowFunction,
         partitions: &[Partition],
         row_idx: usize,
-    ) -> SqlResult<Partition> {
+    ) -> ExecResult<Partition> {
         for partition in partitions {
             if partition.rows.contains(&row_idx) {
                 return Ok(partition.to_owned());
@@ -296,7 +296,7 @@ impl WindowFunctionEvaluator {
         outer_contexts: &[(&Table, Option<&str>, &Row)],
         db_state: &crate::storage::DatabaseState,
         executor: &dyn crate::squeal::eval::Evaluator,
-    ) -> SqlResult<Vec<Vec<Value>>> {
+    ) -> ExecResult<Vec<Vec<Value>>> {
         let mut results = Vec::new();
 
         for ctx in rows {

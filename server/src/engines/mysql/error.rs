@@ -1,8 +1,11 @@
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+use crate::squeal::exec::ExecError;
 
 pub type SqlResult<T> = std::result::Result<T, SqlError>;
 
-#[derive(Error, Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum SqlError {
     #[error("Parse error: {0}")]
     Parse(String),
@@ -53,6 +56,36 @@ impl SqlError {
             SqlError::Runtime(_) => "HY000",
             SqlError::PermissionDenied(_) => "42000",
             SqlError::Storage(_) => "HY000",
+        }
+    }
+}
+
+impl From<SqlError> for ExecError {
+    fn from(e: SqlError) -> Self {
+        match e {
+            SqlError::Parse(val) => ExecError::Parse(val),
+            SqlError::TableNotFound(val) => ExecError::TableNotFound(val),
+            SqlError::ColumnNotFound(val) => ExecError::ColumnNotFound(val),
+            SqlError::DuplicateKey(val) => ExecError::DuplicateKey(val),
+            SqlError::TypeMismatch(val) => ExecError::TypeMismatch(val),
+            SqlError::Runtime(val) => ExecError::Runtime(val),
+            SqlError::PermissionDenied(val) => ExecError::PermissionDenied(val),
+            SqlError::Storage(val) => ExecError::Storage(val),
+        }
+    }
+}
+
+impl From<ExecError> for SqlError {
+    fn from(e: ExecError) -> Self {
+        match e {
+            ExecError::Parse(val) => SqlError::Parse(val),
+            ExecError::TableNotFound(val) => SqlError::TableNotFound(val),
+            ExecError::ColumnNotFound(val) => SqlError::ColumnNotFound(val),
+            ExecError::DuplicateKey(val) => SqlError::DuplicateKey(val),
+            ExecError::TypeMismatch(val) => SqlError::TypeMismatch(val),
+            ExecError::Runtime(val) => SqlError::Runtime(val),
+            ExecError::PermissionDenied(val) => SqlError::PermissionDenied(val),
+            ExecError::Storage(val) => SqlError::Storage(val),
         }
     }
 }

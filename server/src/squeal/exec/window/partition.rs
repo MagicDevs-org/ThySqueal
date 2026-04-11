@@ -1,5 +1,5 @@
-use crate::engines::mysql::error::SqlResult;
 use crate::squeal::eval::evaluate_expression_joined;
+use crate::squeal::exec::ExecResult;
 use crate::squeal::exec::select::project::JoinedContext;
 use crate::squeal::ir::WindowFunction;
 use crate::storage::{Row, Table, Value};
@@ -17,7 +17,7 @@ pub fn compute_all_partitions(
     outer_contexts: &[(&Table, Option<&str>, &Row)],
     db_state: &crate::storage::DatabaseState,
     executor: &dyn crate::squeal::eval::Evaluator,
-) -> SqlResult<Vec<Partition>> {
+) -> ExecResult<Vec<Partition>> {
     let mut partitions = Vec::new();
 
     for &(_, wf) in window_columns {
@@ -79,7 +79,7 @@ pub fn find_partition_end(
     outer_contexts: &[(&Table, Option<&str>, &Row)],
     db_state: &crate::storage::DatabaseState,
     executor: &dyn crate::squeal::eval::Evaluator,
-) -> SqlResult<usize> {
+) -> ExecResult<usize> {
     let partition_key = compute_partition_key(
         wf,
         &all_rows[start],
@@ -106,7 +106,7 @@ pub fn compute_partition_key(
     outer_contexts: &[(&Table, Option<&str>, &Row)],
     db_state: &crate::storage::DatabaseState,
     executor: &dyn crate::squeal::eval::Evaluator,
-) -> SqlResult<Vec<Value>> {
+) -> ExecResult<Vec<Value>> {
     let eval_ctx_list: Vec<(&Table, Option<&str>, &Row)> = ctx
         .iter()
         .map(|(t, a, r)| (*t, a.as_deref(), r))
@@ -117,5 +117,5 @@ pub fn compute_partition_key(
     wf.partition_by
         .iter()
         .map(|expr| evaluate_expression_joined(executor, expr, &eval_ctx))
-        .collect::<SqlResult<Vec<_>>>()
+        .collect::<ExecResult<Vec<_>>>()
 }

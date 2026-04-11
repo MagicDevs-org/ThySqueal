@@ -2,7 +2,7 @@ pub mod column;
 pub mod condition;
 pub mod expression;
 
-use crate::engines::mysql::error::{SqlError, SqlResult};
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::ir::{Condition, Expression, Select};
 use crate::storage::{DatabaseState, Row, Table, Value};
 use futures::FutureExt;
@@ -50,7 +50,7 @@ pub trait Evaluator: Send + Sync {
         outer_contexts: &'a [(&'a Table, Option<&'a str>, &'a Row)],
         params: &'a [Value],
         db_state: &'a DatabaseState,
-    ) -> BoxFuture<'a, SqlResult<crate::squeal::exec::QueryResult>>;
+    ) -> BoxFuture<'a, ExecResult<crate::squeal::exec::QueryResult>>;
 }
 
 /// A simple evaluator used during WAL recovery when a full Executor is not yet available.
@@ -64,9 +64,9 @@ impl Evaluator for RecoveryEvaluator {
         _outer_contexts: &'a [(&'a Table, Option<&'a str>, &'a Row)],
         _params: &'a [Value],
         _db_state: &'a DatabaseState,
-    ) -> BoxFuture<'a, SqlResult<crate::squeal::exec::QueryResult>> {
+    ) -> BoxFuture<'a, ExecResult<crate::squeal::exec::QueryResult>> {
         async {
-            Err(SqlError::Runtime(
+            Err(ExecError::Runtime(
                 "Subqueries are not supported during WAL recovery".to_string(),
             ))
         }
@@ -84,7 +84,7 @@ pub fn evaluate_condition(
     row: &Row,
     db_state: &DatabaseState,
     session: &crate::squeal::exec::Session,
-) -> SqlResult<bool> {
+) -> ExecResult<bool> {
     let contexts = [(table, table_alias, row)];
     let ctx = EvalContext::new(&contexts, params, &[], db_state).with_session(session);
     evaluate_condition_joined(executor, cond, &ctx)
@@ -100,7 +100,7 @@ pub fn evaluate_expression(
     row: &Row,
     db_state: &DatabaseState,
     session: &crate::squeal::exec::Session,
-) -> SqlResult<Value> {
+) -> ExecResult<Value> {
     let contexts = [(table, table_alias, row)];
     let ctx = EvalContext::new(&contexts, params, &[], db_state).with_session(session);
     evaluate_expression_joined(executor, expr, &ctx)

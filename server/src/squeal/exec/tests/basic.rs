@@ -1,4 +1,4 @@
-use crate::engines::mysql::error::SqlError;
+use crate::squeal::exec::ExecError;
 use crate::squeal::exec::{Executor, Session};
 use crate::storage::{Database, Value};
 use std::sync::Arc;
@@ -56,7 +56,7 @@ async fn test_drop_table() {
     let result = executor
         .execute("SELECT * FROM users", vec![], Session::new(None, None))
         .await;
-    assert!(matches!(result, Err(SqlError::TableNotFound(_))));
+    assert!(matches!(result, Err(ExecError::TableNotFound(_))));
 }
 
 #[tokio::test]

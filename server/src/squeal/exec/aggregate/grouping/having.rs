@@ -1,6 +1,6 @@
-use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::squeal::eval::{EvalContext, Evaluator, evaluate_expression_joined};
 use crate::squeal::exec::Executor;
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::ir::{ComparisonOp, Condition, Expression, IsOp};
 use crate::storage::{DatabaseState, Row, Table, Value};
 
@@ -13,7 +13,7 @@ impl Executor {
         outer_contexts: &[(&Table, Option<&str>, &Row)],
         db_state: &DatabaseState,
         session: &super::super::super::Session,
-    ) -> SqlResult<bool> {
+    ) -> ExecResult<bool> {
         match cond {
             Condition::And(left, right) => {
                 let l = Box::pin(self.evaluate_having_joined(
@@ -228,10 +228,10 @@ impl Executor {
                     .await?;
                 let l = val
                     .as_text()
-                    .ok_or_else(|| SqlError::TypeMismatch("LIKE requires text".to_string()))?;
+                    .ok_or_else(|| ExecError::TypeMismatch("LIKE requires text".to_string()))?;
                 Ok(l.contains(&pattern.replace('%', "")))
             }
-            Condition::FullTextSearch(_, _) => Err(SqlError::Runtime(
+            Condition::FullTextSearch(_, _) => Err(ExecError::Runtime(
                 "FullTextSearch not allowed in HAVING".to_string(),
             )),
         }
@@ -245,7 +245,7 @@ impl Executor {
         outer_contexts: &[(&Table, Option<&str>, &Row)],
         db_state: &DatabaseState,
         session: &super::super::super::Session,
-    ) -> SqlResult<Value> {
+    ) -> ExecResult<Value> {
         match expr {
             Expression::FunctionCall(fc) => {
                 self.eval_aggregate_joined(fc, contexts, outer_contexts, db_state, session)
@@ -272,7 +272,7 @@ impl Executor {
                 if result.rows.is_empty() {
                     Ok(Value::Null)
                 } else if result.rows.len() > 1 {
-                    Err(SqlError::Runtime(
+                    Err(ExecError::Runtime(
                         "Subquery returned more than one row".to_string(),
                     ))
                 } else if result.rows[0].is_empty() {
@@ -304,7 +304,7 @@ impl Executor {
                     Ok(Value::Null)
                 }
             }
-            Expression::Star => Err(SqlError::Runtime("Star not allowed in HAVING".to_string())),
+            Expression::Star => Err(ExecError::Runtime("Star not allowed in HAVING".to_string())),
             Expression::WindowFunc(_) => {
                 if let Some(first_ctx_list) = contexts.first() {
                     let eval_ctx =

@@ -1,5 +1,5 @@
 use super::{Executor, QueryResult};
-use crate::engines::mysql::error::{SqlError, SqlResult};
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::ir::{CreateUser, DropUser, Grant, Revoke};
 use crate::storage::User;
 use std::collections::HashMap;
@@ -9,13 +9,13 @@ impl Executor {
         &self,
         stmt: CreateUser,
         tx_id: Option<&str>,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let hashed = bcrypt::hash(&stmt.password, bcrypt::DEFAULT_COST)
-            .map_err(|e| SqlError::Runtime(format!("Bcrypt error: {}", e)))?;
+            .map_err(|e| ExecError::Runtime(format!("Bcrypt error: {}", e)))?;
 
         self.mutate_state(tx_id, |state| {
             if state.users.contains_key(&stmt.username) {
-                return Err(SqlError::Runtime(format!(
+                return Err(ExecError::Runtime(format!(
                     "User {} already exists",
                     stmt.username
                 )));
@@ -46,12 +46,12 @@ impl Executor {
         &self,
         stmt: DropUser,
         tx_id: Option<&str>,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         self.mutate_state(tx_id, |state| {
             state
                 .users
                 .remove(&stmt.username)
-                .ok_or_else(|| SqlError::Runtime(format!("User {} not found", stmt.username)))?;
+                .ok_or_else(|| ExecError::Runtime(format!("User {} not found", stmt.username)))?;
             Ok(())
         })
         .await?;
@@ -69,12 +69,12 @@ impl Executor {
         &self,
         stmt: Grant,
         tx_id: Option<&str>,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         self.mutate_state(tx_id, |state| {
             let user = state
                 .users
                 .get_mut(&stmt.username)
-                .ok_or_else(|| SqlError::Runtime(format!("User {} not found", stmt.username)))?;
+                .ok_or_else(|| ExecError::Runtime(format!("User {} not found", stmt.username)))?;
 
             if let Some(table) = &stmt.table {
                 let entry = user.table_privileges.entry(table.clone()).or_default();
@@ -107,12 +107,12 @@ impl Executor {
         &self,
         stmt: Revoke,
         tx_id: Option<&str>,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         self.mutate_state(tx_id, |state| {
             let user = state
                 .users
                 .get_mut(&stmt.username)
-                .ok_or_else(|| SqlError::Runtime(format!("User {} not found", stmt.username)))?;
+                .ok_or_else(|| ExecError::Runtime(format!("User {} not found", stmt.username)))?;
 
             if let Some(table) = &stmt.table {
                 if let Some(entry) = user.table_privileges.get_mut(table) {

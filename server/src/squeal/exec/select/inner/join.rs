@@ -1,7 +1,7 @@
 use super::project::JoinedContext;
-use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::squeal;
 use crate::squeal::eval::{EvalContext, evaluate_condition_joined};
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::exec::{Executor, SelectQueryPlan};
 use crate::storage::{Row, Table};
 use std::collections::HashMap;
@@ -12,7 +12,7 @@ impl Executor {
         plan: &SelectQueryPlan<'b>,
         cte_tables: &'b HashMap<String, Table>,
         mut joined_rows: Vec<JoinedContext<'b>>,
-    ) -> SqlResult<Vec<JoinedContext<'b>>> {
+    ) -> ExecResult<Vec<JoinedContext<'b>>> {
         let stmt = &plan.stmt;
         let outer_contexts = plan.outer_contexts;
         let params = plan.params;
@@ -22,13 +22,13 @@ impl Executor {
             let join_table = if let Some(t) = cte_tables.get(&join.table) {
                 t
             } else if join.table.starts_with("information_schema.") {
-                return Err(SqlError::Runtime(
+                return Err(ExecError::Runtime(
                     "JOIN with information_schema is not yet supported".to_string(),
                 ));
             } else {
                 db_state
                     .get_table(&join.table)
-                    .ok_or_else(|| SqlError::TableNotFound(join.table.clone()))?
+                    .ok_or_else(|| ExecError::TableNotFound(join.table.clone()))?
             };
 
             let join_alias = join.table_alias.clone();

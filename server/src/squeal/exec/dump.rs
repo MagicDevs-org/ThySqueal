@@ -1,8 +1,8 @@
 use super::{Executor, QueryResult};
-use crate::engines::mysql::error::SqlResult;
+use crate::squeal::exec::ExecResult;
 
 impl Executor {
-    pub async fn dump(&self) -> SqlResult<String> {
+    pub async fn dump(&self) -> ExecResult<String> {
         let db = self.db.read().await;
         let state = db.state();
         let mut sql = String::new();
@@ -68,7 +68,7 @@ impl Executor {
         &self,
         sql: &str,
         session: super::Session,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let mut last_res = QueryResult {
             columns: vec![],
             rows: vec![],

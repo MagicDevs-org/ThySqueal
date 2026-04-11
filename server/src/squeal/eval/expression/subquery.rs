@@ -1,5 +1,5 @@
 use super::super::Evaluator;
-use crate::engines::mysql::error::{SqlError, SqlResult};
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::ir::Select;
 use crate::storage::{DatabaseState, Row, Table, Value};
 
@@ -10,7 +10,7 @@ pub fn evaluate_subquery(
     params: &[Value],
     outer_contexts: &[(&Table, Option<&str>, &Row)],
     db_state: &DatabaseState,
-) -> SqlResult<Value> {
+) -> ExecResult<Value> {
     let mut combined_outer = outer_contexts.to_vec();
     combined_outer.extend_from_slice(contexts);
 
@@ -24,7 +24,7 @@ pub fn evaluate_subquery(
     if result.rows.is_empty() {
         Ok(Value::Null)
     } else if result.rows.len() > 1 {
-        Err(SqlError::Runtime(
+        Err(ExecError::Runtime(
             "Subquery returned more than one row".to_string(),
         ))
     } else if result.rows[0].is_empty() {

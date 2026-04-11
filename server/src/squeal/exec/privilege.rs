@@ -1,4 +1,4 @@
-use crate::engines::mysql::error::{SqlError, SqlResult};
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::storage::{DatabaseState, Privilege};
 
 pub fn check_privilege(
@@ -6,11 +6,11 @@ pub fn check_privilege(
     table: Option<&str>,
     privilege: Privilege,
     db_state: &DatabaseState,
-) -> SqlResult<()> {
+) -> ExecResult<()> {
     let user = db_state
         .users
         .get(username)
-        .ok_or_else(|| SqlError::Runtime(format!("User {} not found", username)))?;
+        .ok_or_else(|| ExecError::Runtime(format!("User {} not found", username)))?;
 
     if user.global_privileges.contains(&Privilege::All) {
         return Ok(());
@@ -27,7 +27,7 @@ pub fn check_privilege(
         return Ok(());
     }
 
-    Err(SqlError::PermissionDenied(format!(
+    Err(ExecError::PermissionDenied(format!(
         "User {} does not have {:?} privilege{}",
         username,
         privilege,

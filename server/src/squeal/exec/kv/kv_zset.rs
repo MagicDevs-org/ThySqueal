@@ -1,5 +1,6 @@
-use super::{Executor, helpers};
-use crate::engines::mysql::error::{SqlError, SqlResult};
+use crate::squeal::exec::Executor;
+use crate::squeal::exec::helpers;
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::storage::Value;
 
 impl Executor {
@@ -8,7 +9,7 @@ impl Executor {
         key: String,
         members: Vec<(f64, String)>,
         tx_id: Option<&str>,
-    ) -> SqlResult<usize> {
+    ) -> ExecResult<usize> {
         let count = members.len();
         self.mutate_state(tx_id, |state| {
             let zset = state.kv_zset.entry(key).or_insert_with(Vec::new);
@@ -28,12 +29,12 @@ impl Executor {
         stop: i64,
         with_scores: bool,
         tx_id: Option<&str>,
-    ) -> SqlResult<Vec<Value>> {
+    ) -> ExecResult<Vec<Value>> {
         let zset = if let Some(id) = tx_id {
             let state = self
                 .transactions
                 .get(id)
-                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+                .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?;
             state.kv_zset.get(key).cloned().unwrap_or_default()
         } else {
             let db = self.db.read().await;
@@ -49,12 +50,12 @@ impl Executor {
         max: f64,
         with_scores: bool,
         tx_id: Option<&str>,
-    ) -> SqlResult<Vec<Value>> {
+    ) -> ExecResult<Vec<Value>> {
         let zset = if let Some(id) = tx_id {
             let state = self
                 .transactions
                 .get(id)
-                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+                .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?;
             state.kv_zset.get(key).cloned().unwrap_or_default()
         } else {
             let db = self.db.read().await;
@@ -68,7 +69,7 @@ impl Executor {
         key: String,
         members: Vec<String>,
         tx_id: Option<&str>,
-    ) -> SqlResult<usize> {
+    ) -> ExecResult<usize> {
         let count = members.len();
         self.mutate_state(tx_id, |state| {
             if let Some(zset) = state.kv_zset.get_mut(&key) {

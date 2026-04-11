@@ -1,7 +1,7 @@
-use crate::engines::mysql::error::{SqlError, SqlResult};
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::storage::{Row, Table, Value};
 
-pub fn resolve_column(name: &str, contexts: &[(&Table, Option<&str>, &Row)]) -> SqlResult<Value> {
+pub fn resolve_column(name: &str, contexts: &[(&Table, Option<&str>, &Row)]) -> ExecResult<Value> {
     if name.contains('.') {
         let parts: Vec<&str> = name.split('.').collect();
         // Case 1: table_or_alias.column[.json_path]
@@ -14,7 +14,7 @@ pub fn resolve_column(name: &str, contexts: &[(&Table, Option<&str>, &Row)]) -> 
 
             if matches_table && let Some(idx) = table.column_index(parts[1]) {
                 let mut current_val = row.values.get(idx).cloned().ok_or_else(|| {
-                    SqlError::Runtime(format!("Value not found for column index: {}", idx))
+                    ExecError::Runtime(format!("Value not found for column index: {}", idx))
                 })?;
 
                 // JSON path traversal
@@ -38,7 +38,7 @@ pub fn resolve_column(name: &str, contexts: &[(&Table, Option<&str>, &Row)]) -> 
         for (table, _alias, row) in contexts {
             if let Some(idx) = table.column_index(parts[0]) {
                 let mut current_val = row.values.get(idx).cloned().ok_or_else(|| {
-                    SqlError::Runtime(format!("Value not found for column index: {}", idx))
+                    ExecError::Runtime(format!("Value not found for column index: {}", idx))
                 })?;
 
                 for part in &parts[1..] {
@@ -61,10 +61,10 @@ pub fn resolve_column(name: &str, contexts: &[(&Table, Option<&str>, &Row)]) -> 
         for (table, _alias, row) in contexts {
             if let Some(idx) = table.column_index(name) {
                 return row.values.get(idx).cloned().ok_or_else(|| {
-                    SqlError::Runtime(format!("Value not found for column index: {}", idx))
+                    ExecError::Runtime(format!("Value not found for column index: {}", idx))
                 });
             }
         }
     }
-    Err(SqlError::ColumnNotFound(name.to_string()))
+    Err(ExecError::ColumnNotFound(name.to_string()))
 }

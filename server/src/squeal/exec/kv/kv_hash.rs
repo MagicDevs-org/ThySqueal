@@ -1,5 +1,5 @@
-use super::Executor;
-use crate::engines::mysql::error::{SqlError, SqlResult};
+use crate::squeal::exec::Executor;
+use crate::squeal::exec::{ExecError, ExecResult};
 use crate::storage::Value;
 use std::collections::HashMap;
 
@@ -10,7 +10,7 @@ impl Executor {
         field: String,
         value: Value,
         tx_id: Option<&str>,
-    ) -> SqlResult<()> {
+    ) -> ExecResult<()> {
         self.mutate_state(tx_id, |state| {
             state
                 .kv_hash
@@ -28,12 +28,12 @@ impl Executor {
         key: &str,
         field: &str,
         tx_id: Option<&str>,
-    ) -> SqlResult<Option<Value>> {
+    ) -> ExecResult<Option<Value>> {
         if let Some(id) = tx_id {
             let state = self
                 .transactions
                 .get(id)
-                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+                .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?;
             Ok(state.kv_hash.get(key).and_then(|h| h.get(field)).cloned())
         } else {
             let db = self.db.read().await;
@@ -50,12 +50,12 @@ impl Executor {
         &self,
         key: &str,
         tx_id: Option<&str>,
-    ) -> SqlResult<HashMap<String, Value>> {
+    ) -> ExecResult<HashMap<String, Value>> {
         if let Some(id) = tx_id {
             let state = self
                 .transactions
                 .get(id)
-                .ok_or_else(|| SqlError::Runtime("Transaction not found".to_string()))?;
+                .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?;
             Ok(state.kv_hash.get(key).cloned().unwrap_or_default())
         } else {
             let db = self.db.read().await;
@@ -68,7 +68,7 @@ impl Executor {
         key: String,
         fields: Vec<String>,
         tx_id: Option<&str>,
-    ) -> SqlResult<usize> {
+    ) -> ExecResult<usize> {
         let count = fields.len();
         self.mutate_state(tx_id, |state| {
             if let Some(hash) = state.kv_hash.get_mut(&key) {

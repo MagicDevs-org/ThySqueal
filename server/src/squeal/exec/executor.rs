@@ -1,10 +1,66 @@
-use super::{Executor, QueryResult};
-use crate::engines::mysql::error::SqlResult;
+use super::QueryResult;
+use crate::engines::mysql::parser::parse_to_squeal;
+use crate::squeal::eval::Evaluator;
+use crate::squeal::exec::ExecResult;
+use crate::squeal::exec::plan::SelectQueryPlan;
+use crate::squeal::exec::pubsub::PubSubState;
+use crate::squeal::exec::session::Session;
+use crate::squeal::ir::Select;
+use crate::squeal::ir::Squeal;
 use crate::squeal::ir::*;
-use crate::storage::Value;
+use crate::storage::{Database, DatabaseState, Row, Table, Value};
+use dashmap::DashMap;
+use futures::future::BoxFuture;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+
+pub struct Executor {
+    pub db: Arc<RwLock<Database>>,
+    pub transactions: DashMap<String, DatabaseState>,
+    pub prepared_statements: DashMap<String, Squeal>, // name -> stmt
+    pub data_dir: Option<String>,
+    pub pubsub: Arc<tokio::sync::RwLock<PubSubState>>,
+}
 
 impl Executor {
-    pub async fn exec_kv_set(&self, kv: KvSet, tx_id: Option<&str>) -> SqlResult<QueryResult> {
+    pub fn new(db: Arc<RwLock<Database>>) -> Self {
+        Self {
+            db,
+            transactions: DashMap::new(),
+            prepared_statements: DashMap::new(),
+            data_dir: None,
+            pubsub: Arc::new(tokio::sync::RwLock::new(PubSubState::default())),
+        }
+    }
+
+    pub fn with_data_dir(mut self, data_dir: String) -> Self {
+        self.data_dir = Some(data_dir);
+        self
+    }
+
+    pub async fn execute(
+        &self,
+        sql: &str,
+        params: Vec<Value>,
+        session: Session,
+    ) -> ExecResult<QueryResult> {
+        // Workflow: SQL string -> AST (Pest) -> Squeal (IR) -> Executor
+        let squeal = parse_to_squeal(sql)?;
+        self.exec_squeal(squeal, params, session).await
+    }
+
+    pub async fn execute_squeal(
+        &self,
+        squeal: Squeal,
+        params: Vec<Value>,
+        session: Session,
+    ) -> ExecResult<QueryResult> {
+        self.exec_squeal(squeal, params, session).await
+    }
+}
+
+impl Executor {
+    pub async fn exec_kv_set(&self, kv: KvSet, tx_id: Option<&str>) -> ExecResult<QueryResult> {
         let key = kv.key.clone();
         self.kv_set(kv.key, kv.value, tx_id).await?;
         if let Some(exp) = kv.expiry {
@@ -19,7 +75,7 @@ impl Executor {
         })
     }
 
-    pub async fn exec_kv_get(&self, kv: KvGet, tx_id: Option<&str>) -> SqlResult<QueryResult> {
+    pub async fn exec_kv_get(&self, kv: KvGet, tx_id: Option<&str>) -> ExecResult<QueryResult> {
         let value = self.kv_get(&kv.key, tx_id).await?;
         let row = match &value {
             Some(v) => vec![v.clone()],
@@ -34,7 +90,7 @@ impl Executor {
         })
     }
 
-    pub async fn exec_kv_del(&self, kv: KvDel, tx_id: Option<&str>) -> SqlResult<QueryResult> {
+    pub async fn exec_kv_del(&self, kv: KvDel, tx_id: Option<&str>) -> ExecResult<QueryResult> {
         let mut count = 0;
         for key in kv.keys {
             if self.kv_get(&key, tx_id).await?.is_some() {
@@ -55,7 +111,7 @@ impl Executor {
         &self,
         kv: KvHashSet,
         tx_id: Option<&str>,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         self.kv_hash_set(kv.key, kv.field, kv.value, tx_id).await?;
         Ok(QueryResult {
             columns: vec![],
@@ -70,7 +126,7 @@ impl Executor {
         &self,
         kv: KvHashGet,
         tx_id: Option<&str>,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let value = self.kv_hash_get(&kv.key, &kv.field, tx_id).await?;
         let row = match &value {
             Some(v) => vec![v.clone()],
@@ -89,7 +145,7 @@ impl Executor {
         &self,
         kv: KvListPush,
         tx_id: Option<&str>,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let count = self.kv_list_push(kv.key, kv.values, kv.left, tx_id).await?;
         Ok(QueryResult {
             columns: vec!["count".to_string()],
@@ -104,7 +160,7 @@ impl Executor {
         &self,
         kv: KvListRange,
         tx_id: Option<&str>,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let values = self
             .kv_list_range(&kv.key, kv.start, kv.stop, tx_id)
             .await?;
@@ -122,7 +178,7 @@ impl Executor {
         &self,
         kv: KvSetAdd,
         tx_id: Option<&str>,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let count = self.kv_set_add(kv.key, kv.members, tx_id).await?;
         Ok(QueryResult {
             columns: vec!["count".to_string()],
@@ -137,7 +193,7 @@ impl Executor {
         &self,
         kv: KvSetMembers,
         tx_id: Option<&str>,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let members = self.kv_set_members(&kv.key, tx_id).await?;
         let rows: Vec<Vec<Value>> = members.into_iter().map(|m| vec![Value::Text(m)]).collect();
         Ok(QueryResult {
@@ -153,7 +209,7 @@ impl Executor {
         &self,
         kv: KvZSetAdd,
         tx_id: Option<&str>,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let count = self.kv_zset_add(kv.key, kv.members, tx_id).await?;
         Ok(QueryResult {
             columns: vec!["count".to_string()],
@@ -168,7 +224,7 @@ impl Executor {
         &self,
         kv: KvZSetRange,
         tx_id: Option<&str>,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let values = self
             .kv_zset_range(&kv.key, kv.start, kv.stop, kv.with_scores, tx_id)
             .await?;
@@ -193,7 +249,7 @@ impl Executor {
         &self,
         kv: KvStreamAdd,
         tx_id: Option<&str>,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let id = self.kv_stream_add(kv.key, kv.id, kv.fields, tx_id).await?;
         Ok(QueryResult {
             columns: vec!["id".to_string()],
@@ -208,7 +264,7 @@ impl Executor {
         &self,
         kv: KvStreamRange,
         tx_id: Option<&str>,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let results = self
             .kv_stream_range(&kv.key, &kv.start, &kv.stop, kv.count, tx_id)
             .await?;
@@ -239,7 +295,7 @@ impl Executor {
         &self,
         kv: KvStreamLen,
         tx_id: Option<&str>,
-    ) -> SqlResult<QueryResult> {
+    ) -> ExecResult<QueryResult> {
         let len = self.kv_stream_len(&kv.key, tx_id).await?;
         Ok(QueryResult {
             columns: vec!["length".to_string()],
@@ -250,7 +306,7 @@ impl Executor {
         })
     }
 
-    pub async fn exec_pubsub_publish(&self, kv: PubSubPublish) -> SqlResult<QueryResult> {
+    pub async fn exec_pubsub_publish(&self, kv: PubSubPublish) -> ExecResult<QueryResult> {
         let count = self.pubsub_publish(kv.channel, kv.message).await?;
         Ok(QueryResult {
             columns: vec!["subscribers".to_string()],
@@ -259,5 +315,20 @@ impl Executor {
             transaction_id: None,
             session: None,
         })
+    }
+}
+
+impl Evaluator for Executor {
+    fn exec_select_internal<'a>(
+        &'a self,
+        stmt: Select,
+        outer_contexts: &'a [(&'a Table, Option<&'a str>, &'a Row)],
+        params: &'a [Value],
+        db_state: &'a DatabaseState,
+    ) -> BoxFuture<'a, ExecResult<QueryResult>> {
+        let plan = SelectQueryPlan::new(stmt, db_state, Session::root())
+            .with_outer_contexts(outer_contexts)
+            .with_params(params);
+        self.exec_select_recursive(plan)
     }
 }
