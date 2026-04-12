@@ -175,10 +175,22 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
                 let parts: Vec<&str> = payload_str.split('\0').collect();
                 let table_name = parts.first().unwrap_or(&"");
 
+                if table_name.is_empty()
+                    || table_name.contains('\'')
+                    || table_name.contains('"')
+                    || table_name.contains(';')
+                    || table_name.contains('\\')
+                {
+                    let err = SqlError::Runtime("Invalid table name".to_string());
+                    send_sql_error(&mut socket, seq + 1, &err).await?;
+                    continue;
+                }
+
+                let table_name_escaped = table_name.replace('\'', "''");
                 let query = format!(
                     "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_KEY, COLUMN_DEFAULT, EXTRA \
                      FROM information_schema.COLUMNS WHERE TABLE_NAME = '{}' ORDER BY ORDINAL_POSITION",
-                    table_name
+                    table_name_escaped
                 );
                 let session = Session::new(Some(username.clone()), None);
                 match executor.execute(&query, vec![], session).await {
