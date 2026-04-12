@@ -1,6 +1,3 @@
-pub mod connection;
-pub mod packet;
-
 use crate::engines::traits::Protocol;
 use crate::squeal::exec::Executor;
 use anyhow::Result;
@@ -8,19 +5,19 @@ use futures::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-pub struct MysqlProtocol {
+pub struct RedisProtocol {
     executor: Arc<Executor>,
 }
 
-impl MysqlProtocol {
+impl RedisProtocol {
     pub fn new(executor: Arc<Executor>) -> Self {
         Self { executor }
     }
 }
 
-impl Protocol for MysqlProtocol {
+impl Protocol for RedisProtocol {
     fn name(&self) -> &'static str {
-        "mysql"
+        "redis"
     }
 
     fn create(executor: Arc<Executor>) -> Self
@@ -33,19 +30,19 @@ impl Protocol for MysqlProtocol {
     fn run<'a>(&'a self, addr: &'a str) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
         let executor = self.executor.clone();
         Box::pin(async move {
-            use crate::engines::mysql::protocol::connection::handle_connection;
+            use crate::engines::redis::connection::handle_connection;
             use tokio::net::TcpListener;
             use tracing::{error, info};
 
             let listener = TcpListener::bind(addr).await?;
-            info!("MySQL Protocol listening on {}", addr);
+            info!("Redis Protocol listening on {}", addr);
 
             loop {
                 let (socket, _) = listener.accept().await?;
                 let executor = executor.clone();
                 tokio::spawn(async move {
                     if let Err(e) = handle_connection(socket, executor).await {
-                        error!("MySQL connection error: {}", e);
+                        error!("Redis connection error: {}", e);
                     }
                 });
             }

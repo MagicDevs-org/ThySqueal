@@ -1,45 +1,9 @@
 use crate::engines::redis::resp::RespValue;
-use crate::squeal::exec::Executor;
-use anyhow::{Result, anyhow};
+use crate::engines::redis::to_squeal;
+use crate::squeal::exec::{Executor, Session};
+use anyhow::Result;
 use std::sync::Arc;
 use tokio::net::TcpStream;
-
-fn require_args(cmd_array: &[RespValue], min_len: usize, name: &str) -> Result<()> {
-    if cmd_array.len() < min_len {
-        return Err(anyhow!("wrong number of arguments for '{}' command", name));
-    }
-    Ok(())
-}
-
-fn extract_bulk_string(v: &RespValue) -> Result<String> {
-    match v {
-        RespValue::BulkString(Some(b)) => Ok(String::from_utf8_lossy(b).to_string()),
-        RespValue::SimpleString(s) => Ok(s.clone()),
-        _ => Err(anyhow!("expected bulk string")),
-    }
-}
-
-fn extract_value(v: &RespValue) -> Result<crate::storage::Value> {
-    match v {
-        RespValue::BulkString(Some(b)) => Ok(crate::storage::Value::Text(
-            String::from_utf8_lossy(b).to_string(),
-        )),
-        RespValue::SimpleString(s) => Ok(crate::storage::Value::Text(s.clone())),
-        RespValue::Integer(i) => Ok(crate::storage::Value::Int(*i)),
-        _ => Err(anyhow!("invalid value type")),
-    }
-}
-
-fn extract_integer(v: &RespValue) -> Result<i64> {
-    match v {
-        RespValue::BulkString(Some(b)) => String::from_utf8_lossy(b)
-            .parse()
-            .map_err(|e| anyhow!("{}", e)),
-        RespValue::SimpleString(s) => s.parse().map_err(|e| anyhow!("{}", e)),
-        RespValue::Integer(i) => Ok(*i),
-        _ => Err(anyhow!("expected integer")),
-    }
-}
 
 pub async fn push(
     socket: &mut TcpStream,
@@ -47,15 +11,17 @@ pub async fn push(
     executor: &Arc<Executor>,
     cmd_name: &str,
 ) -> Result<()> {
-    require_args(cmd_array, 3, "lpush/rpush")?;
-    let key = extract_bulk_string(&cmd_array[1])?;
-    let values: Vec<crate::storage::Value> = cmd_array[2..]
-        .iter()
-        .map(|v| extract_value(v).unwrap_or(crate::storage::Value::Null))
-        .collect();
-    let left = cmd_name == "LPUSH";
-    let count = executor.kv_list_push(key, values, left, None).await?;
-    RespValue::Integer(count as i64).write(socket).await
+    let squeal = if cmd_name == "LPUSH" {
+        to_squeal::parse_lpush(cmd_array)?
+    } else {
+        to_squeal::parse_rpush(cmd_array)?
+    };
+    let result = executor
+        .execute_squeal(squeal, vec![], Session::root())
+        .await?;
+    RespValue::Integer(result.rows_affected as i64)
+        .write(socket)
+        .await
 }
 
 pub async fn range(
@@ -63,16 +29,17 @@ pub async fn range(
     cmd_array: &[RespValue],
     executor: &Arc<Executor>,
 ) -> Result<()> {
-    require_args(cmd_array, 4, "lrange")?;
-    let key = extract_bulk_string(&cmd_array[1])?;
-    let start = extract_integer(&cmd_array[2])? as i64;
-    let stop = extract_integer(&cmd_array[3])? as i64;
-    let values = executor.kv_list_range(&key, start, stop, None).await?;
-    let result: Vec<RespValue> = values
-        .into_iter()
+    let squeal = to_squeal::parse_lrange(cmd_array)?;
+    let result = executor
+        .execute_squeal(squeal, vec![], Session::root())
+        .await?;
+    let values: Vec<RespValue> = result
+        .rows
+        .iter()
+        .filter_map(|row| row.first())
         .map(|v| RespValue::BulkString(Some(format!("{:?}", v).into_bytes())))
         .collect();
-    RespValue::Array(Some(result)).write(socket).await
+    RespValue::Array(Some(values)).write(socket).await
 }
 
 pub async fn pop(
@@ -81,10 +48,17 @@ pub async fn pop(
     executor: &Arc<Executor>,
     cmd_name: &str,
 ) -> Result<()> {
-    require_args(cmd_array, 2, "lpop/rpop")?;
-    let key = extract_bulk_string(&cmd_array[1])?;
+    let key = match &cmd_array.get(1) {
+        Some(RespValue::BulkString(Some(b))) => String::from_utf8_lossy(b).to_string(),
+        Some(RespValue::SimpleString(s)) => s.clone(),
+        _ => return Err(anyhow::anyhow!("expected bulk string")),
+    };
     let count = if cmd_array.len() > 2 {
-        extract_integer(&cmd_array[2])? as usize
+        match &cmd_array[2] {
+            RespValue::Integer(i) => *i as usize,
+            RespValue::BulkString(Some(b)) => String::from_utf8_lossy(b).parse().unwrap_or(1),
+            _ => 1,
+        }
     } else {
         1
     };
@@ -102,8 +76,11 @@ pub async fn len(
     cmd_array: &[RespValue],
     executor: &Arc<Executor>,
 ) -> Result<()> {
-    require_args(cmd_array, 2, "llen")?;
-    let key = extract_bulk_string(&cmd_array[1])?;
+    let key = match &cmd_array.get(1) {
+        Some(RespValue::BulkString(Some(b))) => String::from_utf8_lossy(b).to_string(),
+        Some(RespValue::SimpleString(s)) => s.clone(),
+        _ => return Err(anyhow::anyhow!("expected bulk string")),
+    };
     let len = executor.kv_list_len(&key, None).await?;
     RespValue::Integer(len as i64).write(socket).await
 }

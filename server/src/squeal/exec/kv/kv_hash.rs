@@ -63,6 +63,7 @@ impl Executor {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn kv_hash_del(
         &self,
         key: String,

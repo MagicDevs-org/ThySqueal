@@ -9,8 +9,7 @@ mod tests;
 
 use crate::config::Config;
 use crate::engines::available_engines;
-use crate::engines::mysql::protocol::MySqlProtocol;
-use crate::engines::redis::RedisProtocol;
+use crate::engines::traits::Registry;
 use crate::squeal::exec::Executor;
 use crate::storage::Database;
 use crate::storage::persistence::SledPersister;
@@ -26,22 +25,27 @@ use tracing_subscriber::FmtSubscriber;
 async fn main() -> anyhow::Result<()> {
     prepare_tracing();
 
-    let available = available_engines();
-    let engine_keys: Vec<&str> = available.into_iter().map(|e| e.config_key()).collect();
+    let mut registry = Registry::new();
+    for engine in available_engines() {
+        registry.register(engine);
+    }
+    let engine_keys: Vec<&str> = registry.engines.iter().map(|e| e.config_key()).collect();
     info!("Available engines: {}", engine_keys.join(", "));
 
     let config = load_config()?;
     let db = load_db(config.clone());
     let executor = create_executor(config.clone(), db);
 
-    let option_handles = vec![
-        handle_mysql(executor.clone(), config.clone()),
-        handle_redis(executor.clone(), config.clone()),
-        handle_http(executor.clone(), config.clone()),
-    ];
+    let mut handles = vec![handle_http(executor.clone(), config.clone())];
 
-    let handles: Vec<JoinHandle<()>> = option_handles.into_iter().flatten().collect();
-    let _ = future::join_all(handles).await;
+    for engine in registry.engines.iter() {
+        if let Some(handle) = registry.start_protocols(engine.as_ref(), executor.clone(), &config) {
+            handles.push(Some(handle));
+        }
+    }
+
+    let flat_handles: Vec<JoinHandle<()>> = handles.into_iter().flatten().collect();
+    let _ = future::join_all(flat_handles).await;
 
     Ok(())
 }
@@ -102,40 +106,6 @@ fn handle_http(executor: Arc<Executor>, config: Arc<Config>) -> Option<JoinHandl
                 };
                 if let Err(e) = axum::serve(listener, app).await {
                     error!("HTTP server error: {}", e);
-                }
-            });
-            Some(handle)
-        }
-    }
-}
-
-// MySQL Protocol handle
-fn handle_mysql(executor: Arc<Executor>, config: Arc<Config>) -> Option<JoinHandle<()>> {
-    match config.server.sql_port {
-        None => None,
-        Some(port) => {
-            let mysql_addr = format!("{}:{}", config.server.host, port);
-            let handle = tokio::spawn(async move {
-                let protocol = MySqlProtocol::new(executor);
-                if let Err(e) = protocol.run(&mysql_addr).await {
-                    error!("MySQL protocol error: {}", e);
-                }
-            });
-            Some(handle)
-        }
-    }
-}
-
-// Redis Protocol handle
-fn handle_redis(executor: Arc<Executor>, config: Arc<Config>) -> Option<JoinHandle<()>> {
-    match config.server.redis_port {
-        None => None,
-        Some(redis_port) => {
-            let redis_addr = format!("{}:{}", config.server.host, redis_port);
-            let handle = tokio::spawn(async move {
-                let protocol = RedisProtocol::new(executor);
-                if let Err(e) = protocol.run(&redis_addr).await {
-                    error!("Redis protocol error: {}", e);
                 }
             });
             Some(handle)

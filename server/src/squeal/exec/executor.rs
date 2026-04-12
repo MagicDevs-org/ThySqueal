@@ -141,6 +141,25 @@ impl Executor {
         })
     }
 
+    pub async fn exec_kv_hash_get_all(
+        &self,
+        kv: KvHashGetAll,
+        tx_id: Option<&str>,
+    ) -> ExecResult<QueryResult> {
+        let hash = self.kv_hash_get_all(&kv.key, tx_id).await?;
+        let mut rows = vec![];
+        for (field, value) in hash {
+            rows.push(vec![Value::Text(field), value]);
+        }
+        Ok(QueryResult {
+            columns: vec!["field".to_string(), "value".to_string()],
+            rows,
+            rows_affected: 0,
+            transaction_id: None,
+            session: None,
+        })
+    }
+
     pub async fn exec_kv_list_push(
         &self,
         kv: KvListPush,

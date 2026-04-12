@@ -35,6 +35,7 @@ pub enum Squeal {
     KvDel(KvDel),
     KvHashSet(KvHashSet),
     KvHashGet(KvHashGet),
+    KvHashGetAll(KvHashGetAll),
     KvListPush(KvListPush),
     KvListRange(KvListRange),
     KvSetAdd(KvSetAdd),
@@ -75,6 +76,11 @@ pub struct KvHashSet {
 pub struct KvHashGet {
     pub key: String,
     pub field: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KvHashGetAll {
+    pub key: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

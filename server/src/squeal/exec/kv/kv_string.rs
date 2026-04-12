@@ -142,6 +142,7 @@ impl Executor {
         Ok(ttl)
     }
 
+    #[allow(dead_code)]
     pub async fn kv_keys(&self, pattern: &str, tx_id: Option<&str>) -> ExecResult<Vec<String>> {
         let keys: Vec<String> = if let Some(id) = tx_id {
             let state = self

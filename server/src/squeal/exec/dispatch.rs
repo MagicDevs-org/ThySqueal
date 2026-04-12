@@ -78,6 +78,10 @@ impl Executor {
                     self.exec_kv_hash_get(kv, ctx.session.transaction_id.as_deref())
                         .await?
                 }
+                Squeal::KvHashGetAll(kv) => {
+                    self.exec_kv_hash_get_all(kv, ctx.session.transaction_id.as_deref())
+                        .await?
+                }
                 Squeal::KvListPush(kv) => {
                     self.exec_kv_list_push(kv, ctx.session.transaction_id.as_deref())
                         .await?

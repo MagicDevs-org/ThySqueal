@@ -1,5 +1,8 @@
 use crate::engines::mysql::mysql_config::MysqlConfig;
-use crate::engines::traits::{Config, DummyParser, Engine, Parser};
+use crate::engines::mysql::protocol::MysqlProtocol;
+use crate::engines::traits::{Config, DummyParser, Engine, Parser, Protocol};
+use crate::squeal::exec::Executor;
+use std::sync::Arc;
 
 pub struct MysqlEngine;
 
@@ -16,5 +19,9 @@ impl Engine for MysqlEngine {
 
     fn parser(&self) -> Box<dyn Parser> {
         Box::new(DummyParser)
+    }
+
+    fn protocol(&self, executor: Arc<Executor>) -> Box<dyn Protocol> {
+        Box::new(MysqlProtocol::new(executor))
     }
 }
