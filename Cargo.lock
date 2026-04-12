@@ -2625,6 +2625,7 @@ dependencies = [
  "byteorder",
  "bytes",
  "chrono",
+ "clap",
  "dashmap",
  "futures",
  "md5",

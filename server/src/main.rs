@@ -14,6 +14,7 @@ use crate::squeal::exec::Executor;
 use crate::storage::Database;
 use crate::storage::persistence::SledPersister;
 
+use clap::Parser;
 use futures::future;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -21,9 +22,18 @@ use tokio::{sync::RwLock, task::JoinHandle};
 use tracing::{Level, error, info};
 use tracing_subscriber::FmtSubscriber;
 
+#[derive(Parser, Debug)]
+#[command(version, about)]
+struct Args {
+    #[arg(short, long, default_value = "thysqueal.yaml")]
+    config: String,
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     prepare_tracing();
+
+    let args = Args::parse();
 
     let mut registry = Registry::new();
     for engine in available_engines() {
@@ -32,7 +42,7 @@ async fn main() -> anyhow::Result<()> {
     let engine_keys: Vec<&str> = registry.engines.iter().map(|e| e.config_key()).collect();
     info!("Available engines: {}", engine_keys.join(", "));
 
-    let config = load_config()?;
+    let config = load_config(&args.config)?;
     let db = load_db(config.clone());
     let executor = create_executor(config.clone(), db);
 
@@ -59,9 +69,9 @@ fn prepare_tracing() {
     tracing::subscriber::set_global_default(subscriber).expect("Failed to set tracing subscriber");
 }
 
-fn load_config() -> anyhow::Result<Arc<Config>> {
+fn load_config(config_path: &str) -> anyhow::Result<Arc<Config>> {
     info!("Starting thysqueal server v{}", env!("CARGO_PKG_VERSION"));
-    let cfg = config::load_config()?;
+    let cfg = config::load_config(config_path)?;
     let config = Arc::new(cfg);
     info!("Configuration loaded:");
     info!("http_port={:?}", config.server.http_port);

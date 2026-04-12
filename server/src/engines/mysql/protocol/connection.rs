@@ -9,6 +9,52 @@ use std::sync::Arc;
 use tokio::net::TcpStream;
 use tracing::info;
 
+const PROTO_VERSION: u8 = 10;
+const DEFAULT_USERNAME: &str = "root";
+const AUTH_PLUGIN_NAME: &str = "mysql_native_password";
+const AUTH_PLUGIN_DATA_PART1: &str = "authplug";
+const AUTH_PLUGIN_DATA_PART2: &str = "authplug";
+const SERVER_VERSION: &str = "ThySqueal-0.8.0";
+
+const CHAR_SET_UTF8: u16 = 33;
+const CHAR_SET_CODE: u8 = 33;
+const STATUS_FLAGS: u16 = 0x0002;
+
+const CAPABILITY_LOWER: u16 = 0xF7FF;
+const CAPABILITY_UPPER: u16 = 0x8000;
+
+const MYSQL_NULL_TYPE: u8 = 0x06;
+const MYSQL_TINYINT: u8 = 0x01;
+const MYSQL_SMALLINT: u8 = 0x02;
+const MYSQL_INT: u8 = 0x03;
+const MYSQL_FLOAT: u8 = 0x04;
+const MYSQL_BIGINT: u8 = 0x08;
+const MYSQL_DATETIME: u8 = 0x0C;
+const MYSQL_VAR_STRING: u8 = 0xFD;
+const MYSQL_BLOB: u8 = 0xFE;
+
+const MYSQL_NULL_IN_BIND: u8 = 0xFB;
+const MYSQL_OK_HEADER: u8 = 0x00;
+const MYSQL_ERROR_HEADER: u8 = 0xFF;
+const MYSQL_EOF_HEADER: u8 = 0xFE;
+
+const LEN_ENC_2BYTE: u8 = 0xFC;
+const LEN_ENC_3BYTE: u8 = 0xFD;
+const LEN_ENC_8BYTE: u8 = 0xFE;
+
+const COM_QUIT: u8 = 0x01;
+const COM_INIT_DB: u8 = 0x02;
+const COM_QUERY: u8 = 0x03;
+const COM_FIELD_LIST: u8 = 0x04;
+const COM_STATISTICS: u8 = 0x0A;
+const COM_PING: u8 = 0x0E;
+const COM_STMT_PREPARE: u8 = 0x16;
+const COM_STMT_EXECUTE: u8 = 0x17;
+const COM_STMT_CLOSE: u8 = 0x19;
+
+const ERR_CODE_UNKNOWN_CMD: u16 = 1047;
+const ERR_SQL_STATE: &str = "08S01";
+
 #[allow(dead_code)]
 #[derive(Clone)]
 pub struct PreparedStatement {
@@ -30,7 +76,7 @@ async fn send_sql_error(socket: &mut TcpStream, seq: u8, err: &SqlError) -> Resu
     let code = err.mysql_errno();
     let state = err.mysql_sqlstate();
     let mut pkt = Vec::new();
-    pkt.push(0xFF);
+    pkt.push(MYSQL_ERROR_HEADER);
     WriteBytesExt::write_u16::<LittleEndian>(&mut pkt, code)?;
     pkt.push(b'#');
     pkt.extend_from_slice(state.as_bytes());
@@ -54,7 +100,7 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
             .collect();
         String::from_utf8_lossy(&user_bytes).to_string()
     } else {
-        "root".to_string()
+        DEFAULT_USERNAME.to_string()
     };
 
     // For now, we accept any credentials (no auth)
@@ -79,8 +125,8 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
         let data = &payload[1..];
 
         match command {
-            0x01 => break, // COM_QUIT
-            0x03 => {
+            COM_QUIT => break,
+            COM_QUERY => {
                 // COM_QUERY
                 let query = match std::str::from_utf8(data) {
                     Ok(q) => q,
@@ -102,8 +148,7 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
                     Err(e) => send_sql_error(&mut socket, seq + 1, &e.into()).await?,
                 }
             }
-            0x02 => {
-                // COM_INIT_DB
+            COM_INIT_DB => {
                 let db_name = match std::str::from_utf8(data) {
                     Ok(s) => s.trim_end_matches('\0').to_string(),
                     Err(_) => {
@@ -118,8 +163,7 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
                     Err(e) => send_sql_error(&mut socket, seq + 1, &e.into()).await?,
                 }
             }
-            0x04 => {
-                // COM_FIELD_LIST - List columns of a table
+            COM_FIELD_LIST => {
                 let payload_str = match std::str::from_utf8(data) {
                     Ok(s) => s.trim_end_matches('\0').to_string(),
                     Err(_) => {
@@ -142,8 +186,7 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
                     Err(e) => send_sql_error(&mut socket, seq + 1, &e.into()).await?,
                 }
             }
-            0x0A => {
-                // COM_STATISTICS
+            COM_STATISTICS => {
                 let session = Session::new(Some(username.clone()), None);
                 let stats = match executor
                     .execute(
@@ -171,12 +214,10 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
                 let payload = stats.as_bytes().to_vec();
                 send_packet(&mut socket, seq + 1, &payload).await?;
             }
-            0x0E => {
-                // COM_PING
+            COM_PING => {
                 send_ok(&mut socket, seq + 1).await?;
             }
-            0x16 => {
-                // COM_STMT_PREPARE
+            COM_STMT_PREPARE => {
                 let query = match std::str::from_utf8(data) {
                     Ok(q) => q.trim_end_matches('\0'),
                     Err(_) => {
@@ -203,7 +244,7 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
                 );
 
                 let mut payload = Vec::new();
-                payload.push(0x00); // OK header
+                payload.push(MYSQL_OK_HEADER);
                 write_len_enc_int(&mut payload, stmt_id); // Statement ID
                 write_len_enc_int(&mut payload, columns.len() as u64); // Column count
                 write_len_enc_int(&mut payload, params.len() as u64); // Param count
@@ -222,8 +263,7 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
                 }
                 send_eof(&mut socket, seq + 3).await?;
             }
-            0x17 => {
-                // COM_STMT_EXECUTE
+            COM_STMT_EXECUTE => {
                 // First byte after command is statement ID
                 let stmt_id = if data.len() >= 8 {
                     u64::from_le_bytes([
@@ -263,8 +303,7 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
                     Err(e) => send_sql_error(&mut socket, seq + 1, &e.into()).await?,
                 }
             }
-            0x19 => {
-                // COM_STMT_CLOSE
+            COM_STMT_CLOSE => {
                 let stmt_id = if data.len() >= 8 {
                     u64::from_le_bytes([
                         data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
@@ -277,7 +316,14 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
             }
             _ => {
                 info!("Unsupported MySQL command: 0x{:02X}", command);
-                send_error(&mut socket, seq + 1, 1047, "08S01", "Unknown command").await?;
+                send_error(
+                    &mut socket,
+                    seq + 1,
+                    ERR_CODE_UNKNOWN_CMD,
+                    ERR_SQL_STATE,
+                    "Unknown command",
+                )
+                .await?;
             }
         }
     }
@@ -287,29 +333,33 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
 
 async fn send_handshake(socket: &mut TcpStream) -> Result<()> {
     let mut payload = Vec::new();
-    payload.push(10); // Protocol version
-    payload.extend_from_slice(b"ThySqueal-0.8.0\0");
-    payload.extend_from_slice(&[0u8; 4]); // Connection ID (dummy)
-    payload.extend_from_slice(b"authplug\0"); // Auth plugin data part 1
-    WriteBytesExt::write_u16::<LittleEndian>(&mut payload, 0xF7FF)?; // Capability flags (lower)
-    payload.push(33); // Character set (utf8_general_ci)
-    WriteBytesExt::write_u16::<LittleEndian>(&mut payload, 0x0002)?; // Status flags
-    WriteBytesExt::write_u16::<LittleEndian>(&mut payload, 0x8000)?; // Capability flags (upper)
-    payload.push(0); // Auth plugin data length
-    payload.extend_from_slice(&[0u8; 10]); // Reserved
-    payload.extend_from_slice(b"authplug\0"); // Auth plugin data part 2
-    payload.extend_from_slice(b"mysql_native_password\0");
+    payload.push(PROTO_VERSION);
+    payload.extend_from_slice(SERVER_VERSION.as_bytes());
+    payload.push(0);
+    payload.extend_from_slice(&[0u8; 4]);
+    payload.extend_from_slice(AUTH_PLUGIN_DATA_PART1.as_bytes());
+    payload.push(0);
+    WriteBytesExt::write_u16::<LittleEndian>(&mut payload, CAPABILITY_LOWER)?;
+    payload.push(CHAR_SET_CODE);
+    WriteBytesExt::write_u16::<LittleEndian>(&mut payload, STATUS_FLAGS)?;
+    WriteBytesExt::write_u16::<LittleEndian>(&mut payload, CAPABILITY_UPPER)?;
+    payload.push(0);
+    payload.extend_from_slice(&[0u8; 10]);
+    payload.extend_from_slice(AUTH_PLUGIN_DATA_PART2.as_bytes());
+    payload.push(0);
+    payload.extend_from_slice(AUTH_PLUGIN_NAME.as_bytes());
+    payload.push(0);
 
     send_packet(socket, 0, &payload).await
 }
 
 async fn send_ok(socket: &mut TcpStream, seq: u8) -> Result<()> {
     let mut payload = Vec::new();
-    payload.push(0x00); // OK header
-    payload.push(0); // Affected rows
-    payload.push(0); // Last insert ID
-    WriteBytesExt::write_u16::<LittleEndian>(&mut payload, 0x0002)?; // Status flags
-    WriteBytesExt::write_u16::<LittleEndian>(&mut payload, 0x0000)?; // Warnings
+    payload.push(MYSQL_OK_HEADER);
+    payload.push(0);
+    payload.push(0);
+    WriteBytesExt::write_u16::<LittleEndian>(&mut payload, STATUS_FLAGS)?;
+    WriteBytesExt::write_u16::<LittleEndian>(&mut payload, 0)?;
 
     send_packet(socket, seq, &payload).await
 }
@@ -322,9 +372,9 @@ async fn send_error(
     msg: &str,
 ) -> Result<()> {
     let mut payload = Vec::new();
-    payload.push(0xFF); // Error header
+    payload.push(MYSQL_ERROR_HEADER);
     WriteBytesExt::write_u16::<LittleEndian>(&mut payload, code)?;
-    payload.push(b'#'); // SQL State marker
+    payload.push(b'#');
     payload.extend_from_slice(state.as_bytes());
     payload.extend_from_slice(msg.as_bytes());
 
@@ -347,13 +397,13 @@ async fn send_result_set(socket: &mut TcpStream, mut seq: u8, result: QueryResul
         write_len_enc_str(&mut payload, ""); // Org Table
         write_len_enc_str(&mut payload, col_name); // Name
         write_len_enc_str(&mut payload, col_name); // Org Name
-        payload.push(0x0C); // Length of fixed-length fields
-        WriteBytesExt::write_u16::<LittleEndian>(&mut payload, 33)?; // Character set
-        WriteBytesExt::write_u32::<LittleEndian>(&mut payload, 255)?; // Column length
-        payload.push(0xFD); // Type (VAR_STRING)
-        WriteBytesExt::write_u16::<LittleEndian>(&mut payload, 0)?; // Flags
-        payload.push(0x00); // Decimals
-        WriteBytesExt::write_u16::<LittleEndian>(&mut payload, 0)?; // Filter
+        payload.push(MYSQL_DATETIME);
+        WriteBytesExt::write_u16::<LittleEndian>(&mut payload, CHAR_SET_UTF8)?;
+        WriteBytesExt::write_u32::<LittleEndian>(&mut payload, 255)?;
+        payload.push(MYSQL_VAR_STRING);
+        WriteBytesExt::write_u16::<LittleEndian>(&mut payload, 0)?;
+        payload.push(0);
+        WriteBytesExt::write_u16::<LittleEndian>(&mut payload, 0)?;
 
         send_packet(socket, seq, &payload).await?;
         seq += 1;
@@ -368,7 +418,7 @@ async fn send_result_set(socket: &mut TcpStream, mut seq: u8, result: QueryResul
         let mut payload = Vec::new();
         for val in row {
             match val {
-                Value::Null => payload.push(0xFB),
+                Value::Null => payload.push(MYSQL_NULL_IN_BIND),
                 _ => write_len_enc_str(&mut payload, &val.to_string()),
             }
         }
@@ -384,9 +434,9 @@ async fn send_result_set(socket: &mut TcpStream, mut seq: u8, result: QueryResul
 
 async fn send_eof(socket: &mut TcpStream, seq: u8) -> Result<()> {
     let mut payload = Vec::new();
-    payload.push(0xFE); // EOF header
-    WriteBytesExt::write_u16::<LittleEndian>(&mut payload, 0)?; // Warnings
-    WriteBytesExt::write_u16::<LittleEndian>(&mut payload, 0x0002)?; // Status flags
+    payload.push(MYSQL_EOF_HEADER);
+    WriteBytesExt::write_u16::<LittleEndian>(&mut payload, 0)?;
+    WriteBytesExt::write_u16::<LittleEndian>(&mut payload, STATUS_FLAGS)?;
 
     send_packet(socket, seq, &payload).await
 }
@@ -404,7 +454,7 @@ async fn send_column_definition(socket: &mut TcpStream, col: &ColumnMeta) -> Res
     WriteBytesExt::write_u32::<LittleEndian>(&mut payload, 255)?; // Column length
     payload.push(col.type_code); // Type
     WriteBytesExt::write_u16::<LittleEndian>(&mut payload, col.flags)?; // Flags
-    payload.push(0x00); // Decimals
+    payload.push(0); // Decimals
     WriteBytesExt::write_u16::<LittleEndian>(&mut payload, 0)?; // Filter
 
     send_packet(socket, 0, &payload).await
@@ -415,7 +465,7 @@ async fn parse_result_columns(query: &str) -> Result<Vec<ColumnMeta>> {
     if query_lower.starts_with("SELECT") || query_lower.starts_with("WITH") {
         Ok(vec![ColumnMeta {
             name: "".to_string(),
-            type_code: 0xFD,
+            type_code: MYSQL_VAR_STRING,
             flags: 0,
         }])
     } else {
@@ -434,7 +484,7 @@ fn parse_parameter_columns(query: &str) -> Vec<ColumnMeta> {
         if b == b'?' {
             params.push(ColumnMeta {
                 name: format!("param_{}", param_idx),
-                type_code: 0xFD, // VARCHAR - would need proper type inference
+                type_code: MYSQL_VAR_STRING,
                 flags: 0,
             });
             param_idx += 1;
@@ -459,13 +509,13 @@ fn parse_parameter_columns(query: &str) -> Vec<ColumnMeta> {
 #[allow(dead_code)]
 pub fn value_to_mysql_type(value: &Value) -> u8 {
     match value {
-        Value::Null => 0x06,        // NULL_TYPE
-        Value::Int(_) => 0x03,      // INT
-        Value::Float(_) => 0x04,    // FLOAT
-        Value::Text(_) => 0xFD,     // VARCHAR
-        Value::Bool(_) => 0x01,     // TINYINT
-        Value::DateTime(_) => 0x0C, // DATETIME
-        Value::Json(_) => 0xFE,     // BLOB (treat JSON as blob)
+        Value::Null => MYSQL_NULL_TYPE,
+        Value::Int(_) => MYSQL_INT,
+        Value::Float(_) => MYSQL_FLOAT,
+        Value::Text(_) => MYSQL_VAR_STRING,
+        Value::Bool(_) => MYSQL_TINYINT,
+        Value::DateTime(_) => MYSQL_DATETIME,
+        Value::Json(_) => MYSQL_BLOB,
     }
 }
 
@@ -473,7 +523,7 @@ impl Value {
     #[allow(dead_code)]
     pub fn to_mysql_bytes(&self) -> Vec<u8> {
         match self {
-            Value::Null => vec![0xFB],
+            Value::Null => vec![MYSQL_NULL_IN_BIND],
             Value::Int(i) => {
                 let mut bytes = vec![];
                 WriteBytesExt::write_i64::<LittleEndian>(&mut bytes, *i).unwrap();
@@ -513,8 +563,7 @@ async fn extract_bound_params(data: &[u8], param_types: &[ColumnMeta]) -> Vec<Va
             break;
         }
 
-        // Check for NULL (0xFB in MySQL binary protocol)
-        if data[offset] == 0xFB {
+        if data[offset] == MYSQL_NULL_IN_BIND {
             values.push(Value::Null);
             offset += 1;
             continue;
@@ -522,8 +571,7 @@ async fn extract_bound_params(data: &[u8], param_types: &[ColumnMeta]) -> Vec<Va
 
         // Extract value based on type
         let value = match param.type_code {
-            0x01 => {
-                // TINYINT
+            MYSQL_TINYINT => {
                 if offset < data.len() {
                     let v = data[offset] as i64;
                     offset += 1;
@@ -532,8 +580,7 @@ async fn extract_bound_params(data: &[u8], param_types: &[ColumnMeta]) -> Vec<Va
                     Value::Null
                 }
             }
-            0x02 => {
-                // SMALLINT
+            MYSQL_SMALLINT => {
                 if offset + 1 < data.len() {
                     let v = i16::from_le_bytes([data[offset], data[offset + 1]]) as i64;
                     offset += 2;
@@ -542,8 +589,7 @@ async fn extract_bound_params(data: &[u8], param_types: &[ColumnMeta]) -> Vec<Va
                     Value::Null
                 }
             }
-            0x03 => {
-                // INT
+            MYSQL_INT => {
                 if offset + 3 < data.len() {
                     let v = i32::from_le_bytes([
                         data[offset],
@@ -557,8 +603,7 @@ async fn extract_bound_params(data: &[u8], param_types: &[ColumnMeta]) -> Vec<Va
                     Value::Null
                 }
             }
-            0x08 => {
-                // BIGINT
+            MYSQL_BIGINT => {
                 if offset + 7 < data.len() {
                     let v = i64::from_le_bytes([
                         data[offset],
@@ -576,8 +621,7 @@ async fn extract_bound_params(data: &[u8], param_types: &[ColumnMeta]) -> Vec<Va
                     Value::Null
                 }
             }
-            0xFD | 0xFE => {
-                // VARCHAR/VARSTRING - read length-encoded string
+            MYSQL_VAR_STRING | MYSQL_BLOB => {
                 let (val, new_offset) = read_len_enc_string_from(&data[offset..]);
                 offset += new_offset;
                 Value::Text(val)
@@ -601,21 +645,21 @@ fn read_len_enc_string_from(data: &[u8]) -> (String, usize) {
     }
 
     let len = match data[0] {
-        0xFC => {
+        LEN_ENC_2BYTE => {
             if data.len() >= 3 {
                 u16::from_le_bytes([data[1], data[2]]) as usize
             } else {
                 return (String::new(), data.len());
             }
         }
-        0xFD => {
+        LEN_ENC_3BYTE => {
             if data.len() >= 4 {
                 u32::from_le_bytes([data[1], data[2], data[3], data[4]]) as usize
             } else {
                 return (String::new(), data.len());
             }
         }
-        0xFE => {
+        LEN_ENC_8BYTE => {
             if data.len() >= 9 {
                 u64::from_le_bytes([
                     data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8],
@@ -629,9 +673,9 @@ fn read_len_enc_string_from(data: &[u8]) -> (String, usize) {
     };
 
     let start = match data[0] {
-        0xFC => 3,
-        0xFD => 5,
-        0xFE => 9,
+        LEN_ENC_2BYTE => 3,
+        LEN_ENC_3BYTE => 5,
+        LEN_ENC_8BYTE => 9,
         _ => 1,
     };
 

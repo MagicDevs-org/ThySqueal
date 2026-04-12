@@ -17,6 +17,7 @@ serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
 thiserror.workspace = true
+clap.workspace = true
 anyhow.workspace = true
 pest.workspace = true
 pest_derive.workspace = true
