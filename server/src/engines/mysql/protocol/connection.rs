@@ -28,7 +28,7 @@ const MYSQL_NULL_TYPE: u8 = 0x06;
 const MYSQL_TINYINT: u8 = 0x01;
 const MYSQL_SMALLINT: u8 = 0x02;
 const MYSQL_INT: u8 = 0x03;
-const MYSQL_FLOAT: u8 = 0x04;
+const MYSQL_DOUBLE: u8 = 0x05;
 const MYSQL_BIGINT: u8 = 0x08;
 const MYSQL_DATETIME: u8 = 0x0C;
 const MYSQL_VAR_STRING: u8 = 0xFD;
@@ -215,7 +215,7 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
                         continue;
                     }
                 };
-                let db_exists = db_name.is_empty() == false;
+                let db_exists = !db_name.is_empty();
                 if db_exists {
                     current_db = Some(db_name.clone());
                 }
@@ -588,8 +588,18 @@ fn parse_parameter_columns(query: &str) -> Vec<ColumnMeta> {
 pub fn value_to_mysql_type(value: &Value) -> u8 {
     match value {
         Value::Null => MYSQL_NULL_TYPE,
-        Value::Int(_) => MYSQL_INT,
-        Value::Float(_) => MYSQL_FLOAT,
+        Value::Int(i) => {
+            if *i >= i8::MIN as i64 && *i <= i8::MAX as i64 {
+                MYSQL_TINYINT
+            } else if *i >= i16::MIN as i64 && *i <= i16::MAX as i64 {
+                MYSQL_SMALLINT
+            } else if *i >= i32::MIN as i64 && *i <= i32::MAX as i64 {
+                MYSQL_INT
+            } else {
+                MYSQL_BIGINT
+            }
+        }
+        Value::Float(_) => MYSQL_DOUBLE,
         Value::Text(_) => MYSQL_VAR_STRING,
         Value::Bool(_) => MYSQL_TINYINT,
         Value::DateTime(_) => MYSQL_DATETIME,
@@ -609,7 +619,7 @@ impl Value {
             }
             Value::Float(f) => {
                 let mut bytes = vec![];
-                WriteBytesExt::write_f32::<LittleEndian>(&mut bytes, *f as f32).unwrap();
+                WriteBytesExt::write_f64::<LittleEndian>(&mut bytes, *f).unwrap();
                 bytes
             }
             Value::Text(s) => {
