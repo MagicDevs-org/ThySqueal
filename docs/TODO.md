@@ -72,13 +72,15 @@
 ## Missing SQL Features - 📋 TODO
 
 - [x] **REPLACE INTO**: Upsert behavior (DELETE + INSERT on duplicate key)
-- [ ] **CALL**: Stored procedure support
 - [x] **ON DUPLICATE KEY UPDATE**: INSERT ... ON DUPLICATE KEY UPDATE
 - [x] **SAVEPOINT**: Transaction savepoint support for partial rollback
+- [ ] **CALL**: Stored procedure support
+- [ ] **CASE WHEN**: Statement that acts like an IF-THEN-ELSE logic controller
 
 ## Missing MySQL SQL Statements - 📋 TODO
 
 ### Data Definition (DDL) - CREATE/DROP
+
 - [ ] **CREATE/DROP DATABASE**: Database creation and deletion
 - [ ] **CREATE/DROP EVENT**: Event scheduler support
 - [ ] **CREATE/DROP FUNCTION/PROCEDURE**: Stored routines
@@ -86,6 +88,7 @@
 - [ ] **CREATE/DROP TABLESPACE**: Tablespace management
 
 ### Data Definition (DDL) - ALTER
+
 - [ ] **ALTER DATABASE**: Modify database properties
 - [ ] **ALTER EVENT**: Modify scheduled events
 - [ ] **ALTER FUNCTION/PROCEDURE**: Modify stored routines
@@ -93,15 +96,18 @@
 - [ ] **ALTER TABLESPACE**: Modify tablespace settings
 
 ### Data Manipulation (DML)
+
 - [ ] **LOAD DATA INFILE**: Bulk data import
 - [ ] **DO statement**: Execute expressions without result set
 
 ### Replication Commands
+
 - [ ] **START/STOP SLAVE**: Replication control
 - [ ] **RESET SLAVE**: Reset replication
 - [ ] **CHANGE MASTER TO**: Configure replication
 
 ### Utility Statements
+
 - [ ] **SHOW (variants)**: SHOW DATABASES, SHOW TABLES, SHOW COLUMNS, SHOW CREATE TABLE, etc.
 - [ ] **USE**: Switch database context
 - [ ] **SET TRANSACTION**: Transaction characteristics
@@ -147,7 +153,7 @@
 
 ### PostgreSQL Protocol Engine - 🏗 IN PROGRESS
 
-```
+```code
 engines/postgres/
 ├── postgres_engine.rs    # Engine trait impl
 ├── protocol.rs       # PostgreSQL wire protocol (port 5432)
@@ -163,7 +169,7 @@ engines/postgres/
 
 ### MongoDB Protocol Engine - 📋 TODO
 
-```
+```code
 engines/mongo/
 ├── mongo_engine.rs   # Engine trait impl
 ├── protocol.rs      # MongoDB wire protocol (port 27017)
@@ -178,7 +184,7 @@ engines/mongo/
 
 ### MSSQL Protocol Engine - 📋 TODO
 
-```
+```code
 engines/mssql/
 ├── mssql_engine.rs   # Engine trait impl
 ├── protocol.rs      # TDS protocol (port 1433)
@@ -191,7 +197,7 @@ engines/mssql/
 
 ### Oracle Protocol Engine - 📋 TODO
 
-```
+```code
 engines/oracle/
 ├── oracle_engine.rs # Engine trait impl
 ├── protocol.rs     # Oracle wire protocol (port 1521)
@@ -203,7 +209,7 @@ engines/oracle/
 
 ### Elasticsearch Protocol Engine - 📋 TODO
 
-```
+```code
 engines/elastic/
 ├── elastic_engine.rs # Engine trait impl
 ├── protocol.rs      # HTTP/REST (port 9200)

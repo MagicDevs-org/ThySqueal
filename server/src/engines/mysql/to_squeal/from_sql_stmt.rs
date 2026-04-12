@@ -19,6 +19,14 @@ impl From<SqlStmt> for Squeal {
             SqlStmt::Update(s) => Squeal::Update(s.into()),
             SqlStmt::Delete(s) => Squeal::Delete(s.into()),
             SqlStmt::Explain(s) => Squeal::Explain(s.into()),
+            SqlStmt::Describe(table) => {
+                let show_query = format!(
+                    "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_KEY, COLUMN_DEFAULT, EXTRA \
+                     FROM information_schema.COLUMNS WHERE TABLE_NAME = '{}' ORDER BY ORDINAL_POSITION",
+                    table.replace('\'', "''")
+                );
+                crate::engines::mysql::parser::parse_to_squeal(&show_query).unwrap()
+            }
             SqlStmt::Search(s) => Squeal::Search(s.into()),
             SqlStmt::Prepare(s) => Squeal::Prepare(s.into()),
             SqlStmt::Execute(s) => Squeal::Execute(s.into()),

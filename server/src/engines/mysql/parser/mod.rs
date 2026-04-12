@@ -50,7 +50,21 @@ pub fn parse(sql: &str) -> SqlResult<SqlStmt> {
                     let select_stmt = select::parse_select_inner(inner_select)?;
                     Ok(SqlStmt::Explain(select_stmt))
                 }
+                Rule::describe_stmt => {
+                    let mut inner = inner.into_inner();
+                    let table_name = inner
+                        .find(|p| p.as_rule() == Rule::table_name)
+                        .map(|p| {
+                            p.into_inner()
+                                .filter(|pi| pi.as_rule() == Rule::path_identifier)
+                                .map(|pi| pi.as_str().trim().to_string())
+                                .collect::<Vec<_>>()
+                                .join(".")
+                        })
+                        .ok_or_else(|| SqlError::Parse("Missing table name".to_string()))?;
 
+                    Ok(SqlStmt::Describe(table_name))
+                }
                 Rule::search_stmt => dml::parse_search(inner),
                 Rule::prepare_stmt => dml::parse_prepare(inner),
                 Rule::execute_stmt => dml::parse_execute(inner),
