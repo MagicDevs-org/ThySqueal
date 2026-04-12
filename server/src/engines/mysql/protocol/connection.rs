@@ -109,6 +109,7 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
     // Statement cache (in-memory for now)
     let mut stmt_cache: HashMap<u64, PreparedStatement> = HashMap::new();
     let mut next_stmt_id: u64 = 1;
+    let mut current_db: Option<String> = None;
 
     // 3. Command Loop
     loop {
@@ -136,7 +137,8 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
                         continue;
                     }
                 };
-                let session = Session::new(Some(username.clone()), None);
+                let session =
+                    Session::new(Some(username.clone()), None).with_database(current_db.clone());
                 match executor.execute(query, vec![], session).await {
                     Ok(result) => {
                         if result.rows.is_empty() {
@@ -157,7 +159,12 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
                         continue;
                     }
                 };
-                let session = Session::new(Some(username.clone()), Some(db_name));
+                let db_exists = db_name.is_empty() == false;
+                if db_exists {
+                    current_db = Some(db_name.clone());
+                }
+                let session =
+                    Session::new(Some(username.clone()), None).with_database(current_db.clone());
                 match executor.execute("SELECT 1", vec![], session).await {
                     Ok(_) => send_ok(&mut socket, seq + 1).await?,
                     Err(e) => send_sql_error(&mut socket, seq + 1, &e.into()).await?,
@@ -192,14 +199,16 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
                      FROM information_schema.COLUMNS WHERE TABLE_NAME = '{}' ORDER BY ORDINAL_POSITION",
                     table_name_escaped
                 );
-                let session = Session::new(Some(username.clone()), None);
+                let session =
+                    Session::new(Some(username.clone()), None).with_database(current_db.clone());
                 match executor.execute(&query, vec![], session).await {
                     Ok(result) => send_result_set(&mut socket, seq + 1, result).await?,
                     Err(e) => send_sql_error(&mut socket, seq + 1, &e.into()).await?,
                 }
             }
             COM_STATISTICS => {
-                let session = Session::new(Some(username.clone()), None);
+                let session =
+                    Session::new(Some(username.clone()), None).with_database(current_db.clone());
                 let stats = match executor
                     .execute(
                         "SELECT 'Uptime' as Variable_name, 3600 as Value \
@@ -303,7 +312,8 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
                     vec![]
                 };
 
-                let session = Session::new(Some(username.clone()), None);
+                let session =
+                    Session::new(Some(username.clone()), None).with_database(current_db.clone());
                 match executor.execute(&stmt.query, params, session).await {
                     Ok(result) => {
                         if result.rows.is_empty() {
