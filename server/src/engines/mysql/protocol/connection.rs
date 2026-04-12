@@ -49,7 +49,6 @@ const COM_QUERY: u8 = 0x03;
 const COM_FIELD_LIST: u8 = 0x04;
 const COM_CREATE_DB: u8 = 0x05;
 const COM_DROP_DB: u8 = 0x06;
-const COM_PROCESS_INFO: u8 = 0x0A;
 const COM_STATISTICS: u8 = 0x0A;
 const COM_PING: u8 = 0x0E;
 const COM_STMT_PREPARE: u8 = 0x16;
@@ -401,10 +400,16 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
                     }
                 };
 
-                // TODO: properly handle null_bitmap for null values in COM_STMT_EXECUTE
-                let bound_data_start = 8 + stmt.params.len().div_ceil(8);
+                // Parse null bitmap to track NULL parameters
+                let null_bitmap_len = stmt.params.len().div_ceil(8);
+                let null_bitmap = if data.len() > 8 && null_bitmap_len > 0 {
+                    &data[8..8 + null_bitmap_len.min(data.len() - 8)]
+                } else {
+                    &[]
+                };
+                let bound_data_start = 8 + null_bitmap_len;
                 let params = if data.len() > bound_data_start {
-                    extract_bound_params(&data[bound_data_start..], &stmt.params).await
+                    extract_bound_params(&data[bound_data_start..], &stmt.params, null_bitmap)
                 } else {
                     vec![]
                 };
@@ -432,15 +437,6 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
                 };
                 stmt_cache.remove(&stmt_id);
                 send_ok(&mut socket, seq + 1).await?;
-            }
-            COM_PROCESS_INFO => {
-                let session =
-                    Session::new(Some(username.clone()), None).with_database(current_db.clone());
-                let query = "SELECT Id, User, Host, Db, Command, Time, State FROM information_schema.processlist";
-                match executor.execute(query, vec![], session).await {
-                    Ok(result) => send_result_set(&mut socket, seq + 1, result).await?,
-                    Err(e) => send_sql_error(&mut socket, seq + 1, &e.into()).await?,
-                }
             }
             COM_DEBUG => {
                 send_ok(&mut socket, seq + 1).await?;
@@ -704,15 +700,34 @@ impl Value {
     }
 }
 
-async fn extract_bound_params(data: &[u8], param_types: &[ColumnMeta]) -> Vec<Value> {
+fn extract_bound_params(data: &[u8], param_types: &[ColumnMeta], null_bitmap: &[u8]) -> Vec<Value> {
     let mut values = Vec::new();
     let mut offset = 0;
 
-    for param in param_types {
-        if offset >= data.len() {
-            break;
+    for (idx, param) in param_types.iter().enumerate() {
+        let is_null = if idx < null_bitmap.len() * 8 {
+            let byte_idx = idx / 8;
+            let bit_idx = idx % 8;
+            if byte_idx < null_bitmap.len() {
+                null_bitmap[byte_idx] & (1 << bit_idx) != 0
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        if is_null {
+            values.push(Value::Null);
+            continue;
         }
 
+        if offset >= data.len() {
+            values.push(Value::Null);
+            continue;
+        }
+
+        // Check for explicit NULL (0xFB)
         if data[offset] == MYSQL_NULL_IN_BIND {
             values.push(Value::Null);
             offset += 1;
