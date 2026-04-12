@@ -46,7 +46,7 @@ column_expr = { expression ~ alias? }
 alias = { (KW_AS ~ identifier) | identifier }
 
 // INSERT statement
-insert_stmt = { (KW_INSERT | KW_REPLACE) ~ KW_INTO ~ table_name ~ (KW_IGNORE)? ~ ("(" ~ column_list ~ ")")? ~ KW_VALUES ~ "(" ~ value_list ~ ")" }
+insert_stmt = { (KW_INSERT | KW_REPLACE) ~ KW_INTO ~ table_name ~ (KW_IGNORE)? ~ ("(" ~ column_list ~ ")")? ~ KW_VALUES ~ "(" ~ value_list ~ ")" ~ (KW_ON ~ KW_DUPLICATE ~ KW_KEY ~ KW_UPDATE ~ set_list)? }
 
 value_list = { (literal | placeholder) ~ ("," ~ (literal | placeholder))* }
 
@@ -252,6 +252,7 @@ KW_BEGIN    = @{ ^"BEGIN" ~ !id_char }
 KW_COMMIT   = @{ ^"COMMIT" ~ !id_char }
 KW_ROLLBACK = @{ ^"ROLLBACK" ~ !id_char }
 KW_START    = @{ ^"START" ~ !id_char }
+KW_DUPLICATE = @{ ^"DUPLICATE" ~ !id_char }
 KW_TRANSACTION = @{ ^"TRANSACTION" ~ !id_char }
 KW_PREPARE  = @{ ^"PREPARE" ~ !id_char }
 KW_EXECUTE  = @{ ^"EXECUTE" ~ !id_char }

@@ -87,6 +87,7 @@ mod tests {
                 Expression::Literal(Value::Float(19.99)),
             ],
             mode: InsertMode::Normal,
+            on_duplicate_update: None,
         });
 
         executor

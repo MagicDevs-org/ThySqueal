@@ -11,6 +11,7 @@ pub fn parse_insert(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
     let mut values = Vec::new();
     let mut replace = false;
     let mut ignore = false;
+    let mut on_duplicate_update = None;
 
     for p in inner {
         match p.as_rule() {
@@ -44,6 +45,22 @@ pub fn parse_insert(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
             Rule::value_list => {
                 values = parse_value_list(p)?;
             }
+            Rule::set_list => {
+                let mut updates = Vec::new();
+                for set_item in p.into_inner() {
+                    if set_item.as_rule() == Rule::set_item {
+                        let mut parts = set_item.into_inner();
+                        if let Some(col) = parts.next() {
+                            let col_name = col.as_str().trim().to_string();
+                            if let Some(expr) = parts.next() {
+                                let parsed_expr = parse_any_expression(expr)?;
+                                updates.push((col_name, parsed_expr));
+                            }
+                        }
+                    }
+                }
+                on_duplicate_update = Some(updates);
+            }
             _ => {}
         }
     }
@@ -59,6 +76,7 @@ pub fn parse_insert(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
         values,
         replace,
         ignore,
+        on_duplicate_update,
     }))
 }
 

@@ -299,12 +299,18 @@ pub struct InsertStmt {
     pub values: Vec<Expression>,
     pub replace: bool,
     pub ignore: bool,
+    pub on_duplicate_update: Option<Vec<(String, Expression)>>,
 }
 
 impl InsertStmt {
     pub fn resolve_placeholders(&mut self, counter: &mut usize) {
         for expr in &mut self.values {
             expr.resolve_placeholders(counter);
+        }
+        if let Some(ref mut updates) = self.on_duplicate_update {
+            for (_, expr) in updates {
+                expr.resolve_placeholders(counter);
+            }
         }
     }
 }

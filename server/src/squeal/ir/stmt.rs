@@ -252,6 +252,7 @@ pub struct Insert {
     pub columns: Option<Vec<String>>,
     pub values: Vec<Expression>,
     pub mode: InsertMode,
+    pub on_duplicate_update: Option<Vec<(String, Expression)>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

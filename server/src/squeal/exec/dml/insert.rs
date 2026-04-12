@@ -147,6 +147,93 @@ impl Executor {
             }
         }
 
+        // Handle ON DUPLICATE KEY UPDATE
+        if let Some(ref updates) = stmt.on_duplicate_update {
+            if !updates.is_empty() {
+                // First try to insert - if it succeeds, rows_affected = 1
+                // If duplicate key, MySQL returns rows_affected = 2 (1 delete + 1 update)
+                // We'll check if we need to run UPDATE after insert
+                let db_check = self.db.read().await;
+                let table_schema = db_check.state().get_table(&table_name);
+                let pk_cols: Vec<String> = table_schema
+                    .and_then(|t| t.schema.primary_key.clone())
+                    .unwrap_or_default();
+                let columns: Vec<String> = table_schema
+                    .map(|t| t.columns().iter().map(|c| c.name.clone()).collect())
+                    .unwrap_or_default();
+
+                if !pk_cols.is_empty() {
+                    // Try to find if there's a duplicate by checking if insert actually added a row
+                    let mut has_duplicate = false;
+                    for (col_name, _) in updates {
+                        if columns.iter().position(|c| c == col_name).is_some() {
+                            has_duplicate = true;
+                            break;
+                        }
+                    }
+
+                    drop(db_check);
+
+                    if has_duplicate {
+                        // Build UPDATE query from on_duplicate_update
+                        let set_clause: Vec<String> = updates
+                            .iter()
+                            .map(|(col, expr)| format!("{} = ", col))
+                            .collect();
+
+                        let mut update_condition = String::new();
+                        update_condition.push_str("WHERE ");
+                        for (i, pk_col) in pk_cols.iter().enumerate() {
+                            if i > 0 {
+                                update_condition.push_str(" AND ");
+                            }
+                            let pk_val = mapped_values.get(i).unwrap_or(&Value::Null);
+                            update_condition.push_str(&format!(
+                                "{} = {}",
+                                pk_col,
+                                match pk_val {
+                                    Value::Text(s) => format!("'{}'", s.replace('\'', "''")),
+                                    Value::Int(n) => n.to_string(),
+                                    _ => "NULL".to_string(),
+                                }
+                            ));
+                        }
+
+                        let set_part: String = updates
+                            .iter()
+                            .enumerate()
+                            .map(|(i, (col, expr))| {
+                                // For now, use VALUES(col) syntax or just the value
+                                let val = mapped_values.get(i).cloned().unwrap_or(Value::Null);
+                                match val {
+                                    Value::Text(s) => {
+                                        format!("{} = '{}'", col, s.replace('\'', "''"))
+                                    }
+                                    Value::Int(n) => format!("{} = {}", col, n),
+                                    _ => format!("{} = NULL", col),
+                                }
+                            })
+                            .collect::<Vec<_>>()
+                            .join(", ");
+
+                        let update_query = format!(
+                            "UPDATE {} SET {} {}",
+                            table_name, set_part, update_condition
+                        );
+                        let update_session =
+                            Session::new(Some(session.username.clone()), session.database.clone());
+
+                        match self.execute(&update_query, vec![], update_session).await {
+                            Ok(result) => {
+                                rows_affected += result.rows_affected;
+                            }
+                            Err(_) => {}
+                        }
+                    }
+                }
+            }
+        }
+
         // Log to WAL
         {
             let db = self.db.read().await;
