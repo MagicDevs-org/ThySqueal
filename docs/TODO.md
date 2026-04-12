@@ -76,6 +76,38 @@
 - [x] **ON DUPLICATE KEY UPDATE**: INSERT ... ON DUPLICATE KEY UPDATE
 - [x] **SAVEPOINT**: Transaction savepoint support for partial rollback
 
+## Missing MySQL SQL Statements - 📋 TODO
+
+### Data Definition (DDL) - CREATE/DROP
+- [ ] **CREATE/DROP DATABASE**: Database creation and deletion
+- [ ] **CREATE/DROP EVENT**: Event scheduler support
+- [ ] **CREATE/DROP FUNCTION/PROCEDURE**: Stored routines
+- [ ] **CREATE/DROP TRIGGER**: Trigger support
+- [ ] **CREATE/DROP TABLESPACE**: Tablespace management
+
+### Data Definition (DDL) - ALTER
+- [ ] **ALTER DATABASE**: Modify database properties
+- [ ] **ALTER EVENT**: Modify scheduled events
+- [ ] **ALTER FUNCTION/PROCEDURE**: Modify stored routines
+- [ ] **ALTER VIEW**: Modify view definition
+- [ ] **ALTER TABLESPACE**: Modify tablespace settings
+
+### Data Manipulation (DML)
+- [ ] **LOAD DATA INFILE**: Bulk data import
+- [ ] **DO statement**: Execute expressions without result set
+
+### Replication Commands
+- [ ] **START/STOP SLAVE**: Replication control
+- [ ] **RESET SLAVE**: Reset replication
+- [ ] **CHANGE MASTER TO**: Configure replication
+
+### Utility Statements
+- [ ] **SHOW (variants)**: SHOW DATABASES, SHOW TABLES, SHOW COLUMNS, SHOW CREATE TABLE, etc.
+- [ ] **USE**: Switch database context
+- [ ] **SET TRANSACTION**: Transaction characteristics
+- [ ] **KILL**: Terminate connections/queries
+- [ ] **DESCRIBE**: Table description (alias for EXPLAIN)
+
 ## Phase 6: Key-Value Storage (v0.6) - ✅ COMPLETE
 
 - [x] **Redis Protocol Compatibility**: Support for RESP protocol on port 6379
