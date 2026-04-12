@@ -71,7 +71,7 @@
 
 ## Missing SQL Features - 📋 TODO
 
-- [ ] **REPLACE INTO**: Upsert behavior (DELETE + INSERT on duplicate key)
+- [x] **REPLACE INTO**: Upsert behavior (DELETE + INSERT on duplicate key)
 - [ ] **CALL**: Stored procedure support
 - [ ] **ON DUPLICATE KEY UPDATE**: INSERT ... ON DUPLICATE KEY UPDATE
 
