@@ -4,12 +4,12 @@ squeal:
   http:
     addr: "http://localhost:8000/"
   uds:
-    addr: "/run/thysqueal/squeal.sock"
+    addr: "/tmp/thysqueal/squeal.sock"
   admin:
     addr: "http://localhost:8080/"
     user: "${THYSQUEAL_ADMIN_USER}"
     pass: "${THYSQUEAL_ADMIN_PASS}"
-  data_dir: "/usr/local/thysqueal/data"
+  data_dir: "/tmp/thysqueal/data"
 
 engines:
   mysql: "./engines/mysql.yml"

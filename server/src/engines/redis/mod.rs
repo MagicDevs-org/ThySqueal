@@ -1,5 +1,7 @@
 pub mod connection;
+pub mod redis_engine;
 pub mod resp;
+
 #[cfg(test)]
 mod tests;
 

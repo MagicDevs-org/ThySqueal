@@ -8,7 +8,7 @@ mod storage;
 mod tests;
 
 use crate::config::Config;
-use crate::engines::available::available_engines;
+use crate::engines::available_engines;
 use crate::engines::mysql::protocol::MySqlProtocol;
 use crate::engines::redis::RedisProtocol;
 use crate::squeal::exec::Executor;
@@ -27,7 +27,8 @@ async fn main() -> anyhow::Result<()> {
     prepare_tracing();
 
     let available = available_engines();
-    info!("Available engines: {:?}", available);
+    let engine_keys: Vec<&str> = available.into_iter().map(|e| e.config_key()).collect();
+    info!("Available engines: {}", engine_keys.join(", "));
 
     let config = load_config()?;
     let db = load_db(config.clone());
