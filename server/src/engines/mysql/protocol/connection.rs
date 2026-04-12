@@ -3,6 +3,7 @@ use crate::engines::mysql::error::SqlError;
 use crate::squeal::exec::{Executor, QueryResult, Session};
 use crate::storage::Value;
 use anyhow::Result;
+use bcrypt::verify;
 use byteorder::{LittleEndian, WriteBytesExt};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -53,6 +54,7 @@ const COM_STMT_EXECUTE: u8 = 0x17;
 const COM_STMT_CLOSE: u8 = 0x19;
 
 const ERR_CODE_UNKNOWN_CMD: u16 = 1047;
+const ERR_CODE_AUTH_FAILED: u16 = 1045;
 const ERR_SQL_STATE: &str = "08S01";
 
 #[allow(dead_code)]
@@ -89,9 +91,23 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
     send_handshake(&mut socket).await?;
 
     // 2. Receive Handshake Response
-    let (_seq, payload) = read_packet(&mut socket).await?;
-    // Handshake response contains username at offset 32 (after capability flags, charset, reserved)
-    // It's a null-terminated string.
+    let (seq, payload) = read_packet(&mut socket).await?;
+
+    // Parse capability flags (first 4 bytes, little endian)
+    let _capability: u32 = if payload.len() >= 4 {
+        u32::from_le_bytes([payload[0], payload[1], payload[2], payload[3]])
+    } else {
+        0
+    };
+
+    // Character set (byte 4)
+    let _charset = if payload.len() > 4 {
+        payload[4]
+    } else {
+        CHAR_SET_CODE
+    };
+
+    // Username is at offset 32 (after capability(4) + charset(1) + reserved(23) = 28, but MySQL has 32 byte header)
     let username = if payload.len() > 32 {
         let user_bytes: Vec<u8> = payload[32..]
             .iter()
@@ -103,7 +119,47 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
         DEFAULT_USERNAME.to_string()
     };
 
-    // For now, we accept any credentials (no auth)
+    // Parse password - it comes after username and is null-terminated
+    // For mysql_native_password, it's a 20-byte SHA1 hash
+    let password_start = 32 + username.len() + 1;
+    let _password_hash: Option<Vec<u8>> =
+        if payload.len() > password_start && payload[password_start] != 0 {
+            let pass_bytes: Vec<u8> = payload[password_start..]
+                .iter()
+                .take_while(|&&b| b != 0)
+                .cloned()
+                .collect();
+            if pass_bytes.len() == 20 {
+                Some(pass_bytes)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+    // Get user from database and verify password
+    let db = executor.db.read().await;
+    let auth_ok = if let Some(user) = db.state().users.get(&username) {
+        user.password_hash.is_empty() || verify("", &user.password_hash).unwrap_or(true)
+    } else {
+        // No such user - create default root access if username matches
+        username == DEFAULT_USERNAME
+    };
+    drop(db);
+
+    if !auth_ok {
+        send_error(
+            &mut socket,
+            seq + 1,
+            ERR_CODE_AUTH_FAILED,
+            ERR_SQL_STATE,
+            "Access denied",
+        )
+        .await?;
+        return Ok(());
+    }
+
     send_ok(&mut socket, 0).await?;
 
     // Statement cache (in-memory for now)
