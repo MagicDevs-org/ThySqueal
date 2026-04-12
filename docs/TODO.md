@@ -74,7 +74,7 @@
 - [x] **REPLACE INTO**: Upsert behavior (DELETE + INSERT on duplicate key)
 - [ ] **CALL**: Stored procedure support
 - [x] **ON DUPLICATE KEY UPDATE**: INSERT ... ON DUPLICATE KEY UPDATE
-- [ ] **SAVEPOINT**: Transaction savepoint support for partial rollback
+- [x] **SAVEPOINT**: Transaction savepoint support for partial rollback
 
 ## Phase 6: Key-Value Storage (v0.6) - ✅ COMPLETE
 
