@@ -139,13 +139,14 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 └── LICENSE, README.md
 ```
 
-### Current Status (as of v0.6)
+### Current Status (as of v0.8)
 
 - [x] Workspace setup
 - [x] Server binary with Axum HTTP, MySQL TCP (3306), and RESP (6379)
 - [x] Client binary with REPL
-- [x] SQL grammar (`sql.pest`) — Modular Pest parser
-- [x] Modular Architecture: Decomposed AST, Parser, Evaluator, and Storage
+- [x] **Pluggable Engine Architecture**: Protocol, Engine, Registry traits
+- [x] **Squeal IR**: Unified internal representation
+- [x] **Modular Architecture**: Parsers, Evaluators, and Storage
 - [x] In-memory storage: CREATE, ALTER, DROP, INSERT, SELECT, UPDATE, DELETE
 - [x] **JSqueal**: JSON-based query language (direct IR mapping)
 - [x] Materialized Views with automatic refresh
@@ -154,8 +155,20 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 - [x] User Authentication & RBAC (Secure access control)
 - [x] Standard SQL Functions (CONCAT, COALESCE, etc.)
 - [x] CTE Support (WITH clause)
-- [x] Redis Protocol Compatibility (GET, SET, HASH, LIST, SET, ZSET, STREAM, PUBSUB)
-- [x] Integration testing suite (52+ tests)
+- [x] **Redis Protocol** with Squeal IR routing
+- [x] Integration testing suite (78+ tests)
+
+### Engine Implementation Status
+
+| Engine | Status | Port | Protocol |
+|--------|--------|------|----------|
+| MySQL | ✅ Complete | 3306 | MySQL wire |
+| Redis | ✅ Complete | 6379 | RESP |
+| PostgreSQL | 📋 TODO | 5432 | PostgreSQL wire |
+| MongoDB | 📋 TODO | 27017 | MongoDB wire |
+| MSSQL | 📋 TODO | 1433 | TDS |
+| Oracle | 📋 TODO | 1521 | TNS |
+| Elasticsearch | 📋 TODO | 9200 | REST |
 
 ---
 

@@ -78,6 +78,7 @@
 - [x] **Persistence**: RDB-style snapshots and AOF (Append Only File) integration with existing WAL
 - [x] **Pub/Sub**: Basic message queuing and notification system
 - [x] **SQL Integration**: Querying Key-Value data via SQL virtual tables
+- [x] **Squeal IR Integration**: Redis commands now route through Squeal IR for unified execution
 
 ## Phase 7: MySQL Compatibility Improvements (v0.7) - ✅ COMPLETE
 
@@ -94,6 +95,85 @@
 - [x] **Recursive CTEs**: Support for `WITH RECURSIVE` for hierarchical data
 - [x] **Advanced Aggregations**: `GROUP_CONCAT`, `JSON_ARRAYAGG`, `JSON_OBJECTAGG`
 - [x] **Common Table Expressions (CTEs) Expansion**: Support for multiple CTEs in a single query
+
+## Pluggable Engine Architecture - ✅ COMPLETE
+
+- [x] **Protocol Trait**: Each engine implements `Protocol` for TCP server handling
+- [x] **Engine Trait**: Unified interface for all protocol engines
+- [x] **Registry**: Dynamic engine discovery and spawning
+- [x] **MySQL Engine**: Full implementation with Squeal IR
+- [x] **Redis Engine**: Full implementation with Squeal IR
+
+## Engine Implementation Roadmap - 🏗 IN PROGRESS
+
+### PostgreSQL Protocol Engine - 🏗 IN PROGRESS
+
+```
+engines/postgres/
+├── postgres_engine.rs    # Engine trait impl
+├── protocol.rs       # PostgreSQL wire protocol (port 5432)
+├── to_squeal/      # PG AST -> Squeal IR
+└── parser/         # PostgreSQL parser
+```
+
+- [ ] **Wire Protocol**: Implement PG protocol handler (Startup, Query, Parse, Bind, Execute, etc.)
+- [ ] **PostgreSQL Dialect**: Support PG-specific syntax ($$ quoting, RETURNING, etc.)
+- [ ] **Types**: PG-specific type handling (UUID, JSONB, ARRAY, etc.)
+- [ ] **Prepared Statements**: Extended protocol support
+- [ ] **Copy Protocol**: Binary copy in/out
+
+### MongoDB Protocol Engine - 📋 TODO
+
+```
+engines/mongo/
+├── mongo_engine.rs   # Engine trait impl
+├── protocol.rs      # MongoDB wire protocol (port 27017)
+├── to_squeal/      # BSON/MongoDB query -> Squeal IR
+└── connection/     # Command handlers
+```
+
+- [ ] **Wire Protocol**: MongoDB wire protocol (OP_MSG, OP_QUERY)
+- [ ] **BSON Support**: Convert BSON documents to Squeal IR
+- [ ] **Mongo Queries**: Convert find/aggregate to Squeal IR
+- [ ] **CRUD Operations**: Insert, Update, Delete, Find
+
+### MSSQL Protocol Engine - 📋 TODO
+
+```
+engines/mssql/
+├── mssql_engine.rs   # Engine trait impl
+├── protocol.rs      # TDS protocol (port 1433)
+└── to_squeal/     # T-SQL -> Squeal IR
+```
+
+- [ ] **TDS Protocol**: Tabular Data Stream protocol
+- [ ] **T-SQL Support**: Microsoft SQL Server dialect
+- [ ] **Parameterized Queries**: TDS parameter handling
+
+### Oracle Protocol Engine - 📋 TODO
+
+```
+engines/oracle/
+├── oracle_engine.rs # Engine trait impl
+├── protocol.rs     # Oracle wire protocol (port 1521)
+└── to_squeal/    # PL/SQL -> Squeal IR
+```
+
+- [ ] **Oracle Wire Protocol**: OCI/TNS protocol
+- [ ] **PL/SQL Subset**: Basic stored procedure support
+
+### Elasticsearch Protocol Engine - 📋 TODO
+
+```
+engines/elastic/
+├── elastic_engine.rs # Engine trait impl
+├── protocol.rs      # HTTP/REST (port 9200)
+└── to_squeal/     # Elasticsearch query -> Squeal IR
+```
+
+- [ ] **REST API**: ElasticSearch REST endpoints
+- [ ] **Query DSL**: Convert ES queries to Squeal IR
+- [ ] **Aggregations**: ES-style aggregations
 
 ## MySQL Protocol v2 (v0.8.x) - 🏗 IN PROGRESS
 
