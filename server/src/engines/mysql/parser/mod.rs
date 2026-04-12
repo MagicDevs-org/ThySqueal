@@ -65,6 +65,14 @@ pub fn parse(sql: &str) -> SqlResult<SqlStmt> {
 
                     Ok(SqlStmt::Describe(table_name))
                 }
+                Rule::use_stmt => {
+                    let mut inner = inner.into_inner();
+                    let db_name = inner
+                        .find(|p| p.as_rule() == Rule::identifier)
+                        .map(|p| p.as_str().trim().to_string())
+                        .ok_or_else(|| SqlError::Parse("Missing database name".to_string()))?;
+                    Ok(SqlStmt::Use(db_name))
+                }
                 Rule::search_stmt => dml::parse_search(inner),
                 Rule::prepare_stmt => dml::parse_prepare(inner),
                 Rule::execute_stmt => dml::parse_execute(inner),

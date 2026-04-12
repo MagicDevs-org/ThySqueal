@@ -1,5 +1,7 @@
 use crate::engines::mysql::ast::SqlStmt;
+use crate::squeal::ir::Expression;
 use crate::squeal::ir::stmt::*;
+use crate::storage::Value;
 
 // Conversions from AST to Squeal IR
 impl From<SqlStmt> for Squeal {
@@ -26,6 +28,26 @@ impl From<SqlStmt> for Squeal {
                     table.replace('\'', "''")
                 );
                 crate::engines::mysql::parser::parse_to_squeal(&show_query).unwrap()
+            }
+            SqlStmt::Use(_db) => {
+                let select = Select {
+                    with_clause: None,
+                    columns: vec![SelectColumn {
+                        expr: Expression::Literal(Value::Int(1)),
+                        alias: None,
+                    }],
+                    table: String::new(),
+                    table_alias: None,
+                    distinct: false,
+                    joins: vec![],
+                    where_clause: None,
+                    group_by: vec![],
+                    having: None,
+                    order_by: vec![],
+                    limit: None,
+                    set_operations: vec![],
+                };
+                Squeal::Select(select)
             }
             SqlStmt::Search(s) => Squeal::Search(s.into()),
             SqlStmt::Prepare(s) => Squeal::Prepare(s.into()),

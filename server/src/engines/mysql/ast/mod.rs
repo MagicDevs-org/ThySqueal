@@ -27,6 +27,7 @@ pub enum SqlStmt {
     Delete(DeleteStmt),
     Explain(SelectStmt),
     Describe(String),
+    Use(String),
     Search(SearchStmt),
     Prepare(PrepareStmt),
     Execute(ExecuteStmt),
@@ -59,6 +60,7 @@ impl SqlStmt {
             | SqlStmt::Grant(_)
             | SqlStmt::Revoke(_)
             | SqlStmt::Describe(_)
+            | SqlStmt::Use(_)
             | SqlStmt::Search(_)
             | SqlStmt::Begin
             | SqlStmt::Commit

@@ -1,7 +1,9 @@
 // MySQL Grammar
 
 // Main statement
-statement = { SOI ~ (explain_stmt | describe_stmt | search_stmt | select_stmt | insert_stmt | update_stmt | delete_stmt | create_table_stmt | create_materialized_view_stmt | alter_table_stmt | drop_table_stmt | create_index_stmt | create_user_stmt | drop_user_stmt | grant_stmt | revoke_stmt | begin_stmt | commit_stmt | rollback_stmt | prepare_stmt | execute_stmt | deallocate_stmt | set_stmt) ~ ";"? ~ EOI }
+statement = { SOI ~ (explain_stmt | describe_stmt | use_stmt | search_stmt | select_stmt | insert_stmt | update_stmt | delete_stmt | create_table_stmt | create_materialized_view_stmt | alter_table_stmt | drop_table_stmt | create_index_stmt | create_user_stmt | drop_user_stmt | grant_stmt | revoke_stmt | begin_stmt | commit_stmt | rollback_stmt | prepare_stmt | execute_stmt | deallocate_stmt | set_stmt) ~ ";"? ~ EOI }
+
+use_stmt = { KW_USE ~ identifier }
 
 set_stmt = { KW_SET ~ set_assignment_list }
 set_assignment_list = { set_assignment ~ ("," ~ set_assignment)* }
@@ -217,6 +219,7 @@ KW_LEFT     = @{ ^"LEFT" ~ !id_char }
 KW_ON       = @{ ^"ON" ~ !id_char }
 KW_VALUES   = @{ ^"VALUES" ~ !id_char }
 KW_UPDATE   = @{ ^"UPDATE" ~ !id_char }
+KW_USE      = @{ ^"USE" ~ !id_char }
 KW_SET      = @{ ^"SET" ~ !id_char }
 KW_DELETE   = @{ ^"DELETE" ~ !id_char }
 KW_EXPLAIN  = @{ ^"EXPLAIN" ~ !id_char }
