@@ -69,6 +69,12 @@
 - [x] Materialized Views
 - [x] User Authentication & RBAC
 
+## Missing SQL Features - 📋 TODO
+
+- [ ] **REPLACE INTO**: Upsert behavior (DELETE + INSERT on duplicate key)
+- [ ] **CALL**: Stored procedure support
+- [ ] **ON DUPLICATE KEY UPDATE**: INSERT ... ON DUPLICATE KEY UPDATE
+
 ## Phase 6: Key-Value Storage (v0.6) - ✅ COMPLETE
 
 - [x] **Redis Protocol Compatibility**: Support for RESP protocol on port 6379
@@ -175,13 +181,13 @@ engines/elastic/
 - [ ] **Query DSL**: Convert ES queries to Squeal IR
 - [ ] **Aggregations**: ES-style aggregations
 
-## MySQL Protocol v2 (v0.8.x) - 🏗 IN PROGRESS
+## MySQL Protocol v2 (v0.8.x) - ✅ COMPLETE
 
 ### High Priority
 
-- [ ] **Real password authentication**: Implement `mysql_native_password` instead of accepting any credentials
-- [ ] **Fix SQL injection**: `COM_FIELD_LIST` directly interpolates table name - use parameterized queries
-- [ ] **Fix COM_INIT_DB**: Session should use selected database context
+- [x] **Real password authentication**: Implement `mysql_native_password` instead of accepting any credentials
+- [x] **Fix SQL injection**: `COM_FIELD_LIST` directly interpolates table name - use parameterized queries
+- [x] **Fix COM_INIT_DB**: Session should use selected database context
 
 ### Medium Priority
 
