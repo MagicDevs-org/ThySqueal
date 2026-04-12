@@ -73,7 +73,7 @@
 
 - [x] **REPLACE INTO**: Upsert behavior (DELETE + INSERT on duplicate key)
 - [ ] **CALL**: Stored procedure support
-- [ ] **ON DUPLICATE KEY UPDATE**: INSERT ... ON DUPLICATE KEY UPDATE
+- [x] **ON DUPLICATE KEY UPDATE**: INSERT ... ON DUPLICATE KEY UPDATE
 
 ## Phase 6: Key-Value Storage (v0.6) - ✅ COMPLETE
 
