@@ -240,10 +240,18 @@ pub struct LimitClause {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum InsertMode {
+    Normal,
+    Replace,
+    Ignore,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Insert {
     pub table: String,
     pub columns: Option<Vec<String>>,
     pub values: Vec<Expression>,
+    pub mode: InsertMode,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

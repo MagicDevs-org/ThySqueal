@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::squeal::exec::{Executor, Session};
-    use crate::squeal::ir::{Expression, Insert, Select, SelectColumn, Squeal};
+    use crate::squeal::ir::{Expression, Insert, InsertMode, Select, SelectColumn, Squeal};
     use crate::squeal::ir::{
         KvGet, KvHashGet, KvHashSet, KvListPush, KvListRange, KvSet, KvSetAdd, KvSetMembers,
         KvZSetAdd, KvZSetRange,
@@ -86,6 +86,7 @@ mod tests {
                 Expression::Literal(Value::Int(10)),
                 Expression::Literal(Value::Float(19.99)),
             ],
+            mode: InsertMode::Normal,
         });
 
         executor

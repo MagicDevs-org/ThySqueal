@@ -2,7 +2,7 @@ use super::super::{Executor, QueryResult};
 use crate::squeal::eval::{EvalContext, Evaluator, evaluate_expression_joined};
 use crate::squeal::exec::Session;
 use crate::squeal::exec::{ExecError, ExecResult};
-use crate::squeal::ir::Insert;
+use crate::squeal::ir::{Insert, InsertMode};
 use crate::storage::{Value, WalRecord};
 
 impl Executor {
@@ -107,6 +107,46 @@ impl Executor {
         })
         .await?;
 
+        // Handle REPLACE mode - delete existing row with same primary key first
+        let mut rows_affected = 1;
+        if matches!(stmt.mode, InsertMode::Replace) {
+            let pk_columns: Vec<String> = table.schema.primary_key.clone().unwrap_or_default();
+
+            if !pk_columns.is_empty() {
+                let mut delete_condition = String::new();
+                delete_condition.push_str("WHERE ");
+                for (i, pk_col) in pk_columns.iter().enumerate() {
+                    if i > 0 {
+                        delete_condition.push_str(" AND ");
+                    }
+                    let pk_idx = table.columns().iter().position(|c| c.name == *pk_col);
+                    if let Some(idx) = pk_idx {
+                        let val = &mapped_values[idx];
+                        delete_condition.push_str(&format!(
+                            "{} = {}",
+                            pk_col,
+                            match val {
+                                Value::Text(s) => format!("'{}'", s.replace('\'', "''")),
+                                Value::Int(n) => n.to_string(),
+                                _ => "NULL".to_string(),
+                            }
+                        ));
+                    }
+                }
+
+                let delete_query = format!("DELETE FROM {} {}", table_name, delete_condition);
+                let delete_session =
+                    Session::new(Some(session.username.clone()), session.database.clone());
+
+                match self.execute(&delete_query, vec![], delete_session).await {
+                    Ok(result) => {
+                        rows_affected += result.rows_affected;
+                    }
+                    Err(_) => {}
+                }
+            }
+        }
+
         // Log to WAL
         {
             let db = self.db.read().await;
@@ -133,7 +173,7 @@ impl Executor {
         Ok(QueryResult {
             columns: vec![],
             rows: vec![],
-            rows_affected: 1,
+            rows_affected,
             transaction_id: tx_id.map(|s| s.to_string()),
             session: None,
         })

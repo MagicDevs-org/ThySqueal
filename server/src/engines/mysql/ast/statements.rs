@@ -297,6 +297,8 @@ pub struct InsertStmt {
     pub table: String,
     pub columns: Option<Vec<String>>,
     pub values: Vec<Expression>,
+    pub replace: bool,
+    pub ignore: bool,
 }
 
 impl InsertStmt {

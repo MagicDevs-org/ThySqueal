@@ -9,9 +9,17 @@ pub fn parse_insert(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
     let mut table = None;
     let mut columns = None;
     let mut values = Vec::new();
+    let mut replace = false;
+    let mut ignore = false;
 
     for p in inner {
         match p.as_rule() {
+            Rule::KW_REPLACE => {
+                replace = true;
+            }
+            Rule::KW_IGNORE => {
+                ignore = true;
+            }
             Rule::table_name => {
                 let column_ref_rule = p.into_inner().next().unwrap();
                 table = Some(
@@ -49,6 +57,8 @@ pub fn parse_insert(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
         table,
         columns,
         values,
+        replace,
+        ignore,
     }))
 }
 

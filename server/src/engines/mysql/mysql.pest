@@ -46,7 +46,7 @@ column_expr = { expression ~ alias? }
 alias = { (KW_AS ~ identifier) | identifier }
 
 // INSERT statement
-insert_stmt = { KW_INSERT ~ KW_INTO ~ table_name ~ ("(" ~ column_list ~ ")")? ~ KW_VALUES ~ "(" ~ value_list ~ ")" }
+insert_stmt = { (KW_INSERT | KW_REPLACE) ~ KW_INTO ~ table_name ~ (KW_IGNORE)? ~ ("(" ~ column_list ~ ")")? ~ KW_VALUES ~ "(" ~ value_list ~ ")" }
 
 value_list = { (literal | placeholder) ~ ("," ~ (literal | placeholder))* }
 
@@ -205,6 +205,8 @@ KW_SELECT   = @{ ^"SELECT" ~ !id_char }
 KW_FROM     = @{ ^"FROM" ~ !id_char }
 KW_WHERE    = @{ ^"WHERE" ~ !id_char }
 KW_INSERT   = @{ ^"INSERT" ~ !id_char }
+KW_REPLACE  = @{ ^"REPLACE" ~ !id_char }
+KW_IGNORE   = @{ ^"IGNORE" ~ !id_char }
 KW_INTO     = @{ ^"INTO" ~ !id_char }
 KW_INDEX    = @{ ^"INDEX" ~ !id_char }
 KW_JOIN     = @{ ^"JOIN" ~ !id_char }
