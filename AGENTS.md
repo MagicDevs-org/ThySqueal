@@ -79,6 +79,9 @@ cargo build -p thysqueal-cli      # Client
 # Run server (HTTP on port 9200)
 cargo run -p thysqueal-server
 
+# Run server with custom config
+cargo run -p thysqueal-server -- -c myconfig.yaml
+
 # Run client
 cargo run -p thysqueal-cli
 ```
