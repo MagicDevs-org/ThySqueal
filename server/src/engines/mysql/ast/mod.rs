@@ -34,6 +34,7 @@ pub enum SqlStmt {
     Begin,
     Commit,
     Rollback,
+    Savepoint(squeal::ir::stmt::SavepointStmt),
 }
 
 impl SqlStmt {
@@ -60,6 +61,7 @@ impl SqlStmt {
             | SqlStmt::Begin
             | SqlStmt::Commit
             | SqlStmt::Rollback
+            | SqlStmt::Savepoint(_)
             | SqlStmt::Prepare(_)
             | SqlStmt::Execute(_)
             | SqlStmt::Deallocate(_) => {}

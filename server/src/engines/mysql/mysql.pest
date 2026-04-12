@@ -13,7 +13,8 @@ search_stmt = { KW_SEARCH ~ table_name ~ string_literal }
 
 begin_stmt = { KW_BEGIN | (KW_START ~ KW_TRANSACTION) }
 commit_stmt = { KW_COMMIT }
-rollback_stmt = { KW_ROLLBACK }
+rollback_stmt = { KW_ROLLBACK ~ (KW_TO ~ KW_SAVEPOINT ~ identifier)? }
+savepoint_stmt = { KW_SAVEPOINT ~ identifier }
 
 prepare_stmt = { KW_PREPARE ~ identifier ~ KW_FROM ~ string_literal }
 execute_stmt = { KW_EXECUTE ~ identifier ~ (KW_USING ~ expression_list)? }
@@ -264,6 +265,7 @@ KW_KEY      = @{ ^"KEY" ~ !id_char }
 KW_GRANT    = @{ ^"GRANT" ~ !id_char }
 KW_FOREIGN  = @{ ^"FOREIGN" ~ !id_char }
 KW_REFERENCES = @{ ^"REFERENCES" ~ !id_char }
+KW_SAVEPOINT = @{ ^"SAVEPOINT" ~ !id_char }
 KW_ALTER    = @{ ^"ALTER" ~ !id_char }
 KW_ADD      = @{ ^"ADD" ~ !id_char }
 KW_COLUMN   = @{ ^"COLUMN" ~ !id_char }

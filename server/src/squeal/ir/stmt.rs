@@ -30,6 +30,7 @@ pub enum Squeal {
     Begin,
     Commit,
     Rollback,
+    Savepoint(SavepointStmt),
     KvSet(KvSet),
     KvGet(KvGet),
     KvDel(KvDel),
@@ -266,6 +267,11 @@ pub struct Update {
 pub struct Delete {
     pub table: String,
     pub where_clause: Option<Condition>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SavepointStmt {
+    pub name: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

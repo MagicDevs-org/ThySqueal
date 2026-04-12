@@ -87,4 +87,54 @@ impl Executor {
             session: None,
         })
     }
+
+    pub(crate) async fn exec_savepoint(
+        &self,
+        name: &str,
+        tx_id: Option<&str>,
+    ) -> ExecResult<QueryResult> {
+        let tx_id = tx_id.ok_or_else(|| ExecError::Runtime("No active transaction".to_string()))?;
+
+        let state = self
+            .transactions
+            .get(tx_id)
+            .map(|s| s.clone())
+            .ok_or_else(|| ExecError::Runtime("Transaction not found".to_string()))?;
+
+        self.savepoints
+            .insert((tx_id.to_string(), name.to_string()), state);
+
+        Ok(QueryResult {
+            columns: vec![],
+            rows: vec![],
+            rows_affected: 0,
+            transaction_id: Some(tx_id.to_string()),
+            session: None,
+        })
+    }
+
+    pub(crate) async fn exec_rollback_to(
+        &self,
+        name: &str,
+        tx_id: Option<&str>,
+    ) -> ExecResult<QueryResult> {
+        let tx_id = tx_id.ok_or_else(|| ExecError::Runtime("No active transaction".to_string()))?;
+
+        let savepoint_key = (tx_id.to_string(), name.to_string());
+        let saved_state = self
+            .savepoints
+            .get(&savepoint_key)
+            .ok_or_else(|| ExecError::Runtime(format!("Savepoint '{}' not found", name)))?
+            .clone();
+
+        self.transactions.insert(tx_id.to_string(), saved_state);
+
+        Ok(QueryResult {
+            columns: vec![],
+            rows: vec![],
+            rows_affected: 0,
+            transaction_id: Some(tx_id.to_string()),
+            session: None,
+        })
+    }
 }

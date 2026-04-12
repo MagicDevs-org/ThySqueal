@@ -19,7 +19,7 @@ impl Executor {
 
             let mut res = match stmt {
                 // Transaction control
-                Squeal::Begin | Squeal::Commit | Squeal::Rollback => {
+                Squeal::Begin | Squeal::Commit | Squeal::Rollback | Squeal::Savepoint(_) => {
                     self.dispatch_tx(stmt, &ctx).await?
                 }
 
@@ -142,6 +142,10 @@ impl Executor {
             }
             Squeal::Rollback => {
                 self.exec_rollback(ctx.session.transaction_id.as_deref())
+                    .await
+            }
+            Squeal::Savepoint(sp) => {
+                self.exec_savepoint(&sp.name, ctx.session.transaction_id.as_deref())
                     .await
             }
             _ => unreachable!(),

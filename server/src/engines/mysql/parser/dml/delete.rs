@@ -121,3 +121,32 @@ pub fn parse_deallocate(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt>
 
     Ok(SqlStmt::Deallocate(name))
 }
+
+pub fn parse_rollback(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
+    let mut inner = pair.into_inner();
+    let savepoint_name = inner
+        .find(|p| p.as_rule() == Rule::identifier)
+        .map(|p| p.as_str().trim().to_string());
+
+    // ROLLBACK (no savepoint) -> Rollback
+    // ROLLBACK TO SAVEPOINT name -> Savepoint(name)
+    if let Some(name) = savepoint_name {
+        Ok(SqlStmt::Savepoint(crate::squeal::ir::stmt::SavepointStmt {
+            name,
+        }))
+    } else {
+        Ok(SqlStmt::Rollback)
+    }
+}
+
+pub fn parse_savepoint(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
+    let mut inner = pair.into_inner();
+    let name = inner
+        .find(|p| p.as_rule() == Rule::identifier)
+        .map(|p| p.as_str().trim().to_string())
+        .ok_or_else(|| SqlError::Parse("Missing savepoint name".to_string()))?;
+
+    Ok(SqlStmt::Savepoint(crate::squeal::ir::stmt::SavepointStmt {
+        name,
+    }))
+}

@@ -27,6 +27,7 @@ impl From<SqlStmt> for Squeal {
             SqlStmt::Begin => Squeal::Begin,
             SqlStmt::Commit => Squeal::Commit,
             SqlStmt::Rollback => Squeal::Rollback,
+            SqlStmt::Savepoint(sp) => Squeal::Savepoint(sp),
         }
     }
 }

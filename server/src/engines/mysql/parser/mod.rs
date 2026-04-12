@@ -57,7 +57,8 @@ pub fn parse(sql: &str) -> SqlResult<SqlStmt> {
                 Rule::deallocate_stmt => dml::parse_deallocate(inner),
                 Rule::begin_stmt => Ok(SqlStmt::Begin),
                 Rule::commit_stmt => Ok(SqlStmt::Commit),
-                Rule::rollback_stmt => Ok(SqlStmt::Rollback),
+                Rule::rollback_stmt => dml::parse_rollback(inner),
+                Rule::savepoint_stmt => dml::parse_savepoint(inner),
                 _ => {
                     return Err(SqlError::Parse(format!(
                         "Unsupported statement: {:?}",

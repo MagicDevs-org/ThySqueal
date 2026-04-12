@@ -17,7 +17,8 @@ use tokio::sync::RwLock;
 pub struct Executor {
     pub db: Arc<RwLock<Database>>,
     pub transactions: DashMap<String, DatabaseState>,
-    pub prepared_statements: DashMap<String, Squeal>, // name -> stmt
+    pub savepoints: DashMap<(String, String), DatabaseState>, // (tx_id, savepoint_name) -> state
+    pub prepared_statements: DashMap<String, Squeal>,         // name -> stmt
     pub data_dir: Option<String>,
     pub pubsub: Arc<tokio::sync::RwLock<PubSubState>>,
 }
@@ -27,6 +28,7 @@ impl Executor {
         Self {
             db,
             transactions: DashMap::new(),
+            savepoints: DashMap::new(),
             prepared_statements: DashMap::new(),
             data_dir: None,
             pubsub: Arc::new(tokio::sync::RwLock::new(PubSubState::default())),
