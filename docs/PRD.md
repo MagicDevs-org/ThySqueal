@@ -96,23 +96,43 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 ├── server/                          # Server crate
 │   ├── Cargo.toml
 │   └── src/
-│       ├── main.rs                  # Server entry (Axum + MySQL TCP)
+│       ├── main.rs                  # Server entry (uses Registry)
 │       ├── config.rs                # YAML config loading
 │       ├── http.rs                  # Axum HTTP handlers
-│       ├── mysql/                   # MySQL Protocol handler
-│       ├── squeal/                  # Internal Representation (IR)
-│       ├── storage/                 # Modular storage engine
-│       │   ├── database.rs          # Database state management
-│       │   ├── table/               # Table, Index, and Mutation logic
-│       │   ├── value/               # Modular data types (Cast, Ops)
-│       │   ├── info_schema.rs       # Metadata virtual tables
-│       │   └── error.rs             # StorageError
-│       ├── sql/                     # SQL engine
-│       │   ├── ast/                 # Decomposed AST definitions
-│       │   ├── eval/                # Modular expression evaluation
-│       │   ├── parser/              # Modular Pest-based parsing
-│       │   ├── executor/            # Specialized statement executors
-│       │   └── error.rs             # SqlError enum
+│       ├── engines/                 # Pluggable protocol engines
+│       │   ├── mod.rs             # Engine registry (available_engines)
+│       │   ├── traits/            # Trait definitions
+│       │   │   ├── engine.rs     # Engine trait
+│       │   │   ├── protocol.rs   # Protocol trait
+│       │   │   ├── config.rs    # Config trait
+│       │   │   ├── parser.rs    # Parser trait
+│       │   │   └── registry.rs # Engine registry
+│       │   ├── mysql/            # MySQL protocol engine
+│       │   │   ├── mysql_engine.rs
+│       │   │   ├── protocol/      # MySQL TCP handler
+│       │   │   ├── parser/       # SQL -> Squeal IR parser
+│       │   │   ├── to_squeal/  # AST -> IR converter
+│       │   │   └── ast/        # MySQL AST
+│       │   └── redis/             # Redis protocol engine
+│       │       ├── redis_engine.rs
+│       │       ├── protocol.rs   # Redis RESP handler
+│       │       ├── to_squeal/  # RESP -> Squeal IR converter
+│       │       └── connection/ # Command handlers
+│       ├── squeal/                  # Squeal IR (unified execution)
+│       │   ├── ir/               # IR definitions
+│       │   │   ├── stmt.rs     # Statement IR
+│       │   │   ├── expr.rs    # Expression IR
+│       │   │   └── cond.rs    # Condition IR
+│       │   └── exec/            # IR Executor
+│       │       ├── executor.rs  # Main executor
+│       │       ├── dispatch.rs # Statement dispatcher
+│       │       ├── kv/       # KV operations
+│       │       └── dml/      # DML operations
+│       └── storage/                 # Storage engine
+│           ├── database.rs          # Database state
+│           ├── table/               # Table, Index, Mutation
+│           ├── value/              # Data types
+│           └── info_schema.rs       # Metadata tables
 
 ├── client/                          # Client crate
 ├── docs/

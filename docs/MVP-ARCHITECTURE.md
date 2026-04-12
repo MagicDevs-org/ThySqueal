@@ -7,39 +7,58 @@ This document reflects the current architecture of **ThySqueal**, reaching beyon
 ## Current Architecture (Summary)
 
 ```code
-Client (CLI/REPL)  →  POST /_query (SQL)  →  Parser (Pest)
-                                              ↓
-Client (App/API)   →  POST /_jsqueal (JSON) →  Squeal IR
-                                              ↓
-                                         SQL Executor
-                                              ↓
-                                         Storage Engine
+engines/
+├── mysql/           # MySQL protocol engine
+│   ├── parser/      # SQL → Squeal IR
+│   └── to_squeal/  # AST → IR
+├── redis/          # Redis protocol engine
+│   ├── to_squeal/ # RESP → Squeal IR
+│   └── connection/ # Command handlers
+└── traits/        # Engine, Protocol traits
+
+HTTP (Axum)       →  POST /_query (SQL)
+HTTP (Axum)       →  POST /_jsqueal (JSON)
+MySQL TCP (3306)   →  Parser → Squeal IR
+Redis TCP (6379)    →  RESP → Squeal IR
+                        ↓
+                   Executor (shared)
+                        ↓
+                   Storage Engine
 ```
 
 ---
 
 ## Architectural Pillars
 
-### 1. Squeal IR (Internal Representation)
+### 1. Pluggable Engines
+
+**Outcome**: Support multiple database protocols via a unified interface.
+
+- **Engine Trait**: Each protocol (MySQL, Redis, etc.) implements `Engine` with `protocol()` method
+- **Protocol Trait**: Handles TCP server spawning and connection handling
+- **Registry**: Discovers and starts engines based on config ports
+
+### 2. Squeal IR (Internal Representation)
 
 **Outcome**: Unified, strongly-typed query model.
 
 - **Decoupling**: Separates the surface query language (SQL or JSON) from the execution logic.
-- **Expressiveness**: Captures all SQL operations in a structured, serializable format.
+- **Expressiveness**: Captures all SQL and KV operations in a structured, serializable format.
 - **Optimizability**: Provides a clean layer for future query optimizations.
+- Both MySQL and Redis routes through Squeal IR for unified execution.
 
-### 2. Modular SQL Engine
+### 3. Modular SQL Engine
 
 **Outcome**: Clean separation of parsing, evaluation, and execution.
 
-- **Parser**: Maps SQL strings to the internal `Squeal` IR.
+- **Parser** (`engines/mysql/parser`): Maps SQL strings to the internal `Squeal` IR.
 - **JSqueal**: Direct JSON-to-IR mapping via Axum endpoint.
-- **Evaluator**: Dedicated modules for column resolution, condition filtering, and expression evaluation.
-- **Executor**: Processes `Squeal` IR via specialized command handlers (ddl, dml, select).
+- **Evaluator** (`squeal/eval`): Dedicated modules for column resolution, condition filtering.
+- **Executor** (`squeal/exec`): Processes `Squeal` IR via specialized handlers.
 
 ---
 
-### 2. Robust Storage & Indexing
+### 4. Robust Storage & Indexing
 
 **Outcome**: High-performance in-memory storage with durable persistence.
 
@@ -49,7 +68,7 @@ Client (App/API)   →  POST /_jsqueal (JSON) →  Squeal IR
 
 ---
 
-### 3. ACID Transactions
+### 5. ACID Transactions
 
 **Outcome**: Atomicity and Isolation for complex operations.
 

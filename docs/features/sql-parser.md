@@ -6,24 +6,25 @@ Pest-based SQL parser for ThySqueal, supporting a MySQL-compatible dialect.
 
 ## Implementation Status
 
-- **Grammar** (`server/src/sql/sql.pest`): ✅ Integrated (SELECT, INSERT, UPDATE, DELETE, CREATE TABLE, DROP TABLE, CREATE INDEX, WHERE, expressions, subqueries, etc.)
-- **Executor**: Uses **Modular Pest-based parser** to produce AST. Supported: CREATE TABLE, DROP TABLE, CREATE INDEX, SELECT, INSERT, UPDATE, DELETE, WHERE, ORDER BY, LIMIT, Aggregations, GROUP BY, HAVING, DISTINCT, INNER/LEFT JOIN, Subqueries, and ACID Transactions.
-- **Explain Plan**: ✅ Supported for `SELECT` statements.
-- **Information Schema**: ✅ Query metadata via virtual tables.
+- **Grammar** (`engines/mysql/parser`): Integrated (SELECT, INSERT, UPDATE, DELETE, CREATE TABLE, DROP TABLE, CREATE INDEX, WHERE, expressions, subqueries, etc.)
+- **Executor**: Uses **Modular Pest-based parser** to produce Squeal IR. Supported: CREATE TABLE, DROP TABLE, CREATE INDEX, SELECT, INSERT, UPDATE, DELETE, WHERE, ORDER BY, LIMIT, Aggregations, GROUP BY, HAVING, DISTINCT, INNER/LEFT JOIN, Subqueries, and ACID Transactions.
+- **Explain Plan**: Supported for `SELECT` statements.
+- **Information Schema**: Query metadata via virtual tables.
 
 ## Parser Architecture
 
-The parser is decomposed into submodules for maintainability:
+The parser is decomposed into submodules for maintainability, located in `engines/mysql/parser`:
 
-- `parser/mod.rs`: Main entry and top-level statement dispatch.
-- `parser/expr/`: Modular expression parsing.
-  - `literal.rs`: String, Number, Boolean, and Null literals.
-  - `functions.rs`: Aggregate and Scalar function calls.
-  - `condition.rs`: WHERE/HAVING logic, comparisons, and subqueries.
-- `parser/select.rs`: SELECT specific clauses (JOIN, GROUP BY, HAVING, ORDER BY, LIMIT).
-- `parser/dml.rs`: INSERT, UPDATE, DELETE parsing.
-- `parser/ddl.rs`: CREATE TABLE, DROP TABLE, CREATE INDEX parsing.
-- `parser/utils.rs`: Shared helper functions.
+- `mod.rs`: Main entry and top-level statement dispatch
+- `select/`: SELECT specific clauses (JOIN, GROUP BY, HAVING, ORDER BY, LIMIT)
+- `utils.rs`: Shared helper functions
+
+The parsed SQL is converted to **Squeal IR** in `engines/mysql/to_squeal/`:
+
+- `from_sql_stmt.rs`: Top-level statement conversion
+- `dql/`: SELECT conversion
+- `ddl/`: DDL conversion
+- `dml/`: DML conversion
 
 ## Supported SQL Statements
 
