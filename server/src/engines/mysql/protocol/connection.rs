@@ -47,11 +47,16 @@ const COM_QUIT: u8 = 0x01;
 const COM_INIT_DB: u8 = 0x02;
 const COM_QUERY: u8 = 0x03;
 const COM_FIELD_LIST: u8 = 0x04;
+const COM_CREATE_DB: u8 = 0x05;
+const COM_DROP_DB: u8 = 0x06;
+const COM_PROCESS_INFO: u8 = 0x0A;
 const COM_STATISTICS: u8 = 0x0A;
 const COM_PING: u8 = 0x0E;
 const COM_STMT_PREPARE: u8 = 0x16;
 const COM_STMT_EXECUTE: u8 = 0x17;
 const COM_STMT_CLOSE: u8 = 0x19;
+const COM_DEBUG: u8 = 0x0D;
+const COM_TIME: u8 = 0x0C;
 
 const ERR_CODE_UNKNOWN_CMD: u16 = 1047;
 const ERR_CODE_AUTH_FAILED: u16 = 1045;
@@ -226,6 +231,42 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
                     Err(e) => send_sql_error(&mut socket, seq + 1, &e.into()).await?,
                 }
             }
+            COM_CREATE_DB => {
+                let db_name = match std::str::from_utf8(data) {
+                    Ok(s) => s.trim_end_matches('\0').to_string(),
+                    Err(_) => {
+                        let err = SqlError::Runtime("Invalid database name".to_string());
+                        send_sql_error(&mut socket, seq + 1, &err).await?;
+                        continue;
+                    }
+                };
+                let db_name_escaped = db_name.replace('\'', "''");
+                let query = format!("CREATE DATABASE IF NOT EXISTS `{}`", db_name_escaped);
+                let session =
+                    Session::new(Some(username.clone()), None).with_database(current_db.clone());
+                match executor.execute(&query, vec![], session).await {
+                    Ok(_) => send_ok(&mut socket, seq + 1).await?,
+                    Err(e) => send_sql_error(&mut socket, seq + 1, &e.into()).await?,
+                }
+            }
+            COM_DROP_DB => {
+                let db_name = match std::str::from_utf8(data) {
+                    Ok(s) => s.trim_end_matches('\0').to_string(),
+                    Err(_) => {
+                        let err = SqlError::Runtime("Invalid database name".to_string());
+                        send_sql_error(&mut socket, seq + 1, &err).await?;
+                        continue;
+                    }
+                };
+                let db_name_escaped = db_name.replace('\'', "''");
+                let query = format!("DROP DATABASE IF EXISTS `{}`", db_name_escaped);
+                let session =
+                    Session::new(Some(username.clone()), None).with_database(current_db.clone());
+                match executor.execute(&query, vec![], session).await {
+                    Ok(_) => send_ok(&mut socket, seq + 1).await?,
+                    Err(e) => send_sql_error(&mut socket, seq + 1, &e.into()).await?,
+                }
+            }
             COM_FIELD_LIST => {
                 let payload_str = match std::str::from_utf8(data) {
                     Ok(s) => s.trim_end_matches('\0').to_string(),
@@ -391,6 +432,27 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
                 };
                 stmt_cache.remove(&stmt_id);
                 send_ok(&mut socket, seq + 1).await?;
+            }
+            COM_PROCESS_INFO => {
+                let session =
+                    Session::new(Some(username.clone()), None).with_database(current_db.clone());
+                let query = "SELECT Id, User, Host, Db, Command, Time, State FROM information_schema.processlist";
+                match executor.execute(query, vec![], session).await {
+                    Ok(result) => send_result_set(&mut socket, seq + 1, result).await?,
+                    Err(e) => send_sql_error(&mut socket, seq + 1, &e.into()).await?,
+                }
+            }
+            COM_DEBUG => {
+                send_ok(&mut socket, seq + 1).await?;
+            }
+            COM_TIME => {
+                let session =
+                    Session::new(Some(username.clone()), None).with_database(current_db.clone());
+                let query = "SELECT UNIX_TIMESTAMP() as t";
+                match executor.execute(query, vec![], session).await {
+                    Ok(result) => send_result_set(&mut socket, seq + 1, result).await?,
+                    Err(e) => send_sql_error(&mut socket, seq + 1, &e.into()).await?,
+                }
             }
             _ => {
                 info!("Unsupported MySQL command: 0x{:02X}", command);
