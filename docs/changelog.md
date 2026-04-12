@@ -1,5 +1,33 @@
 # ThySqueal Changelog
 
+## [v0.8.0] - 2026-04-12
+
+### Added
+
+- **MySQL Protocol v2**: Major improvements to MySQL wire protocol implementation
+  - Real password authentication with `mysql_native_password`
+  - Binary protocol parameter binding for prepared statements (COM_STMT_EXECUTE)
+  - Proper null_bitmap handling for NULL values
+  - Additional MySQL commands: COM_CREATE_DB, COM_DROP_DB, COM_DEBUG, COM_TIME
+  - Proper session database tracking with `COM_INIT_DB`
+  - SQL injection prevention in COM_FIELD_LIST
+
+- **CLI Configuration**: Added clap for config path CLI argument (`-c/--config`)
+
+- **SQL Features**:
+  - REPLACE INTO query support (upsert behavior)
+  - INSERT ... ON DUPLICATE KEY UPDATE
+  - SAVEPOINT transaction support with partial rollback
+  - Improved column type mapping (TINYINT/SMALLINT/INT/BIGINT based on value range)
+
+- **Missing MySQL SQL Statements**:
+  - DESCRIBE table (alias for SHOW COLUMNS)
+  - USE database command
+
+### Refactored
+
+- **MySQL Protocol Constants**: Moved all magic constants to beginning of connection.rs for better maintainability
+
 ## [v0.6.1] - 2026-03-15
 
 ### Added
