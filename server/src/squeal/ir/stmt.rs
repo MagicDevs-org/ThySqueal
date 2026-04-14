@@ -11,6 +11,8 @@ pub enum Squeal {
     CreateTable(CreateTable),
     CreateDatabase(CreateDatabase),
     DropDatabase(DropDatabase),
+    CreateTrigger(CreateTrigger),
+    DropTrigger(DropTrigger),
     CreateMaterializedView(CreateMaterializedView),
     AlterTable(AlterTable),
     DropTable(DropTable),
@@ -355,6 +357,33 @@ pub struct CreateDatabase {
 pub struct DropDatabase {
     pub name: String,
     pub if_exists: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CreateTrigger {
+    pub name: String,
+    pub timing: TriggerTiming,
+    pub event: TriggerEvent,
+    pub table: String,
+    pub body: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum TriggerTiming {
+    Before,
+    After,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum TriggerEvent {
+    Insert,
+    Update,
+    Delete,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DropTrigger {
+    pub name: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

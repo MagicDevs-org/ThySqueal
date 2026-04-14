@@ -61,6 +61,18 @@ pub enum WalRecord {
         tx_id: Option<String>,
         name: String,
     },
+    CreateTrigger {
+        tx_id: Option<String>,
+        name: String,
+        timing: crate::squeal::ir::stmt::TriggerTiming,
+        event: crate::squeal::ir::stmt::TriggerEvent,
+        table: String,
+        body: String,
+    },
+    DropTrigger {
+        tx_id: Option<String>,
+        name: String,
+    },
     Insert {
         tx_id: Option<String>,
         table: String,

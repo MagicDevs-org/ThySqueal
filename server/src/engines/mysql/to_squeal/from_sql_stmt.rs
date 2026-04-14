@@ -10,6 +10,8 @@ impl From<SqlStmt> for Squeal {
             SqlStmt::CreateTable(s) => Squeal::CreateTable(s.into()),
             SqlStmt::CreateDatabase(s) => Squeal::CreateDatabase(s.into()),
             SqlStmt::DropDatabase(s) => Squeal::DropDatabase(s.into()),
+            SqlStmt::CreateTrigger(s) => Squeal::CreateTrigger(s.into()),
+            SqlStmt::DropTrigger(s) => Squeal::DropTrigger(s.into()),
             SqlStmt::CreateMaterializedView(s) => Squeal::CreateMaterializedView(s.into()),
             SqlStmt::AlterTable(s) => Squeal::AlterTable(s.into()),
             SqlStmt::DropTable(s) => Squeal::DropTable(s.into()),

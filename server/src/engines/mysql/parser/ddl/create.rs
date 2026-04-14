@@ -1,7 +1,7 @@
 use super::super::utils::expect_identifier;
 use crate::engines::mysql::ast::{
-    CreateDatabaseStmt, CreateIndexStmt, CreateMaterializedViewStmt, CreateTableStmt, IndexType,
-    SqlStmt,
+    CreateDatabaseStmt, CreateIndexStmt, CreateMaterializedViewStmt, CreateTableStmt,
+    CreateTriggerStmt, IndexType, SqlStmt, TriggerEvent, TriggerTiming,
 };
 use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::engines::mysql::parser::Rule;
@@ -264,5 +264,53 @@ pub fn parse_create_database(pair: pest::iterators::Pair<Rule>) -> SqlResult<Sql
     Ok(SqlStmt::CreateDatabase(CreateDatabaseStmt {
         name,
         if_not_exists,
+    }))
+}
+
+pub fn parse_create_trigger(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
+    let pair_str = pair.as_str().to_uppercase();
+    let mut inner = pair.into_inner();
+
+    let name = inner
+        .find(|p| p.as_rule() == Rule::identifier)
+        .map(|p| p.as_str().trim().to_string())
+        .ok_or_else(|| SqlError::Parse("Missing trigger name".to_string()))?;
+
+    let timing = if pair_str.contains("BEFORE") {
+        TriggerTiming::Before
+    } else {
+        TriggerTiming::After
+    };
+
+    let event = if pair_str.contains("INSERT") {
+        TriggerEvent::Insert
+    } else if pair_str.contains("UPDATE") {
+        TriggerEvent::Update
+    } else {
+        TriggerEvent::Delete
+    };
+
+    let table = inner
+        .find(|p| p.as_rule() == Rule::table_name)
+        .map(|p| {
+            p.into_inner()
+                .filter(|pi| pi.as_rule() == Rule::path_identifier)
+                .map(|pi| pi.as_str().trim().to_string())
+                .collect::<Vec<_>>()
+                .join(".")
+        })
+        .ok_or_else(|| SqlError::Parse("Missing table name".to_string()))?;
+
+    let body = inner
+        .find(|p| p.as_rule() == Rule::trigger_body)
+        .map(|p| p.as_str().trim().to_string())
+        .unwrap_or_default();
+
+    Ok(SqlStmt::CreateTrigger(CreateTriggerStmt {
+        name,
+        timing,
+        event,
+        table,
+        body,
     }))
 }

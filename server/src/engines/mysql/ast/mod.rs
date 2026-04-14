@@ -15,6 +15,8 @@ pub enum SqlStmt {
     CreateTable(CreateTableStmt),
     CreateDatabase(CreateDatabaseStmt),
     DropDatabase(DropDatabaseStmt),
+    CreateTrigger(CreateTriggerStmt),
+    DropTrigger(DropTriggerStmt),
     CreateMaterializedView(CreateMaterializedViewStmt),
     AlterTable(AlterTableStmt),
     DropTable(DropTableStmt),
@@ -57,6 +59,8 @@ impl SqlStmt {
             SqlStmt::CreateTable(_)
             | SqlStmt::CreateDatabase(_)
             | SqlStmt::DropDatabase(_)
+            | SqlStmt::CreateTrigger(_)
+            | SqlStmt::DropTrigger(_)
             | SqlStmt::AlterTable(_)
             | SqlStmt::DropTable(_)
             | SqlStmt::CreateUser(_)

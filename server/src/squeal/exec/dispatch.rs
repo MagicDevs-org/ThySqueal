@@ -30,7 +30,9 @@ impl Executor {
                 | Squeal::CreateIndex(_)
                 | Squeal::CreateMaterializedView(_)
                 | Squeal::CreateDatabase(_)
-                | Squeal::DropDatabase(_) => self.dispatch_ddl(stmt, &ctx).await?,
+                | Squeal::DropDatabase(_)
+                | Squeal::CreateTrigger(_)
+                | Squeal::DropTrigger(_) => self.dispatch_ddl(stmt, &ctx).await?,
 
                 // DML (Data Manipulation)
                 Squeal::Insert(_) | Squeal::Update(_) | Squeal::Delete(_) => {
@@ -225,6 +227,22 @@ impl Executor {
                     check_privilege(&ctx.session.username, None, Privilege::Drop, db.state())?;
                 }
                 self.exec_drop_database(dd, ctx.session.transaction_id.as_deref())
+                    .await
+            }
+            Squeal::CreateTrigger(ct) => {
+                {
+                    let db = self.db.read().await;
+                    check_privilege(&ctx.session.username, None, Privilege::Create, db.state())?;
+                }
+                self.exec_create_trigger(ct, ctx.session.transaction_id.as_deref())
+                    .await
+            }
+            Squeal::DropTrigger(dt) => {
+                {
+                    let db = self.db.read().await;
+                    check_privilege(&ctx.session.username, None, Privilege::Drop, db.state())?;
+                }
+                self.exec_drop_trigger(dt, ctx.session.transaction_id.as_deref())
                     .await
             }
             _ => unreachable!(),

@@ -2,9 +2,9 @@ use super::{Executor, QueryResult, SelectQueryPlan, Session};
 use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::ir::{
     AlterAction, AlterTable, CreateDatabase, CreateIndex, CreateMaterializedView, CreateTable,
-    DropDatabase, DropTable, Expression, IndexType,
+    CreateTrigger, DropDatabase, DropTable, DropTrigger, Expression, IndexType,
 };
-use crate::storage::{Table, WalRecord};
+use crate::storage::{Table, Trigger, WalRecord};
 
 impl Executor {
     pub(crate) async fn exec_create_table(
@@ -398,6 +398,93 @@ impl Executor {
             }
 
             state.databases.remove(&name);
+            Ok(())
+        })
+        .await?;
+
+        Ok(QueryResult {
+            columns: vec![],
+            rows: vec![],
+            rows_affected: 0,
+            transaction_id: tx_id.map(|s| s.to_string()),
+            session: None,
+        })
+    }
+
+    pub(crate) async fn exec_create_trigger(
+        &self,
+        stmt: CreateTrigger,
+        tx_id: Option<&str>,
+    ) -> ExecResult<QueryResult> {
+        let name = stmt.name.clone();
+
+        {
+            let db = self.db.read().await;
+            db.log_operation(&WalRecord::CreateTrigger {
+                tx_id: tx_id.map(|s| s.to_string()),
+                name: name.clone(),
+                timing: stmt.timing.clone(),
+                event: stmt.event.clone(),
+                table: stmt.table.clone(),
+                body: stmt.body.clone(),
+            })?;
+        }
+
+        self.mutate_state(tx_id, |state| {
+            if state.triggers.contains_key(&name) {
+                return Err(ExecError::Storage(
+                    crate::storage::error::StorageError::PersistenceError(format!(
+                        "Trigger {} already exists",
+                        name
+                    )),
+                ));
+            }
+
+            let trigger_name = name.clone();
+            state.triggers.insert(
+                trigger_name.clone(),
+                Trigger {
+                    name: trigger_name,
+                    timing: stmt.timing.clone(),
+                    event: stmt.event.clone(),
+                    table: stmt.table.clone(),
+                    body: stmt.body.clone(),
+                },
+            );
+            Ok(())
+        })
+        .await?;
+
+        Ok(QueryResult {
+            columns: vec![],
+            rows: vec![],
+            rows_affected: 0,
+            transaction_id: tx_id.map(|s| s.to_string()),
+            session: None,
+        })
+    }
+
+    pub(crate) async fn exec_drop_trigger(
+        &self,
+        stmt: DropTrigger,
+        tx_id: Option<&str>,
+    ) -> ExecResult<QueryResult> {
+        let name = stmt.name.clone();
+
+        {
+            let db = self.db.read().await;
+            db.log_operation(&WalRecord::DropTrigger {
+                tx_id: tx_id.map(|s| s.to_string()),
+                name: name.clone(),
+            })?;
+        }
+
+        self.mutate_state(tx_id, |state| {
+            state.triggers.remove(&name).ok_or_else(|| {
+                ExecError::Storage(crate::storage::error::StorageError::PersistenceError(
+                    format!("Trigger {} does not exist", name),
+                ))
+            })?;
             Ok(())
         })
         .await?;

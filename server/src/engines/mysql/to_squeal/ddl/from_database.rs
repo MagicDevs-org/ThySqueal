@@ -18,3 +18,28 @@ impl From<ast::DropDatabaseStmt> for DropDatabase {
         }
     }
 }
+
+impl From<ast::CreateTriggerStmt> for CreateTrigger {
+    fn from(s: ast::CreateTriggerStmt) -> Self {
+        CreateTrigger {
+            name: s.name,
+            timing: match s.timing {
+                ast::TriggerTiming::Before => TriggerTiming::Before,
+                ast::TriggerTiming::After => TriggerTiming::After,
+            },
+            event: match s.event {
+                ast::TriggerEvent::Insert => TriggerEvent::Insert,
+                ast::TriggerEvent::Update => TriggerEvent::Update,
+                ast::TriggerEvent::Delete => TriggerEvent::Delete,
+            },
+            table: s.table,
+            body: s.body,
+        }
+    }
+}
+
+impl From<ast::DropTriggerStmt> for DropTrigger {
+    fn from(s: ast::DropTriggerStmt) -> Self {
+        DropTrigger { name: s.name }
+    }
+}

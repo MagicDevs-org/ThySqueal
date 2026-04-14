@@ -41,6 +41,8 @@ pub fn replay_logs(state: &mut DatabaseState, logs: Vec<WalRecord>) -> Result<()
                     WalRecord::CreateIndex { tx_id, .. } => tx_id,
                     WalRecord::CreateDatabase { tx_id, .. } => tx_id,
                     WalRecord::DropDatabase { tx_id, .. } => tx_id,
+                    WalRecord::CreateTrigger { tx_id, .. } => tx_id,
+                    WalRecord::DropTrigger { tx_id, .. } => tx_id,
                     WalRecord::KvSet { tx_id, .. } => tx_id,
                     WalRecord::KvDelete { tx_id, .. } => tx_id,
                     _ => &None,
@@ -117,6 +119,29 @@ pub fn apply_record(
         }
         WalRecord::DropDatabase { name, .. } => {
             state.databases.remove(&name);
+        }
+        WalRecord::CreateTrigger {
+            name,
+            timing,
+            event,
+            table,
+            body,
+            ..
+        } => {
+            let trigger_name = name.clone();
+            state.triggers.insert(
+                trigger_name.clone(),
+                crate::storage::Trigger {
+                    name: trigger_name,
+                    timing,
+                    event,
+                    table,
+                    body,
+                },
+            );
+        }
+        WalRecord::DropTrigger { name, .. } => {
+            state.triggers.remove(&name);
         }
         WalRecord::Insert { table, values, .. } => {
             let db_state = state.clone();

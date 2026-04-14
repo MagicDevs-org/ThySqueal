@@ -1,7 +1,7 @@
 // MySQL Grammar
 
 // Main statement
-statement = { SOI ~ (explain_stmt | describe_stmt | use_stmt | search_stmt | select_stmt | insert_stmt | update_stmt | delete_stmt | create_table_stmt | create_database_stmt | create_materialized_view_stmt | alter_table_stmt | drop_table_stmt | drop_database_stmt | create_index_stmt | create_user_stmt | drop_user_stmt | grant_stmt | revoke_stmt | begin_stmt | commit_stmt | rollback_stmt | prepare_stmt | execute_stmt | deallocate_stmt | set_stmt) ~ ";"? ~ EOI }
+statement = { SOI ~ (explain_stmt | describe_stmt | use_stmt | search_stmt | select_stmt | insert_stmt | update_stmt | delete_stmt | create_table_stmt | create_database_stmt | create_trigger_stmt | create_materialized_view_stmt | alter_table_stmt | drop_table_stmt | drop_database_stmt | drop_trigger_stmt | create_index_stmt | create_user_stmt | drop_user_stmt | grant_stmt | revoke_stmt | begin_stmt | commit_stmt | rollback_stmt | prepare_stmt | execute_stmt | deallocate_stmt | set_stmt) ~ ";"? ~ EOI }
 
 use_stmt = { KW_USE ~ identifier }
 
@@ -72,6 +72,9 @@ create_user_stmt = { KW_CREATE ~ KW_USER ~ string_literal ~ KW_IDENTIFIED ~ KW_B
 drop_user_stmt = { KW_DROP ~ KW_USER ~ string_literal }
 create_database_stmt = { KW_CREATE ~ (KW_DATABASE | KW_SCHEMA) ~ identifier ~ if_not_exists? }
 drop_database_stmt = { KW_DROP ~ (KW_DATABASE | KW_SCHEMA) ~ identifier ~ if_exists? }
+create_trigger_stmt = { KW_CREATE ~ KW_TRIGGER ~ identifier ~ (KW_BEFORE | KW_AFTER) ~ (KW_INSERT | KW_UPDATE | KW_DELETE) ~ KW_ON ~ table_name ~ KW_FOR ~ KW_EACH ~ KW_ROW ~ KW_BEGIN ~ trigger_body ~ KW_END }
+drop_trigger_stmt = { KW_DROP ~ KW_TRIGGER ~ identifier }
+trigger_body = { (!KW_END ~ ANY)* }
 grant_stmt = { KW_GRANT ~ privilege_list ~ KW_ON ~ (KW_ALL ~ KW_PRIVILEGES | table_name) ~ KW_TO ~ string_literal }
 revoke_stmt = { KW_REVOKE ~ privilege_list ~ KW_ON ~ (KW_ALL ~ KW_PRIVILEGES | table_name) ~ KW_FROM ~ string_literal }
 
@@ -206,7 +209,7 @@ keyword = {
     KW_ROW_NUMBER | KW_RANK | KW_DENSE_RANK | KW_NTILE | KW_PERCENT_RANK | KW_CUME_DIST |
     KW_FIRST_VALUE | KW_LAST_VALUE | KW_NTH_VALUE | KW_LAG | KW_LEAD |
     KW_OVER | KW_PARTITION | KW_ROWS | KW_RANGE | KW_UNBOUNDED | KW_PRECEDING | KW_FOLLOWING | KW_CURRENT |
-    KW_UNION | KW_INTERSECT | KW_EXCEPT
+    KW_UNION | KW_INTERSECT | KW_EXCEPT | KW_TRIGGER | KW_BEFORE | KW_AFTER | KW_FOR | KW_EACH | KW_END
 }
 
 // Keywords (reserved)
@@ -321,6 +324,12 @@ KW_UNION = @{ ^"UNION" ~ !id_char }
 KW_INTERSECT = @{ ^"INTERSECT" ~ !id_char }
 KW_EXCEPT = @{ ^"EXCEPT" ~ !id_char }
 KW_RECURSIVE = @{ ^"RECURSIVE" ~ !id_char }
+KW_TRIGGER = @{ ^"TRIGGER" ~ !id_char }
+KW_BEFORE = @{ ^"BEFORE" ~ !id_char }
+KW_AFTER = @{ ^"AFTER" ~ !id_char }
+KW_FOR = @{ ^"FOR" ~ !id_char }
+KW_EACH = @{ ^"EACH" ~ !id_char }
+KW_END = @{ ^"END" ~ !id_char }
 
 id_char = _{ ASCII_ALPHA | ASCII_DIGIT | "_" }
 

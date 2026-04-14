@@ -10,7 +10,7 @@ pub mod types;
 pub mod value;
 pub mod wal;
 
-pub use database::{Database, DatabaseData, DatabaseState, Privilege, User};
+pub use database::{Database, DatabaseData, DatabaseState, Privilege, Trigger, User};
 pub use error::StorageError;
 pub use index::TableIndex;
 pub use persistence::WalRecord;
