@@ -1,4 +1,4 @@
-use crate::engines::mysql::ast::{DropTableStmt, SqlStmt};
+use crate::engines::mysql::ast::{DropDatabaseStmt, DropTableStmt, SqlStmt};
 use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::engines::mysql::parser::Rule;
 
@@ -17,4 +17,16 @@ pub fn parse_drop_table(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt>
         .join(".");
 
     Ok(SqlStmt::DropTable(DropTableStmt { name }))
+}
+
+pub fn parse_drop_database(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
+    let mut inner = pair.into_inner();
+    let name = inner
+        .find(|p| p.as_rule() == Rule::identifier)
+        .map(|p| p.as_str().trim().to_string())
+        .ok_or_else(|| SqlError::Parse("Missing database name in DROP DATABASE".to_string()))?;
+
+    let if_exists = inner.find(|p| p.as_rule() == Rule::if_exists).is_some();
+
+    Ok(SqlStmt::DropDatabase(DropDatabaseStmt { name, if_exists }))
 }

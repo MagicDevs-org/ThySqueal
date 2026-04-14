@@ -8,6 +8,8 @@ impl From<SqlStmt> for Squeal {
     fn from(stmt: SqlStmt) -> Self {
         match stmt {
             SqlStmt::CreateTable(s) => Squeal::CreateTable(s.into()),
+            SqlStmt::CreateDatabase(s) => Squeal::CreateDatabase(s.into()),
+            SqlStmt::DropDatabase(s) => Squeal::DropDatabase(s.into()),
             SqlStmt::CreateMaterializedView(s) => Squeal::CreateMaterializedView(s.into()),
             SqlStmt::AlterTable(s) => Squeal::AlterTable(s.into()),
             SqlStmt::DropTable(s) => Squeal::DropTable(s.into()),

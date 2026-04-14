@@ -13,6 +13,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SqlStmt {
     CreateTable(CreateTableStmt),
+    CreateDatabase(CreateDatabaseStmt),
+    DropDatabase(DropDatabaseStmt),
     CreateMaterializedView(CreateMaterializedViewStmt),
     AlterTable(AlterTableStmt),
     DropTable(DropTableStmt),
@@ -53,6 +55,8 @@ impl SqlStmt {
             SqlStmt::Set(s) => s.resolve_placeholders(&mut counter),
             // No placeholders in these statements
             SqlStmt::CreateTable(_)
+            | SqlStmt::CreateDatabase(_)
+            | SqlStmt::DropDatabase(_)
             | SqlStmt::AlterTable(_)
             | SqlStmt::DropTable(_)
             | SqlStmt::CreateUser(_)

@@ -1,7 +1,7 @@
 // MySQL Grammar
 
 // Main statement
-statement = { SOI ~ (explain_stmt | describe_stmt | use_stmt | search_stmt | select_stmt | insert_stmt | update_stmt | delete_stmt | create_table_stmt | create_materialized_view_stmt | alter_table_stmt | drop_table_stmt | create_index_stmt | create_user_stmt | drop_user_stmt | grant_stmt | revoke_stmt | begin_stmt | commit_stmt | rollback_stmt | prepare_stmt | execute_stmt | deallocate_stmt | set_stmt) ~ ";"? ~ EOI }
+statement = { SOI ~ (explain_stmt | describe_stmt | use_stmt | search_stmt | select_stmt | insert_stmt | update_stmt | delete_stmt | create_table_stmt | create_database_stmt | create_materialized_view_stmt | alter_table_stmt | drop_table_stmt | drop_database_stmt | create_index_stmt | create_user_stmt | drop_user_stmt | grant_stmt | revoke_stmt | begin_stmt | commit_stmt | rollback_stmt | prepare_stmt | execute_stmt | deallocate_stmt | set_stmt) ~ ";"? ~ EOI }
 
 use_stmt = { KW_USE ~ identifier }
 
@@ -70,8 +70,13 @@ create_materialized_view_stmt = { KW_CREATE ~ KW_MATERIALIZED ~ KW_VIEW ~ identi
 
 create_user_stmt = { KW_CREATE ~ KW_USER ~ string_literal ~ KW_IDENTIFIED ~ KW_BY ~ string_literal }
 drop_user_stmt = { KW_DROP ~ KW_USER ~ string_literal }
+create_database_stmt = { KW_CREATE ~ (KW_DATABASE | KW_SCHEMA) ~ identifier ~ if_not_exists? }
+drop_database_stmt = { KW_DROP ~ (KW_DATABASE | KW_SCHEMA) ~ identifier ~ if_exists? }
 grant_stmt = { KW_GRANT ~ privilege_list ~ KW_ON ~ (KW_ALL ~ KW_PRIVILEGES | table_name) ~ KW_TO ~ string_literal }
 revoke_stmt = { KW_REVOKE ~ privilege_list ~ KW_ON ~ (KW_ALL ~ KW_PRIVILEGES | table_name) ~ KW_FROM ~ string_literal }
+
+if_not_exists = { KW_IF ~ KW_NOT ~ KW_EXISTS }
+if_exists = { KW_IF ~ KW_EXISTS }
 
 privilege_list = { privilege ~ ("," ~ privilege)* }
 privilege = { KW_SELECT | KW_INSERT | KW_UPDATE | KW_DELETE | KW_CREATE | KW_DROP | KW_GRANT | KW_ALL }
@@ -225,6 +230,10 @@ KW_DELETE   = @{ ^"DELETE" ~ !id_char }
 KW_EXPLAIN  = @{ ^"EXPLAIN" ~ !id_char }
 KW_DESCRIBE = @{ ^"DESCRIBE" ~ !id_char }
 KW_SEARCH   = @{ ^"SEARCH" ~ !id_char }
+KW_DATABASE = @{ ^"DATABASE" ~ !id_char }
+KW_SCHEMA   = @{ ^"SCHEMA" ~ !id_char }
+KW_IF       = @{ ^"IF" ~ !id_char }
+KW_EXISTS   = @{ ^"EXISTS" ~ !id_char }
 KW_CREATE   = @{ ^"CREATE" ~ !id_char }
 KW_TABLE    = @{ ^"TABLE" ~ !id_char }
 KW_DROP     = @{ ^"DROP" ~ !id_char }

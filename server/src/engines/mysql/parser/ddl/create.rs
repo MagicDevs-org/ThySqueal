@@ -1,6 +1,7 @@
 use super::super::utils::expect_identifier;
 use crate::engines::mysql::ast::{
-    CreateIndexStmt, CreateMaterializedViewStmt, CreateTableStmt, IndexType, SqlStmt,
+    CreateDatabaseStmt, CreateIndexStmt, CreateMaterializedViewStmt, CreateTableStmt, IndexType,
+    SqlStmt,
 };
 use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::engines::mysql::parser::Rule;
@@ -248,5 +249,20 @@ pub fn parse_create_index(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStm
         unique,
         index_type,
         where_clause,
+    }))
+}
+
+pub fn parse_create_database(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
+    let mut inner = pair.into_inner();
+    let name = inner
+        .find(|p| p.as_rule() == Rule::identifier)
+        .map(|p| p.as_str().trim().to_string())
+        .ok_or_else(|| SqlError::Parse("Missing database name".to_string()))?;
+
+    let if_not_exists = inner.find(|p| p.as_rule() == Rule::if_not_exists).is_some();
+
+    Ok(SqlStmt::CreateDatabase(CreateDatabaseStmt {
+        name,
+        if_not_exists,
     }))
 }

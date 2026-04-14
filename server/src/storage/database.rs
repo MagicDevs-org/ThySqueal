@@ -34,6 +34,7 @@ pub struct User {
 #[allow(clippy::type_complexity)]
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DatabaseState {
+    pub databases: HashMap<String, DatabaseData>,
     pub tables: HashMap<String, Table>,
     #[serde(default)]
     pub materialized_views: HashMap<String, Select>,
@@ -55,6 +56,18 @@ pub struct DatabaseState {
     pub kv_stream: HashMap<String, Vec<(u64, HashMap<String, Value>)>>, // key -> [(id, fields), ...]
     #[serde(default)]
     pub kv_stream_last_id: HashMap<String, u64>, // key -> last auto-generated ID
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct DatabaseData {
+    pub tables: HashMap<String, Table>,
+    pub materialized_views: HashMap<String, Select>,
+}
+
+impl DatabaseData {
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 
 impl DatabaseState {
@@ -132,6 +145,7 @@ impl Database {
 
         let mut db = Self {
             state: DatabaseState {
+                databases: HashMap::new(),
                 tables,
                 materialized_views: HashMap::new(),
                 users: HashMap::new(),

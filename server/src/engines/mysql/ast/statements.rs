@@ -273,6 +273,18 @@ pub struct RevokeStmt {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CreateDatabaseStmt {
+    pub name: String,
+    pub if_not_exists: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DropDatabaseStmt {
+    pub name: String,
+    pub if_exists: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OrderByItem {
     pub expr: Expression,
     pub order: Order,

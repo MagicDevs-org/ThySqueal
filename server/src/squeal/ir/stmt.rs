@@ -9,6 +9,8 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Squeal {
     CreateTable(CreateTable),
+    CreateDatabase(CreateDatabase),
+    DropDatabase(DropDatabase),
     CreateMaterializedView(CreateMaterializedView),
     AlterTable(AlterTable),
     DropTable(DropTable),
@@ -341,6 +343,18 @@ pub enum IndexType {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DropTable {
     pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CreateDatabase {
+    pub name: String,
+    pub if_not_exists: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DropDatabase {
+    pub name: String,
+    pub if_exists: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

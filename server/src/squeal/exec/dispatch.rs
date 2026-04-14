@@ -28,7 +28,9 @@ impl Executor {
                 | Squeal::DropTable(_)
                 | Squeal::AlterTable(_)
                 | Squeal::CreateIndex(_)
-                | Squeal::CreateMaterializedView(_) => self.dispatch_ddl(stmt, &ctx).await?,
+                | Squeal::CreateMaterializedView(_)
+                | Squeal::CreateDatabase(_)
+                | Squeal::DropDatabase(_) => self.dispatch_ddl(stmt, &ctx).await?,
 
                 // DML (Data Manipulation)
                 Squeal::Insert(_) | Squeal::Update(_) | Squeal::Delete(_) => {
@@ -207,6 +209,22 @@ impl Executor {
                     )?;
                 }
                 self.exec_create_index(ci, ctx.session.transaction_id.as_deref())
+                    .await
+            }
+            Squeal::CreateDatabase(cd) => {
+                {
+                    let db = self.db.read().await;
+                    check_privilege(&ctx.session.username, None, Privilege::Create, db.state())?;
+                }
+                self.exec_create_database(cd, ctx.session.transaction_id.as_deref())
+                    .await
+            }
+            Squeal::DropDatabase(dd) => {
+                {
+                    let db = self.db.read().await;
+                    check_privilege(&ctx.session.username, None, Privilege::Drop, db.state())?;
+                }
+                self.exec_drop_database(dd, ctx.session.transaction_id.as_deref())
                     .await
             }
             _ => unreachable!(),

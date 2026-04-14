@@ -53,6 +53,14 @@ pub enum WalRecord {
         tx_id: Option<String>,
         name: String,
     },
+    CreateDatabase {
+        tx_id: Option<String>,
+        name: String,
+    },
+    DropDatabase {
+        tx_id: Option<String>,
+        name: String,
+    },
     Insert {
         tx_id: Option<String>,
         table: String,
