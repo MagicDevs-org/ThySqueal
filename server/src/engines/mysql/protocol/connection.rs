@@ -38,92 +38,101 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
         return Ok(());
     }
 
+    process_commands(&mut socket, &executor).await
+}
+
+async fn process_commands(socket: &mut TcpStream, executor: &Arc<Executor>) -> Result<()> {
     let mut prepared_statements: HashMap<u64, PreparedStatement> = HashMap::new();
     let mut stmt_id_counter: u64 = 0;
-    #[allow(unused)]
-    let mut seq_num: u8 = 0;
 
     loop {
-        match read_packet(&mut socket).await {
+        match read_packet(socket).await {
             Ok((seq, payload)) => {
                 if payload.is_empty() {
                     continue;
                 }
 
                 let cmd = payload[0];
-                seq_num = seq + 1;
 
                 match cmd {
                     COM_QUIT => {
                         info!("MySQL client disconnected");
-                        break;
-                    }
-                    COM_PING => {
-                        send_ok_packet(&mut socket, seq_num, "PONG").await?;
-                    }
-                    COM_INIT_DB => {
-                        handle_init_db(&mut socket, &executor, seq_num, &payload).await?;
-                    }
-                    COM_QUERY => {
-                        handle_query(&mut socket, &executor, seq_num, &payload).await?;
-                    }
-                    COM_STMT_PREPARE => {
-                        handle_stmt_prepare(
-                            &mut socket,
-                            seq_num,
-                            &payload,
-                            &mut prepared_statements,
-                            &mut stmt_id_counter,
-                        )
-                        .await?;
-                    }
-                    COM_STMT_EXECUTE => {
-                        handle_stmt_execute(
-                            &mut socket,
-                            &executor,
-                            seq_num,
-                            &payload,
-                            &prepared_statements,
-                        )
-                        .await?;
+                        return Ok(());
                     }
                     COM_STMT_CLOSE => {
                         handle_stmt_close(&payload, &mut prepared_statements);
-                    }
-                    COM_CREATE_DB => {
-                        handle_create_db(&mut socket, &executor, seq_num, &payload).await?;
-                    }
-                    COM_DROP_DB => {
-                        handle_drop_db(&mut socket, &executor, seq_num, &payload).await?;
-                    }
-                    COM_FIELD_LIST => {
-                        handle_field_list(&mut socket, &executor, seq_num, &payload).await?;
-                    }
-                    COM_STATISTICS => {
-                        send_ok_packet(&mut socket, seq_num, "Threads: 1  Questions: 0  Slow: 0")
-                            .await?;
-                    }
-                    COM_DEBUG | COM_TIME => {
-                        send_ok_packet(&mut socket, seq_num, "").await?;
+                        continue;
                     }
                     _ => {
-                        send_sql_error(
-                            &mut socket,
-                            seq_num,
-                            &SqlError::Parse(format!("Unknown command: {}", cmd)),
-                        )
-                        .await?;
+                        let seq_num = seq + 1;
+                        match cmd {
+                            COM_PING => {
+                                send_ok_packet(socket, seq_num, "PONG").await?;
+                            }
+                            COM_INIT_DB => {
+                                handle_init_db(socket, executor, seq_num, &payload).await?;
+                            }
+                            COM_QUERY => {
+                                handle_query(socket, executor, seq_num, &payload).await?;
+                            }
+                            COM_STMT_PREPARE => {
+                                handle_stmt_prepare(
+                                    socket,
+                                    seq_num,
+                                    &payload,
+                                    &mut prepared_statements,
+                                    &mut stmt_id_counter,
+                                )
+                                .await?;
+                            }
+                            COM_STMT_EXECUTE => {
+                                handle_stmt_execute(
+                                    socket,
+                                    executor,
+                                    seq_num,
+                                    &payload,
+                                    &prepared_statements,
+                                )
+                                .await?;
+                            }
+                            COM_CREATE_DB => {
+                                handle_create_db(socket, executor, seq_num, &payload).await?;
+                            }
+                            COM_DROP_DB => {
+                                handle_drop_db(socket, executor, seq_num, &payload).await?;
+                            }
+                            COM_FIELD_LIST => {
+                                handle_field_list(socket, executor, seq_num, &payload).await?;
+                            }
+                            COM_STATISTICS => {
+                                send_ok_packet(
+                                    socket,
+                                    seq_num,
+                                    "Threads: 1  Questions: 0  Slow: 0",
+                                )
+                                .await?;
+                            }
+                            COM_DEBUG | COM_TIME => {
+                                send_ok_packet(socket, seq_num, "").await?;
+                            }
+                            _ => {
+                                send_sql_error(
+                                    socket,
+                                    seq_num,
+                                    &SqlError::Parse(format!("Unknown command: {}", cmd)),
+                                )
+                                .await?;
+                            }
+                        }
                     }
                 }
             }
             Err(e) => {
                 info!("MySQL connection error: {}", e);
-                break;
+                return Ok(());
             }
         }
     }
-
-    Ok(())
 }
 
 pub fn parse_handshake_response(payload: &[u8]) -> (String, Option<Vec<u8>>) {
