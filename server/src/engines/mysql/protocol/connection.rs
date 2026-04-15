@@ -78,6 +78,7 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
 
     let mut prepared_statements: HashMap<u64, PreparedStatement> = HashMap::new();
     let mut stmt_id_counter: u64 = 0;
+    #[allow(unused)]
     let mut seq_num: u8 = 0;
 
     loop {

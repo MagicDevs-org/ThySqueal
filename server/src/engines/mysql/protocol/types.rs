@@ -13,6 +13,7 @@ pub struct PreparedStatement {
 pub struct ColumnMeta {
     pub name: String,
     pub type_code: u8,
+    #[allow(unused)]
     pub flags: u16,
 }
 
@@ -32,6 +33,7 @@ pub fn parse_parameter_columns(query: &str) -> Vec<ColumnMeta> {
     columns
 }
 
+#[allow(unused)]
 pub fn value_to_mysql_type(value: &Value) -> u8 {
     #[allow(unused_imports)]
     use crate::storage::DataType;

@@ -19,6 +19,7 @@ impl Session {
         }
     }
 
+    #[allow(unused)]
     pub fn with_database(mut self, database: Option<String>) -> Self {
         self.database = database;
         self
