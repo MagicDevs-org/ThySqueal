@@ -3,7 +3,7 @@ pub mod condition;
 pub mod functions;
 pub mod literal;
 
-use crate::engines::mysql::ast::{BinaryOp, CaseWhen, Expression, SqlStmt};
+use crate::engines::mysql::ast::{BinaryOp, Expression, SqlStmt};
 use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::engines::mysql::parser::Rule;
 
