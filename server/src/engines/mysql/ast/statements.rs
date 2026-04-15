@@ -31,6 +31,18 @@ pub struct ExecuteStmt {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KillStmt {
+    pub connection_id: u64,
+    pub kill_type: KillType,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum KillType {
+    Connection,
+    Query,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SearchStmt {
     pub table: String,
     pub query: String,

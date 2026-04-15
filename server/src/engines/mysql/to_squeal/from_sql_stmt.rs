@@ -58,6 +58,17 @@ impl From<SqlStmt> for Squeal {
             SqlStmt::Execute(s) => Squeal::Execute(s.into()),
             SqlStmt::Deallocate(s) => Squeal::Deallocate(s),
             SqlStmt::Set(s) => Squeal::Set(s.into()),
+            SqlStmt::Kill(k) => Squeal::Kill(crate::squeal::ir::stmt::KillStmt {
+                connection_id: k.connection_id,
+                kill_type: match k.kill_type {
+                    crate::engines::mysql::ast::KillType::Connection => {
+                        crate::squeal::ir::stmt::KillType::Connection
+                    }
+                    crate::engines::mysql::ast::KillType::Query => {
+                        crate::squeal::ir::stmt::KillType::Query
+                    }
+                },
+            }),
             SqlStmt::Begin => Squeal::Begin,
             SqlStmt::Commit => Squeal::Commit,
             SqlStmt::Rollback => Squeal::Rollback,

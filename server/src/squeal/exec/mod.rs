@@ -7,6 +7,7 @@ pub mod error;
 pub mod executor;
 pub mod explain;
 pub mod helpers;
+pub mod kill;
 pub mod kv;
 pub mod materialized;
 pub mod plan;

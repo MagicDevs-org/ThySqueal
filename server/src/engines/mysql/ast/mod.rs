@@ -37,6 +37,7 @@ pub enum SqlStmt {
     Execute(ExecuteStmt),
     Deallocate(String),
     Set(SetStmt),
+    Kill(KillStmt),
     Begin,
     Commit,
     Rollback,
@@ -73,6 +74,7 @@ impl SqlStmt {
             | SqlStmt::Begin
             | SqlStmt::Commit
             | SqlStmt::Rollback
+            | SqlStmt::Kill(_)
             | SqlStmt::Savepoint(_)
             | SqlStmt::Prepare(_)
             | SqlStmt::Execute(_)

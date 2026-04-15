@@ -47,6 +47,7 @@ impl Executor {
 
                 // Session management
                 Squeal::Set(s) => self.exec_set(s, &ctx).await?,
+                Squeal::Kill(k) => self.exec_kill(k).await?,
 
                 // Queries
                 Squeal::Select(_) | Squeal::Search(_) | Squeal::Explain(_) => {

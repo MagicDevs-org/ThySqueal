@@ -48,6 +48,7 @@ pub const COM_STMT_EXECUTE: u8 = 0x17;
 pub const COM_STMT_CLOSE: u8 = 0x19;
 pub const COM_DEBUG: u8 = 0x0D;
 pub const COM_TIME: u8 = 0x0C;
+pub const COM_KILL: u8 = 0x0B;
 
 #[allow(unused)]
 pub const ERR_CODE_UNKNOWN_CMD: u16 = 1047;

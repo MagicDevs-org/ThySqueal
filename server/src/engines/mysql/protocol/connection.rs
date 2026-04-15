@@ -104,6 +104,9 @@ async fn process_commands(socket: &mut TcpStream, executor: &Arc<Executor>) -> R
                             COM_FIELD_LIST => {
                                 handle_field_list(socket, executor, seq_num, &payload).await?;
                             }
+                            COM_KILL => {
+                                handle_kill(socket, executor, seq_num, &payload).await?;
+                            }
                             COM_STATISTICS => {
                                 send_ok_packet(
                                     socket,
@@ -388,6 +391,33 @@ async fn handle_field_list(
             send_sql_error(socket, seq_num, &SqlError::from(e)).await?;
         }
     }
+    Ok(())
+}
+
+async fn handle_kill(
+    socket: &mut TcpStream,
+    _executor: &Arc<Executor>,
+    seq_num: u8,
+    payload: &[u8],
+) -> Result<()> {
+    if payload.len() < 5 {
+        send_sql_error(
+            socket,
+            seq_num,
+            &SqlError::Parse("KILL requires a connection ID".to_string()),
+        )
+        .await?;
+        return Ok(());
+    }
+
+    let connection_id = u32::from_le_bytes([payload[1], payload[2], payload[3], payload[4]]);
+
+    info!(
+        "KILL command: terminating connection {} (current connection tracking not implemented)",
+        connection_id
+    );
+
+    send_ok_packet(socket, seq_num, "").await?;
     Ok(())
 }
 

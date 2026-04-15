@@ -31,6 +31,7 @@ pub enum Squeal {
     Execute(Execute),
     Deallocate(String),
     Set(Set),
+    Kill(KillStmt),
     Begin,
     Commit,
     Rollback,
@@ -276,6 +277,18 @@ pub struct Delete {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SavepointStmt {
     pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KillStmt {
+    pub connection_id: u64,
+    pub kill_type: KillType,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum KillType {
+    Connection,
+    Query,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
