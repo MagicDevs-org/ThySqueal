@@ -75,7 +75,7 @@
 - [x] **ON DUPLICATE KEY UPDATE**: INSERT ... ON DUPLICATE KEY UPDATE
 - [x] **SAVEPOINT**: Transaction savepoint support for partial rollback
 - [ ] **CALL**: Stored procedure support
-- [ ] **CASE WHEN**: Statement that acts like an IF-THEN-ELSE logic controller
+- [x] **CASE WHEN**: Statement that acts like an IF-THEN-ELSE logic controller
 
 ## Missing MySQL SQL Statements - 📋 TODO
 
