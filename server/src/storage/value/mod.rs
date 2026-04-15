@@ -18,7 +18,7 @@ pub enum Value {
 impl Value {
     pub fn data_type(&self) -> DataType {
         match self {
-            Value::Null => DataType::Text, // Null can be any type, default to Text
+            Value::Null => DataType::Text,
             Value::Int(_) => DataType::Int,
             Value::Float(_) => DataType::Float,
             Value::Text(_) => DataType::Text,

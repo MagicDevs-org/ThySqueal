@@ -241,6 +241,74 @@ engines/elastic/
 - [ ] **Character set handling**: Proper UTF-8 encoding/decoding based on connection charset
 - [ ] **Server version consistency**: Match `@@version` with server greeting string
 
+## MySQL Full Support - 🏗 IN PROGRESS
+
+### Data Types - ✅ COMPLETE
+
+- [x] **DECIMAL/NUMERIC**: Fixed-point precision numbers
+- [x] **CHAR/VARCHAR(n)**: Fixed and variable-length character types with length specification
+- [x] **TINYINT/SMALLINT/BIGINT**: 8-bit, 16-bit, 64-bit integers
+- [x] **UNSIGNED**: Support for unsigned integer variants
+- [ ] **ENUM**: Enumeration type support
+- [ ] **SET**: Set type support
+- [x] **TIME**: Time type support
+- [x] **TIMESTAMP**: Timestamp type support
+- [x] **BINARY/VARBINARY**: Binary data types
+- [ ] **GEOMETRY/GEOGRAPHY**: Spatial data types (future)
+
+### Enhanced ALTER TABLE - 📋 TODO
+
+- [ ] ADD/DROP/MODIFY multiple columns in one statement
+- [ ] ALTER TABLE ADD PRIMARY KEY
+- [ ] ALTER TABLE ADD FOREIGN KEY
+- [ ] ALTER TABLE DROP PRIMARY KEY
+- [ ] ALTER TABLE DROP FOREIGN KEY
+- [ ] ALTER TABLE ENGINE (InnoDB, MyISAM)
+- [ ] ALTER TABLE CHARSET/COLLATION
+
+### Views (Non-Materialized) - 📋 TODO
+
+- [ ] CREATE VIEW with SELECT
+- [ ] DROP VIEW
+- [ ] ALTER VIEW
+- [ ] WITH CHECK OPTION
+- [ ] Updatable views
+
+### Stored Procedures & Functions - 📋 TODO
+
+- [ ] CREATE PROCEDURE
+- [ ] DROP PROCEDURE
+- [ ] CREATE FUNCTION
+- [ ] DROP FUNCTION
+- [ ] DELIMITER support
+- [ ] BEGIN/END blocks
+- [ ] Parameter passing (IN, OUT, INOUT)
+- [ ] Variable declarations
+- [ ] Control flow (IF, CASE, WHILE, REPEAT, LOOP)
+- [ ] CALL statement
+
+### SHOW Commands - 📋 TODO
+
+- [ ] SHOW TABLES [FROM db]
+- [ ] SHOW DATABASES
+- [ ] SHOW COLUMNS FROM table
+- [ ] SHOW CREATE TABLE table
+- [ ] SHOW CREATE DATABASE db
+- [ ] SHOW INDEX FROM table
+- [ ] SHOW VARIABLES
+- [ ] SHOW STATUS
+- [ ] SHOW PROCESSLIST
+
+### Implementation Notes
+
+Add new data types in:
+- `storage/types.rs` - DataType enum
+- `engines/mysql/mysql.pest` - Grammar rules
+- `engines/mysql/parser/ddl/create.rs` - Parser
+- `engines/mysql/to_squeal/ddl/` - IR conversion
+
+---
+
 ## Phase 9: Production & Distributed (v1.0) - 🏗 IN PROGRESS
 
 - [ ] **Distributed Mode**: Multi-node replication via Raft consensus

@@ -95,7 +95,27 @@ column_def = { identifier ~ data_type ~ column_attribute* }
 
 column_attribute = { KW_AUTO_INCREMENT | (KW_PRIMARY ~ KW_KEY ~ ("(" ~ identifier_list ~ ")")?) }
 
-data_type = { "INTEGER" | "BIGINT" | "SMALLINT" | "INT" | "DOUBLE" | "REAL" | "FLOAT" | "BOOLEAN" | "BOOL" | "DATETIME" | "DATE" | "VARCHAR" | "TEXT" | "BLOB" | "JSON" | "SERIAL" }
+data_type = { parameterized_type | simple_type }
+
+parameterized_type = { (kw_decimal | kw_numeric | kw_char | kw_varchar | kw_binary | kw_varbinary | kw_enum | kw_set) ~ "(" ~ param_value ~ ("," ~ param_value)? ~ ")" }
+param_value = @{ ASCII_DIGIT+ | string_literal }
+
+simple_type = { (signed_int | unsigned_int | signed_bigint | unsigned_bigint | "FLOAT" | "DOUBLE" | "REAL" | "BOOLEAN" | "BOOL" | "DATETIME" | "DATE" | "TIME" | "TIMESTAMP" | "TEXT" | "BLOB" | "JSON" | "SERIAL") }
+
+signed_int = { ("TINYINT" | "SMALLINT" | "INT" | "INTEGER" | "MEDIUMINT") ~ unsigned_modifier? }
+signed_bigint = { "BIGINT" ~ unsigned_modifier? }
+unsigned_int = { ("TINYINT" | "SMALLINT" | "INT" | "INTEGER" | "MEDIUMINT") ~ "UNSIGNED" }
+unsigned_bigint = { "BIGINT" ~ "UNSIGNED" }
+unsigned_modifier = { "UNSIGNED" }
+
+kw_decimal = @{ ^"DECIMAL" | ^"DEC" }
+kw_numeric = @{ ^"NUMERIC" }
+kw_char = @{ ^"CHAR" | ^"CHARACTER" }
+kw_varchar = @{ ^"VARCHAR" | ^"CHARACTER VARYING" }
+kw_binary = @{ ^"BINARY" }
+kw_varbinary = @{ ^"VARBINARY" }
+kw_enum = @{ ^"ENUM" }
+kw_set = @{ ^"SET" }
 
 // DROP TABLE statement
 drop_table_stmt = { KW_DROP ~ KW_TABLE ~ table_name }

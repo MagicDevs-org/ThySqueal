@@ -7,6 +7,19 @@ use super::super::value::Value;
 use super::Table;
 use crate::storage::error::StorageError;
 
+fn values_are_equivalent(a: &Value, b: &Value) -> bool {
+    match (a, b) {
+        (Value::Null, Value::Null) => true,
+        (Value::Int(i), Value::Text(s)) => s.parse::<i64>().map(|n| n == *i).unwrap_or(false),
+        (Value::Text(s), Value::Int(i)) => s.parse::<i64>().map(|n| n == *i).unwrap_or(false),
+        (Value::Int(a), Value::Int(b)) => a == b,
+        (Value::Float(a), Value::Float(b)) => (a - b).abs() < f64::EPSILON,
+        (Value::Text(a), Value::Text(b)) => a == b,
+        (Value::Bool(a), Value::Bool(b)) => a == b,
+        _ => a == b,
+    }
+}
+
 impl Table {
     pub fn insert(
         &mut self,
@@ -51,7 +64,9 @@ impl Table {
                     let ref_idx = ref_table.column_index(ref_col_name).ok_or_else(|| {
                         StorageError::ColumnNotFound(format!("{}.{}", fk.ref_table, ref_col_name))
                     })?;
-                    if ref_row.values[ref_idx] != local_values[i] {
+                    let local = &local_values[i];
+                    let referenced = &ref_row.values[ref_idx];
+                    if !values_are_equivalent(local, referenced) {
                         matches = false;
                         break;
                     }

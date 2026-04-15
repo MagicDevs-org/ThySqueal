@@ -6,12 +6,53 @@ impl Value {
         match (self, target_type) {
             (v, t) if v.data_type() == *t => Ok(v),
             (Value::Null, _) => Ok(Value::Null),
-            (Value::Int(i), DataType::Float) => Ok(Value::Float(i as f64)),
-            (Value::Float(f), DataType::Int) => Ok(Value::Int(f as i64)),
-            (Value::Text(s), DataType::Int) => Ok(Value::Int(s.parse()?)),
-            (Value::Text(s), DataType::Float) => Ok(Value::Float(s.parse()?)),
-            (v, DataType::Text) | (v, DataType::VarChar) => Ok(Value::Text(v.to_string_repr())),
-            (Value::Text(s), DataType::DateTime) => Ok(Value::DateTime(s.parse()?)),
+            (
+                Value::Int(i),
+                DataType::TinyInt
+                | DataType::SmallInt
+                | DataType::Int
+                | DataType::BigInt
+                | DataType::TinyUInt
+                | DataType::SmallUInt
+                | DataType::UInt
+                | DataType::BigUInt,
+            ) => Ok(Value::Int(i)),
+            (Value::Int(i), DataType::Float) | (Value::Int(i), DataType::Double) => {
+                Ok(Value::Float(i as f64))
+            }
+            (
+                Value::Float(f),
+                DataType::TinyInt
+                | DataType::SmallInt
+                | DataType::Int
+                | DataType::BigInt
+                | DataType::TinyUInt
+                | DataType::SmallUInt
+                | DataType::UInt
+                | DataType::BigUInt,
+            ) => Ok(Value::Int(f as i64)),
+            (
+                Value::Text(s),
+                DataType::TinyInt
+                | DataType::SmallInt
+                | DataType::Int
+                | DataType::BigInt
+                | DataType::TinyUInt
+                | DataType::SmallUInt
+                | DataType::UInt
+                | DataType::BigUInt,
+            ) => Ok(Value::Int(s.parse()?)),
+            (Value::Text(s), DataType::Float) | (Value::Text(s), DataType::Double) => {
+                Ok(Value::Float(s.parse()?))
+            }
+            (v, DataType::Text) | (v, DataType::VarChar(_)) | (v, DataType::Char(_)) => {
+                Ok(Value::Text(v.to_string_repr()))
+            }
+            (Value::Text(s), DataType::Date) => Ok(Value::Text(s)),
+            (Value::Text(s), DataType::DateTime) | (Value::Text(s), DataType::TimeStamp) => {
+                Ok(Value::DateTime(s.parse()?))
+            }
+            (Value::Text(s), DataType::Time) => Ok(Value::Text(s)),
             (Value::Text(s), DataType::Json) => Ok(Value::Json(serde_json::from_str(&s)?)),
             (v, t) => Err(anyhow::anyhow!("Cannot cast {:?} to {:?}", v, t)),
         }
