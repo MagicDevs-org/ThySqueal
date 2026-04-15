@@ -111,7 +111,7 @@
 - [ ] **SHOW (variants)**: SHOW DATABASES, SHOW TABLES, SHOW COLUMNS, SHOW CREATE TABLE, etc.
 - [ ] **USE**: Switch database context
 - [ ] **SET TRANSACTION**: Transaction characteristics
-- [ ] **KILL**: Terminate connections/queries
+- [x] **KILL**: Terminate connections/queries
 - [ ] **DESCRIBE**: Table description (alias for EXPLAIN)
 
 ## Phase 6: Key-Value Storage (v0.6) - ✅ COMPLETE
