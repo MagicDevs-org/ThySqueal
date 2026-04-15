@@ -1,5 +1,8 @@
+pub mod commands;
 pub mod connection;
+pub mod constants;
 pub mod packet;
+pub mod types;
 
 use crate::engines::traits::Protocol;
 use crate::squeal::exec::Executor;
