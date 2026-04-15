@@ -21,6 +21,26 @@ impl From<ast::AlterTableStmt> for AlterTable {
                 ast::AlterAction::DropDefault { column } => AlterAction::DropDefault { column },
                 ast::AlterAction::SetNotNull { column } => AlterAction::SetNotNull { column },
                 ast::AlterAction::DropNotNull { column } => AlterAction::DropNotNull { column },
+                ast::AlterAction::AddPrimaryKey { columns } => {
+                    AlterAction::AddPrimaryKey { columns }
+                }
+                ast::AlterAction::DropPrimaryKey => AlterAction::DropPrimaryKey,
+                ast::AlterAction::AddForeignKey {
+                    name,
+                    columns,
+                    ref_table,
+                    ref_columns,
+                } => AlterAction::AddForeignKey {
+                    name,
+                    columns,
+                    ref_table,
+                    ref_columns,
+                },
+                ast::AlterAction::DropForeignKey { name } => AlterAction::DropForeignKey { name },
+                ast::AlterAction::AlterEngine { engine } => AlterAction::AlterEngine { engine },
+                ast::AlterAction::AlterCharset { charset, collation } => {
+                    AlterAction::AlterCharset { charset, collation }
+                }
             },
         }
     }

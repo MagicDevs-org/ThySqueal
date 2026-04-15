@@ -106,6 +106,21 @@ pub fn apply_record(
                     AlterAction::DropDefault { column } => t.set_column_default(&column, None)?,
                     AlterAction::SetNotNull { column } => t.set_column_not_null(&column, true)?,
                     AlterAction::DropNotNull { column } => t.set_column_not_null(&column, false)?,
+                    AlterAction::AddPrimaryKey { columns } => t.set_primary_key(columns)?,
+                    AlterAction::DropPrimaryKey => t.set_primary_key(vec![])?,
+                    AlterAction::AddForeignKey {
+                        name,
+                        columns,
+                        ref_table,
+                        ref_columns,
+                    } => t.add_foreign_key(crate::storage::ForeignKey {
+                        name: name.unwrap_or_default(),
+                        columns,
+                        ref_table,
+                        ref_columns,
+                    })?,
+                    AlterAction::DropForeignKey { name } => t.drop_foreign_key(&name)?,
+                    AlterAction::AlterEngine { .. } | AlterAction::AlterCharset { .. } => {}
                 }
             }
         }

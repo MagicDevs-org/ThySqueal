@@ -8,7 +8,6 @@ use crate::storage::Value;
 
 pub fn parse_alter_table(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
     let mut inner = pair.into_inner();
-    // Skip KW_ALTER, KW_TABLE
     let _ = inner.next();
     let _ = inner.next();
 
@@ -38,7 +37,6 @@ pub fn parse_alter_table(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt
             if next.as_rule() == Rule::KW_COLUMN {
                 next = action_inner.next().unwrap();
             }
-
             AlterAction::AddColumn(parse_column_def(next)?)
         }
         Rule::alter_drop_column => {
@@ -80,7 +78,6 @@ pub fn parse_alter_table(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt
             let table_pair = action_inner.next().ok_or_else(|| {
                 SqlError::Parse("Missing new table name in RENAME TABLE".to_string())
             })?;
-
             let column_ref_rule = table_pair.into_inner().next().unwrap();
             let new_name = column_ref_rule
                 .into_inner()
@@ -88,7 +85,6 @@ pub fn parse_alter_table(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt
                 .map(|pi| pi.as_str().trim().to_string())
                 .collect::<Vec<_>>()
                 .join(".");
-
             AlterAction::RenameTable(new_name)
         }
         Rule::alter_modify_column => {
@@ -114,7 +110,6 @@ pub fn parse_alter_table(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt
             let action_inner = action_pair.into_inner();
             let mut col_name = String::new();
             let mut default_value: Option<Value> = None;
-
             for p in action_inner {
                 match p.as_rule() {
                     Rule::identifier => col_name = p.as_str().trim().to_string(),
@@ -123,7 +118,6 @@ pub fn parse_alter_table(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt
                     _ => {}
                 }
             }
-
             AlterAction::SetDefault {
                 column: col_name,
                 value: default_value,
@@ -132,38 +126,114 @@ pub fn parse_alter_table(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt
         Rule::alter_drop_default => {
             let action_inner = action_pair.into_inner();
             let mut col_name = String::new();
-
             for p in action_inner {
                 if p.as_rule() == Rule::identifier {
                     col_name = p.as_str().trim().to_string();
                 }
             }
-
             AlterAction::DropDefault { column: col_name }
         }
         Rule::alter_set_not_null => {
             let action_inner = action_pair.into_inner();
             let mut col_name = String::new();
-
             for p in action_inner {
                 if p.as_rule() == Rule::identifier {
                     col_name = p.as_str().trim().to_string();
                 }
             }
-
             AlterAction::SetNotNull { column: col_name }
         }
         Rule::alter_drop_not_null => {
             let action_inner = action_pair.into_inner();
             let mut col_name = String::new();
-
             for p in action_inner {
                 if p.as_rule() == Rule::identifier {
                     col_name = p.as_str().trim().to_string();
                 }
             }
-
             AlterAction::DropNotNull { column: col_name }
+        }
+        Rule::alter_add_primary_key => {
+            let action_inner = action_pair.into_inner();
+            let columns: Vec<String> = action_inner
+                .filter(|p| p.as_rule() == Rule::identifier)
+                .map(|p| p.as_str().trim().to_string())
+                .collect();
+            AlterAction::AddPrimaryKey { columns }
+        }
+        Rule::alter_drop_primary_key => AlterAction::DropPrimaryKey,
+        Rule::alter_add_foreign_key => {
+            let sql = action_pair.as_str();
+            let columns = if let Some(start) = sql.find("FOREIGN KEY (") {
+                let inner = &sql[start + 13..];
+                if let Some(end) = inner.find(')') {
+                    inner[..end]
+                        .split(',')
+                        .map(|s| s.trim().to_string())
+                        .collect()
+                } else {
+                    vec![]
+                }
+            } else {
+                vec![]
+            };
+            let after_ref = sql.split("REFERENCES").nth(1).unwrap_or("").trim();
+            let ref_table = after_ref
+                .split('(')
+                .next()
+                .unwrap_or("")
+                .split_whitespace()
+                .next()
+                .unwrap_or("")
+                .to_string();
+            let ref_columns = if let Some(start) = after_ref.find('(') {
+                if let Some(end) = after_ref.find(')') {
+                    after_ref[start + 1..end]
+                        .split(',')
+                        .map(|s| s.trim().to_string())
+                        .collect()
+                } else {
+                    vec![]
+                }
+            } else {
+                vec![]
+            };
+            AlterAction::AddForeignKey {
+                name: None,
+                columns,
+                ref_table,
+                ref_columns,
+            }
+        }
+        Rule::alter_drop_foreign_key => {
+            let mut action_inner = action_pair.into_inner();
+            let name = action_inner
+                .find(|p| p.as_rule() == Rule::identifier)
+                .map(|p| p.as_str().trim().to_string())
+                .unwrap_or_default();
+            AlterAction::DropForeignKey { name }
+        }
+        Rule::alter_engine => {
+            let engine = action_pair
+                .into_inner()
+                .next()
+                .map(|p| p.as_str().trim().to_string())
+                .unwrap_or_default();
+            AlterAction::AlterEngine { engine }
+        }
+        Rule::alter_charset => {
+            let mut charset = String::new();
+            let mut collation = None;
+            for p in action_pair.into_inner() {
+                if p.as_rule() == Rule::identifier {
+                    if charset.is_empty() {
+                        charset = p.as_str().trim().to_string();
+                    } else {
+                        collation = Some(p.as_str().trim().to_string());
+                    }
+                }
+            }
+            AlterAction::AlterCharset { charset, collation }
         }
         _ => return Err(SqlError::Parse("Unknown ALTER TABLE action".to_string())),
     };

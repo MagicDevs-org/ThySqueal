@@ -97,6 +97,7 @@ pub fn parse_create_table(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStm
                     .collect();
 
                 foreign_keys.push(ForeignKey {
+                    name: String::new(),
                     columns: local_cols,
                     ref_table,
                     ref_columns: ref_cols,

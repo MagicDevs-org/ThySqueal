@@ -311,6 +311,49 @@ impl Executor {
                         .ok_or_else(|| ExecError::TableNotFound(stmt.table.clone()))?;
                     table.set_column_not_null(&column, false)?;
                 }
+                AlterAction::AddPrimaryKey { columns } => {
+                    let table = state
+                        .get_table_mut(&stmt.table)
+                        .ok_or_else(|| ExecError::TableNotFound(stmt.table.clone()))?;
+                    table.set_primary_key(columns)?;
+                }
+                AlterAction::DropPrimaryKey => {
+                    let table = state
+                        .get_table_mut(&stmt.table)
+                        .ok_or_else(|| ExecError::TableNotFound(stmt.table.clone()))?;
+                    table.set_primary_key(vec![])?;
+                }
+                AlterAction::AddForeignKey {
+                    name,
+                    columns,
+                    ref_table,
+                    ref_columns,
+                } => {
+                    let table = state
+                        .get_table_mut(&stmt.table)
+                        .ok_or_else(|| ExecError::TableNotFound(stmt.table.clone()))?;
+                    table.add_foreign_key(crate::storage::ForeignKey {
+                        name: name.unwrap_or_default(),
+                        columns,
+                        ref_table,
+                        ref_columns,
+                    })?;
+                }
+                AlterAction::DropForeignKey { name } => {
+                    let table = state
+                        .get_table_mut(&stmt.table)
+                        .ok_or_else(|| ExecError::TableNotFound(stmt.table.clone()))?;
+                    table.drop_foreign_key(&name)?;
+                }
+                AlterAction::AlterEngine { engine: _ } => {
+                    // Engine is metadata, not stored in table schema currently
+                }
+                AlterAction::AlterCharset {
+                    charset: _,
+                    collation: _,
+                } => {
+                    // Charset/collation is metadata, not stored in table schema currently
+                }
             }
             Ok(())
         })

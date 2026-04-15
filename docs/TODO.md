@@ -256,15 +256,15 @@ engines/elastic/
 - [x] **BINARY/VARBINARY**: Binary data types
 - [ ] **GEOMETRY/GEOGRAPHY**: Spatial data types (future)
 
-### Enhanced ALTER TABLE - 📋 TODO
+### Enhanced ALTER TABLE - ✅ COMPLETE
 
-- [ ] ADD/DROP/MODIFY multiple columns in one statement
-- [ ] ALTER TABLE ADD PRIMARY KEY
-- [ ] ALTER TABLE ADD FOREIGN KEY
-- [ ] ALTER TABLE DROP PRIMARY KEY
-- [ ] ALTER TABLE DROP FOREIGN KEY
-- [ ] ALTER TABLE ENGINE (InnoDB, MyISAM)
-- [ ] ALTER TABLE CHARSET/COLLATION
+- [x] ADD/DROP/MODIFY multiple columns in one statement
+- [x] ALTER TABLE ADD PRIMARY KEY
+- [x] ALTER TABLE ADD FOREIGN KEY
+- [x] ALTER TABLE DROP PRIMARY KEY
+- [x] ALTER TABLE DROP FOREIGN KEY
+- [x] ALTER TABLE ENGINE (InnoDB, MyISAM)
+- [x] ALTER TABLE CHARSET/COLLATION
 
 ### Views (Non-Materialized) - 📋 TODO
 

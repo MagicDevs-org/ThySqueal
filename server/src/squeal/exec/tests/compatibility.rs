@@ -453,3 +453,124 @@ async fn test_set_type() {
     assert_eq!(result.rows[0][1], Value::Text("red".to_string()));
     assert_eq!(result.rows[1][1], Value::Text("green".to_string()));
 }
+
+#[tokio::test]
+async fn test_alter_table_add_primary_key() {
+    let db = Arc::new(RwLock::new(Database::new()));
+    let executor = Arc::new(Executor::new(db));
+
+    executor
+        .execute(
+            "CREATE TABLE t1 (id INT, name TEXT)",
+            vec![],
+            Session::new(None, None),
+        )
+        .await
+        .unwrap();
+
+    executor
+        .execute(
+            "ALTER TABLE t1 ADD PRIMARY KEY (id)",
+            vec![],
+            Session::new(None, None),
+        )
+        .await
+        .unwrap();
+
+    let result = executor
+        .execute("SELECT * FROM t1", vec![], Session::new(None, None))
+        .await
+        .unwrap();
+    assert_eq!(result.columns, vec!["id", "name"]);
+}
+
+#[tokio::test]
+async fn test_alter_table_add_foreign_key() {
+    let db = Arc::new(RwLock::new(Database::new()));
+    let executor = Arc::new(Executor::new(db));
+
+    executor
+        .execute(
+            "CREATE TABLE parent (id INT PRIMARY KEY)",
+            vec![],
+            Session::new(None, None),
+        )
+        .await
+        .unwrap();
+
+    executor
+        .execute(
+            "CREATE TABLE child (id INT, parent_id INT)",
+            vec![],
+            Session::new(None, None),
+        )
+        .await
+        .unwrap();
+
+    executor
+        .execute(
+            "ALTER TABLE child ADD FOREIGN KEY (parent_id) REFERENCES parent(id)",
+            vec![],
+            Session::new(None, None),
+        )
+        .await
+        .unwrap();
+
+    executor
+        .execute(
+            "INSERT INTO parent VALUES (1)",
+            vec![],
+            Session::new(None, None),
+        )
+        .await
+        .unwrap();
+
+    executor
+        .execute(
+            "INSERT INTO child VALUES (1, 1)",
+            vec![],
+            Session::new(None, None),
+        )
+        .await
+        .unwrap();
+
+    let err = executor
+        .execute(
+            "INSERT INTO child VALUES (2, 999)",
+            vec![],
+            Session::new(None, None),
+        )
+        .await
+        .unwrap_err();
+    assert!(err.to_string().contains("Foreign key constraint"));
+}
+
+#[tokio::test]
+async fn test_alter_table_drop_primary_key() {
+    let db = Arc::new(RwLock::new(Database::new()));
+    let executor = Arc::new(Executor::new(db));
+
+    executor
+        .execute(
+            "CREATE TABLE t1 (id INT PRIMARY KEY, name TEXT)",
+            vec![],
+            Session::new(None, None),
+        )
+        .await
+        .unwrap();
+
+    executor
+        .execute(
+            "ALTER TABLE t1 DROP PRIMARY KEY",
+            vec![],
+            Session::new(None, None),
+        )
+        .await
+        .unwrap();
+
+    let result = executor
+        .execute("SELECT * FROM t1", vec![], Session::new(None, None))
+        .await
+        .unwrap();
+    assert_eq!(result.columns, vec!["id", "name"]);
+}

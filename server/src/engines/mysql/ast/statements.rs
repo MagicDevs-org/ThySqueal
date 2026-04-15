@@ -114,6 +114,26 @@ pub enum AlterAction {
     DropNotNull {
         column: String,
     },
+    AddPrimaryKey {
+        columns: Vec<String>,
+    },
+    DropPrimaryKey,
+    AddForeignKey {
+        name: Option<String>,
+        columns: Vec<String>,
+        ref_table: String,
+        ref_columns: Vec<String>,
+    },
+    DropForeignKey {
+        name: String,
+    },
+    AlterEngine {
+        engine: String,
+    },
+    AlterCharset {
+        charset: String,
+        collation: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

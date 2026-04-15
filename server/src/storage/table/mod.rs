@@ -280,6 +280,50 @@ impl Table {
         self.schema.columns.iter().position(|c| c.name == name)
     }
 
+    pub fn set_primary_key(&mut self, columns: Vec<String>) -> Result<(), StorageError> {
+        for col in &columns {
+            if self.column_index(col).is_none() {
+                return Err(StorageError::ColumnNotFound(format!(
+                    "Column {} in primary key not found",
+                    col
+                )));
+            }
+        }
+        self.schema.primary_key = Some(columns);
+        Ok(())
+    }
+
+    pub fn add_foreign_key(&mut self, fk: ForeignKey) -> Result<(), StorageError> {
+        for col in &fk.columns {
+            if self.column_index(col).is_none() {
+                return Err(StorageError::ColumnNotFound(format!(
+                    "Column {} in foreign key not found",
+                    col
+                )));
+            }
+        }
+        self.schema.foreign_keys.push(fk);
+        Ok(())
+    }
+
+    pub fn drop_foreign_key(&mut self, name: &str) -> Result<(), StorageError> {
+        let pos = self
+            .schema
+            .foreign_keys
+            .iter()
+            .position(|fk| fk.name == name || fk.columns.join(",") == name);
+        match pos {
+            Some(idx) => {
+                self.schema.foreign_keys.remove(idx);
+                Ok(())
+            }
+            None => Err(StorageError::PersistenceError(format!(
+                "Foreign key '{}' not found",
+                name
+            ))),
+        }
+    }
+
     pub fn null_row(&self) -> Row {
         Row {
             id: "null".to_string(),

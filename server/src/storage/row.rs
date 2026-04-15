@@ -20,6 +20,7 @@ pub struct RowId(pub String);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ForeignKey {
+    pub name: String,
     pub columns: Vec<String>,
     pub ref_table: String,
     pub ref_columns: Vec<String>,
