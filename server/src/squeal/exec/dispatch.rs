@@ -401,10 +401,7 @@ impl Executor {
         }
     }
 
-    pub(crate) async fn exec_prepare(
-        &self,
-        stmt: crate::squeal::ir::Prepare,
-    ) -> ExecResult<QueryResult> {
+    pub async fn exec_prepare(&self, stmt: crate::squeal::ir::Prepare) -> ExecResult<QueryResult> {
         let squeal = parse_to_squeal(&stmt.sql)?;
         self.prepared_statements.insert(stmt.name, squeal);
         Ok(QueryResult {
@@ -416,7 +413,7 @@ impl Executor {
         })
     }
 
-    pub(crate) async fn exec_execute(
+    pub async fn exec_execute(
         &self,
         stmt: crate::squeal::ir::Execute,
         params: Vec<Value>,
@@ -453,7 +450,7 @@ impl Executor {
         self.exec_squeal(inner_stmt, exec_params, session).await
     }
 
-    pub(crate) async fn exec_deallocate(&self, name: &str) -> ExecResult<QueryResult> {
+    pub async fn exec_deallocate(&self, name: &str) -> ExecResult<QueryResult> {
         self.prepared_statements.remove(name);
         Ok(QueryResult {
             columns: vec![],

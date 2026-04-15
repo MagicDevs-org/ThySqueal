@@ -6,7 +6,7 @@ use crate::squeal::ir::Delete;
 use crate::storage::WalRecord;
 
 impl Executor {
-    pub(crate) async fn exec_delete(
+    pub async fn exec_delete(
         &self,
         stmt: Delete,
         params: &[crate::storage::Value],

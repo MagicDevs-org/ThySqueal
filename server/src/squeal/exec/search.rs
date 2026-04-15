@@ -4,7 +4,7 @@ use crate::squeal::ir::Search;
 use crate::storage::Value;
 
 impl Executor {
-    pub(crate) async fn exec_search(
+    pub async fn exec_search(
         &self,
         stmt: Search,
         db_state: &crate::storage::DatabaseState,

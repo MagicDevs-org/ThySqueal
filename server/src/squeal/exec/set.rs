@@ -4,11 +4,7 @@ use crate::squeal::exec::ExecResult;
 use crate::squeal::ir::Set;
 
 impl Executor {
-    pub(crate) async fn exec_set(
-        &self,
-        stmt: Set,
-        ctx: &ExecutionContext,
-    ) -> ExecResult<QueryResult> {
+    pub async fn exec_set(&self, stmt: Set, ctx: &ExecutionContext) -> ExecResult<QueryResult> {
         let mut session = ctx.session.clone();
 
         for (var_expr, val_expr) in &stmt.assignments {

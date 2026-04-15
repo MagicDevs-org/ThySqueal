@@ -3,7 +3,7 @@ use crate::squeal::exec::{ExecError, ExecResult};
 use crate::storage::{DatabaseState, WalRecord};
 
 impl Executor {
-    pub(crate) async fn mutate_state<F, R>(&self, tx_id: Option<&str>, f: F) -> ExecResult<R>
+    pub async fn mutate_state<F, R>(&self, tx_id: Option<&str>, f: F) -> ExecResult<R>
     where
         F: FnOnce(&mut DatabaseState) -> ExecResult<R>,
     {
@@ -22,7 +22,7 @@ impl Executor {
         }
     }
 
-    pub(crate) async fn exec_begin(&self) -> ExecResult<QueryResult> {
+    pub async fn exec_begin(&self) -> ExecResult<QueryResult> {
         let db = self.db.read().await;
         let tx_id = uuid::Uuid::new_v4().to_string();
 
@@ -43,7 +43,7 @@ impl Executor {
         })
     }
 
-    pub(crate) async fn exec_commit(&self, tx_id: Option<&str>) -> ExecResult<QueryResult> {
+    pub async fn exec_commit(&self, tx_id: Option<&str>) -> ExecResult<QueryResult> {
         let tx_id = tx_id.ok_or_else(|| ExecError::Runtime("No active transaction".to_string()))?;
         let state = self
             .transactions
@@ -69,7 +69,7 @@ impl Executor {
         })
     }
 
-    pub(crate) async fn exec_rollback(&self, tx_id: Option<&str>) -> ExecResult<QueryResult> {
+    pub async fn exec_rollback(&self, tx_id: Option<&str>) -> ExecResult<QueryResult> {
         let tx_id = tx_id.ok_or_else(|| ExecError::Runtime("No active transaction".to_string()))?;
         self.transactions.remove(tx_id);
 
@@ -88,11 +88,7 @@ impl Executor {
         })
     }
 
-    pub(crate) async fn exec_savepoint(
-        &self,
-        name: &str,
-        tx_id: Option<&str>,
-    ) -> ExecResult<QueryResult> {
+    pub async fn exec_savepoint(&self, name: &str, tx_id: Option<&str>) -> ExecResult<QueryResult> {
         let tx_id = tx_id.ok_or_else(|| ExecError::Runtime("No active transaction".to_string()))?;
 
         let state = self
@@ -114,7 +110,7 @@ impl Executor {
     }
 
     #[allow(dead_code)]
-    pub(crate) async fn exec_rollback_to(
+    pub async fn exec_rollback_to(
         &self,
         name: &str,
         tx_id: Option<&str>,

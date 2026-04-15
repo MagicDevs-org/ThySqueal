@@ -3,7 +3,7 @@ use crate::squeal::exec::ExecResult;
 use crate::squeal::ir::KillStmt;
 
 impl Executor {
-    pub(crate) async fn exec_kill(&self, stmt: KillStmt) -> ExecResult<QueryResult> {
+    pub async fn exec_kill(&self, stmt: KillStmt) -> ExecResult<QueryResult> {
         tracing::info!(
             "KILL: terminating connection {} (type: {:?})",
             stmt.connection_id,

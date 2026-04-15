@@ -296,7 +296,7 @@ async fn handle_stmt_execute(
     let null_bitmap_offset = 9;
     let num_params = stmt.params.len();
     let bound_params = if num_params > 0 {
-        let null_bitmap_len = (num_params + 7) / 8;
+        let null_bitmap_len = num_params.div_ceil(8);
         extract_bound_params(
             &payload[null_bitmap_offset + null_bitmap_len..],
             &stmt.params,

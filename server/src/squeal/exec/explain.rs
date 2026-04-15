@@ -4,7 +4,7 @@ use crate::squeal::ir::{ComparisonOp, Condition, Expression, Select};
 use crate::storage::{DatabaseState, TableIndex, Value};
 
 impl Executor {
-    pub(crate) async fn exec_explain(
+    pub async fn exec_explain(
         &self,
         stmt: Select,
         db_state: &DatabaseState,

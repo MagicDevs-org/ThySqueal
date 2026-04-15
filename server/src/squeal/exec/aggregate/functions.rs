@@ -5,7 +5,7 @@ use crate::squeal::ir::{AggregateType, Expression, FunctionCall};
 use crate::storage::{DatabaseState, Row, Table, Value};
 
 impl Executor {
-    pub(crate) fn eval_aggregate_joined(
+    pub fn eval_aggregate_joined(
         &self,
         fc: &FunctionCall,
         contexts: &[Vec<(&Table, Option<&str>, &Row)>],

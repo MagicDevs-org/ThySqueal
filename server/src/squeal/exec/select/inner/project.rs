@@ -7,7 +7,7 @@ use std::collections::HashMap;
 pub type JoinedContext<'a> = Vec<(&'a Table, Option<String>, Row)>;
 
 impl Executor {
-    pub(crate) fn get_result_column_names(
+    pub fn get_result_column_names(
         &self,
         stmt: &Select,
         base_table: &Table,

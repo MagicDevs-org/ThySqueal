@@ -22,7 +22,7 @@ impl<'b> ResolvedTable<'b> {
 }
 
 impl Executor {
-    pub(crate) fn resolve_base_table<'b>(
+    pub fn resolve_base_table<'b>(
         &self,
         plan: &SelectQueryPlan<'b>,
         cte_tables: &'b HashMap<String, Table>,

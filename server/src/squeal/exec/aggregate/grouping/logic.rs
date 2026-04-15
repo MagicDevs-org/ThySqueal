@@ -7,7 +7,7 @@ use crate::storage::{Row, Table, Value};
 use std::collections::HashMap;
 
 impl Executor {
-    pub(crate) async fn exec_select_with_grouping_owned(
+    pub async fn exec_select_with_grouping_owned(
         &self,
         plan: SelectQueryPlan<'_>,
         matched_rows: Vec<JoinedContext<'_>>,

@@ -5,7 +5,7 @@ use crate::squeal::ir::{ComparisonOp, Condition, Expression, IsOp};
 use crate::storage::{DatabaseState, Row, Table, Value};
 
 impl Executor {
-    pub(crate) async fn evaluate_having_joined(
+    pub async fn evaluate_having_joined(
         &self,
         cond: &Condition,
         contexts: &[Vec<(&Table, Option<&str>, &Row)>],
@@ -237,7 +237,7 @@ impl Executor {
         }
     }
 
-    pub(crate) async fn evaluate_having_expression_joined(
+    pub async fn evaluate_having_expression_joined(
         &self,
         expr: &Expression,
         contexts: &[Vec<(&Table, Option<&str>, &Row)>],

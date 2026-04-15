@@ -5,7 +5,7 @@ use crate::storage::{Column, DataType, Row, Table, Value};
 use std::collections::HashMap;
 
 impl Executor {
-    pub(crate) async fn resolve_ctes<'a>(
+    pub async fn resolve_ctes<'a>(
         &'a self,
         plan: &'a SelectQueryPlan<'a>,
     ) -> ExecResult<HashMap<String, Table>> {

@@ -5,7 +5,7 @@ use crate::storage::User;
 use std::collections::HashMap;
 
 impl Executor {
-    pub(crate) async fn exec_create_user(
+    pub async fn exec_create_user(
         &self,
         stmt: CreateUser,
         tx_id: Option<&str>,
@@ -42,7 +42,7 @@ impl Executor {
         })
     }
 
-    pub(crate) async fn exec_drop_user(
+    pub async fn exec_drop_user(
         &self,
         stmt: DropUser,
         tx_id: Option<&str>,
@@ -65,11 +65,7 @@ impl Executor {
         })
     }
 
-    pub(crate) async fn exec_grant(
-        &self,
-        stmt: Grant,
-        tx_id: Option<&str>,
-    ) -> ExecResult<QueryResult> {
+    pub async fn exec_grant(&self, stmt: Grant, tx_id: Option<&str>) -> ExecResult<QueryResult> {
         self.mutate_state(tx_id, |state| {
             let user = state
                 .users
@@ -103,11 +99,7 @@ impl Executor {
         })
     }
 
-    pub(crate) async fn exec_revoke(
-        &self,
-        stmt: Revoke,
-        tx_id: Option<&str>,
-    ) -> ExecResult<QueryResult> {
+    pub async fn exec_revoke(&self, stmt: Revoke, tx_id: Option<&str>) -> ExecResult<QueryResult> {
         self.mutate_state(tx_id, |state| {
             let user = state
                 .users

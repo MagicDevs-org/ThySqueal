@@ -7,7 +7,7 @@ use crate::storage::{Row, Table};
 use std::collections::HashMap;
 
 impl Executor {
-    pub(crate) fn process_joins<'b>(
+    pub fn process_joins<'b>(
         &self,
         plan: &SelectQueryPlan<'b>,
         cte_tables: &'b HashMap<String, Table>,

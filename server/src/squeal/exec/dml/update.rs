@@ -7,7 +7,7 @@ use crate::squeal::ir::Update;
 use crate::storage::{Value, WalRecord};
 
 impl Executor {
-    pub(crate) async fn exec_update(
+    pub async fn exec_update(
         &self,
         stmt: Update,
         params: &[Value],
