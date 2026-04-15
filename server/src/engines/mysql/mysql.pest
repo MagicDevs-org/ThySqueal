@@ -186,7 +186,10 @@ plus_minus = { "+" | "-" }
 term = { factor ~ (mul_div ~ factor)* }
 mul_div = { "*" | "/" | "%" }
 
-factor = { window_func | aggregate_func | scalar_func | variable | column_ref | literal | placeholder | "(" ~ select_stmt_inner ~ ")" | "(" ~ expression ~ ")" | KW_NOT ~ factor | "-" ~ factor }
+factor = { window_func | aggregate_func | scalar_func | case_when | variable | column_ref | literal | placeholder | "(" ~ select_stmt_inner ~ ")" | "(" ~ expression ~ ")" | KW_NOT ~ factor | "-" ~ factor }
+
+case_when = { KW_CASE ~ when_clause+ ~ (KW_ELSE ~ expression)? ~ KW_END }
+when_clause = { KW_WHEN ~ expression ~ KW_THEN ~ expression }
 
 window_func = { window_func_name ~ "(" ~ (star | expression ~ ("," ~ expression)*)? ~ ")" ~ KW_OVER ~ "(" ~ window_spec ~ ")" }
 window_func_name = { KW_ROW_NUMBER | KW_RANK | KW_DENSE_RANK | KW_NTILE | KW_PERCENT_RANK | KW_CUME_DIST | KW_FIRST_VALUE | KW_LAST_VALUE | KW_NTH_VALUE | KW_LAG | KW_LEAD }
@@ -363,6 +366,10 @@ KW_COLLATE = @{ ^"COLLATE" ~ !id_char }
 KW_CHARACTER = @{ ^"CHARACTER" ~ !id_char }
 KW_CHARSET = @{ ^"CHARSET" ~ !id_char }
 KW_CONVERT = @{ ^"CONVERT" ~ !id_char }
+KW_CASE = @{ ^"CASE" ~ !id_char }
+KW_WHEN = @{ ^"WHEN" ~ !id_char }
+KW_THEN = @{ ^"THEN" ~ !id_char }
+KW_ELSE = @{ ^"ELSE" ~ !id_char }
 
 id_char = _{ ASCII_ALPHA | ASCII_DIGIT | "_" }
 

@@ -15,6 +15,13 @@ pub enum Expression {
     Star,
     Subquery(Box<SelectStmt>),
     UnaryNot(Box<Expression>),
+    CaseWhen(CaseWhen),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CaseWhen {
+    pub conditions: Vec<(Expression, Expression)>,
+    pub else_expr: Option<Box<Expression>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -113,6 +120,17 @@ impl Expression {
             Expression::Star => "*".to_string(),
             Expression::Subquery(_) => "(SELECT ...)".to_string(),
             Expression::UnaryNot(e) => format!("NOT ({})", e.to_sql()),
+            Expression::CaseWhen(cw) => {
+                let mut parts = Vec::new();
+                for (cond, then) in &cw.conditions {
+                    parts.push(format!("WHEN {} THEN {}", cond.to_sql(), then.to_sql()));
+                }
+                if let Some(else_expr) = &cw.else_expr {
+                    format!("CASE {} ELSE {} END", parts.join(" "), else_expr.to_sql())
+                } else {
+                    format!("CASE {} END", parts.join(" "))
+                }
+            }
         }
     }
 }

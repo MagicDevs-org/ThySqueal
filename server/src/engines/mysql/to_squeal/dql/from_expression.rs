@@ -80,6 +80,16 @@ impl From<ast::Expression> for Expression {
             }),
             ast::Expression::Subquery(s) => Expression::Subquery(Box::new((*s).into())),
             ast::Expression::UnaryNot(e) => Expression::UnaryNot(Box::new((*e).into())),
+            ast::Expression::CaseWhen(cw) => {
+                Expression::CaseWhen(crate::squeal::ir::expr::CaseWhen {
+                    conditions: cw
+                        .conditions
+                        .into_iter()
+                        .map(|(cond, then_val)| (cond.into(), then_val.into()))
+                        .collect(),
+                    else_expr: cw.else_expr.map(|e| Box::new((*e).into())),
+                })
+            }
         }
     }
 }

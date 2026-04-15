@@ -284,7 +284,8 @@ impl Executor {
             Expression::Column(_)
             | Expression::BinaryOp(_, _, _)
             | Expression::Variable(_)
-            | Expression::UnaryNot(_) => {
+            | Expression::UnaryNot(_)
+            | Expression::CaseWhen(_) => {
                 if let Some(first_ctx_list) = contexts.first() {
                     let eval_ctx =
                         EvalContext::new(first_ctx_list, params, outer_contexts, db_state)

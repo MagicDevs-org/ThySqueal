@@ -1,11 +1,13 @@
+pub mod case_when;
 pub mod condition;
 pub mod functions;
 pub mod literal;
 
-use crate::engines::mysql::ast::{BinaryOp, Expression, SqlStmt};
+use crate::engines::mysql::ast::{BinaryOp, CaseWhen, Expression, SqlStmt};
 use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::engines::mysql::parser::Rule;
 
+pub use case_when::parse_case_when;
 pub use condition::{parse_condition, parse_where_clause};
 pub use functions::{parse_aggregate, parse_scalar_func, parse_window_function};
 pub use literal::parse_literal;
@@ -157,6 +159,7 @@ pub fn parse_factor(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expression> 
         Rule::aggregate_func => parse_aggregate(first),
         Rule::scalar_func => parse_scalar_func(first),
         Rule::window_func => parse_window_function(first),
+        Rule::case_when => parse_case_when(first),
         Rule::literal
         | Rule::string_literal
         | Rule::number_literal

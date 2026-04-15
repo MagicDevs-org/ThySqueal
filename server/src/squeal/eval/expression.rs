@@ -87,6 +87,19 @@ pub fn evaluate_expression_joined(
         Expression::WindowFunc(_) => Err(ExecError::Runtime(
             "Window functions must be evaluated at the top level".to_string(),
         )),
+        Expression::CaseWhen(cw) => {
+            for (cond, then_val) in &cw.conditions {
+                let cond_result = evaluate_expression_joined(executor, cond, ctx)?;
+                if is_truthy(&cond_result) {
+                    return evaluate_expression_joined(executor, then_val, ctx);
+                }
+            }
+            if let Some(else_expr) = &cw.else_expr {
+                evaluate_expression_joined(executor, else_expr, ctx)
+            } else {
+                Ok(Value::Null)
+            }
+        }
     }
 }
 
@@ -109,5 +122,17 @@ pub fn get_system_variable(name: &str) -> Value {
         "time_zone" => Value::Text("SYSTEM".to_string()),
         "system_time_zone" => Value::Text("UTC".to_string()),
         _ => Value::Null,
+    }
+}
+
+fn is_truthy(val: &Value) -> bool {
+    match val {
+        Value::Bool(b) => *b,
+        Value::Int(i) => *i != 0,
+        Value::Float(f) => *f != 0.0,
+        Value::Text(s) => !s.is_empty(),
+        Value::Null => false,
+        Value::Json(j) => !j.is_null(),
+        Value::DateTime(_) => true,
     }
 }

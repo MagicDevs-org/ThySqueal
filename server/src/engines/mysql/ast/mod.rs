@@ -257,6 +257,14 @@ impl From<squeal::ir::Expression> for Expression {
                 order_by: f.order_by.into_iter().map(|o| o.into()).collect(),
                 frame: f.frame.map(|f| Box::new((*f).into())),
             }),
+            squeal::ir::Expression::CaseWhen(cw) => Expression::CaseWhen(CaseWhen {
+                conditions: cw
+                    .conditions
+                    .into_iter()
+                    .map(|(cond, then)| (cond.into(), then.into()))
+                    .collect(),
+                else_expr: cw.else_expr.map(|e| Box::new((*e).into())),
+            }),
         }
     }
 }

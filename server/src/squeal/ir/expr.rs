@@ -15,6 +15,13 @@ pub enum Expression {
     Star,
     Subquery(Box<Select>),
     UnaryNot(Box<Expression>),
+    CaseWhen(CaseWhen),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CaseWhen {
+    pub conditions: Vec<(Expression, Expression)>,
+    pub else_expr: Option<Box<Expression>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -154,6 +161,17 @@ impl Expression {
             Expression::UnaryNot(e) => format!("NOT ({})", e.to_sql()),
             Expression::WindowFunc(wf) => {
                 format!("{:?}(...) OVER (...)", wf.func_type)
+            }
+            Expression::CaseWhen(cw) => {
+                let mut sql = "CASE".to_string();
+                for (cond, then) in &cw.conditions {
+                    sql.push_str(&format!(" WHEN {} THEN {}", cond.to_sql(), then.to_sql()));
+                }
+                if let Some(ref else_expr) = cw.else_expr {
+                    sql.push_str(&format!(" ELSE {}", else_expr.to_sql()));
+                }
+                sql.push_str(" END");
+                sql
             }
         }
     }
