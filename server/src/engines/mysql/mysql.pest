@@ -97,7 +97,8 @@ column_attribute = { KW_AUTO_INCREMENT | (KW_PRIMARY ~ KW_KEY ~ ("(" ~ identifie
 
 data_type = { parameterized_type | simple_type }
 
-parameterized_type = { (kw_decimal | kw_numeric | kw_char | kw_varchar | kw_binary | kw_varbinary | kw_enum | kw_set) ~ "(" ~ param_value ~ ("," ~ param_value)? ~ ")" }
+parameterized_type = { (kw_decimal | kw_numeric | kw_char | kw_varchar | kw_binary | kw_varbinary | kw_enum | kw_set) ~ "(" ~ param_value_list ~ ")" }
+param_value_list = { param_value ~ ("," ~ param_value)* }
 param_value = @{ ASCII_DIGIT+ | string_literal }
 
 simple_type = { (signed_int | unsigned_int | signed_bigint | unsigned_bigint | "FLOAT" | "DOUBLE" | "REAL" | "BOOLEAN" | "BOOL" | "DATETIME" | "DATE" | "TIME" | "TIMESTAMP" | "TEXT" | "BLOB" | "JSON" | "SERIAL") }

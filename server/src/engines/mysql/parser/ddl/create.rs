@@ -146,11 +146,11 @@ pub fn parse_column_def(pair: pest::iterators::Pair<Rule>) -> SqlResult<Column> 
         col_inner.next(), // identifier is first
         "column name",
     )?;
-    let type_str = col_inner
+    let type_pair = col_inner
         .next()
-        .ok_or_else(|| SqlError::Parse("Missing column type".to_string()))?
-        .as_str()
-        .to_uppercase();
+        .ok_or_else(|| SqlError::Parse("Missing column type".to_string()))?;
+
+    let type_str = type_pair.as_str().to_uppercase();
 
     let mut is_auto_increment = false;
     if type_str == "SERIAL" {
@@ -169,6 +169,8 @@ pub fn parse_column_def(pair: pest::iterators::Pair<Rule>) -> SqlResult<Column> 
 
     let data_type = if type_str == "SERIAL" {
         DataType::Int
+    } else if type_pair.as_rule() == Rule::parameterized_type {
+        parse_parameterized_type(type_pair)
     } else {
         DataType::from_str(&type_str)
     };
@@ -180,6 +182,57 @@ pub fn parse_column_def(pair: pest::iterators::Pair<Rule>) -> SqlResult<Column> 
         is_not_null: false,
         default_value: None,
     })
+}
+
+fn parse_parameterized_type(pair: pest::iterators::Pair<Rule>) -> DataType {
+    let inner = pair.into_inner();
+    let type_name = inner
+        .clone()
+        .next()
+        .map(|p| p.as_str().to_uppercase())
+        .unwrap_or_default();
+
+    let values: Vec<String> = inner
+        .skip(1) // Skip type name
+        .flat_map(|p| {
+            if p.as_rule() == Rule::param_value {
+                vec![p.as_str().trim_matches('\'').to_uppercase()]
+            } else {
+                vec![]
+            }
+        })
+        .collect();
+
+    match type_name.as_str() {
+        "DECIMAL" | "NUMERIC" => {
+            if values.len() >= 2 {
+                let p: usize = values[0].parse().unwrap_or(10);
+                let s: usize = values[1].parse().unwrap_or(0);
+                DataType::Decimal(p, s)
+            } else {
+                DataType::Decimal(10, 0)
+            }
+        }
+        "CHAR" | "CHARACTER" => {
+            let len: usize = values.first().and_then(|v| v.parse().ok()).unwrap_or(1);
+            DataType::Char(len)
+        }
+        "VARCHAR" | "CHARACTER VARYING" => {
+            let len: usize = values.first().and_then(|v| v.parse().ok()).unwrap_or(255);
+            DataType::VarChar(Some(len))
+        }
+        "BINARY" => {
+            let len: usize = values.first().and_then(|v| v.parse().ok()).unwrap_or(1);
+            DataType::Binary(Some(len))
+        }
+        "VARBINARY" => {
+            let len: usize = values.first().and_then(|v| v.parse().ok()).unwrap_or(255);
+            DataType::VarBinary(Some(len))
+        }
+        "ENUM" => DataType::Enum(values),
+        "SET" => DataType::Set(values),
+        _ => DataType::Text,
+    }
 }
 
 pub fn parse_create_index(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {

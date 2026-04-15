@@ -54,6 +54,24 @@ impl Value {
             }
             (Value::Text(s), DataType::Time) => Ok(Value::Text(s)),
             (Value::Text(s), DataType::Json) => Ok(Value::Json(serde_json::from_str(&s)?)),
+            (Value::Text(s), DataType::Enum(vals)) => {
+                let upper = s.to_uppercase();
+                if vals.iter().any(|v| v.to_uppercase() == upper) {
+                    Ok(Value::Text(s))
+                } else {
+                    Err(anyhow::anyhow!("Invalid enum value: {}", s))
+                }
+            }
+            (Value::Text(s), DataType::Set(vals)) => {
+                let upper = s.to_uppercase();
+                let parts: Vec<&str> = upper.split(',').map(|p| p.trim()).collect();
+                for part in parts {
+                    if !vals.iter().any(|v| v.to_uppercase() == part) {
+                        return Err(anyhow::anyhow!("Invalid set value: {}", part));
+                    }
+                }
+                Ok(Value::Text(s))
+            }
             (v, t) => Err(anyhow::anyhow!("Cannot cast {:?} to {:?}", v, t)),
         }
     }

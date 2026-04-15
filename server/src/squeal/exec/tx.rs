@@ -113,6 +113,7 @@ impl Executor {
         })
     }
 
+    #[allow(dead_code)]
     pub(crate) async fn exec_rollback_to(
         &self,
         name: &str,

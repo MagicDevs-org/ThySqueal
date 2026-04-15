@@ -249,8 +249,8 @@ engines/elastic/
 - [x] **CHAR/VARCHAR(n)**: Fixed and variable-length character types with length specification
 - [x] **TINYINT/SMALLINT/BIGINT**: 8-bit, 16-bit, 64-bit integers
 - [x] **UNSIGNED**: Support for unsigned integer variants
-- [ ] **ENUM**: Enumeration type support
-- [ ] **SET**: Set type support
+- [x] **ENUM**: Enumeration type support
+- [x] **SET**: Set type support
 - [x] **TIME**: Time type support
 - [x] **TIMESTAMP**: Timestamp type support
 - [x] **BINARY/VARBINARY**: Binary data types

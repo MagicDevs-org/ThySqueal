@@ -176,9 +176,9 @@ impl Executor {
 
                     if has_duplicate {
                         // Build UPDATE query from on_duplicate_update
-                        let set_clause: Vec<String> = updates
+                        let _set_clause: Vec<String> = updates
                             .iter()
-                            .map(|(col, expr)| format!("{} = ", col))
+                            .map(|(col, _expr)| format!("{} = ", col))
                             .collect();
 
                         let mut update_condition = String::new();
@@ -202,7 +202,7 @@ impl Executor {
                         let set_part: String = updates
                             .iter()
                             .enumerate()
-                            .map(|(i, (col, expr))| {
+                            .map(|(i, (col, _expr))| {
                                 // For now, use VALUES(col) syntax or just the value
                                 let val = mapped_values.get(i).cloned().unwrap_or(Value::Null);
                                 match val {

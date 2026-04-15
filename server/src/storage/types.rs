@@ -104,6 +104,7 @@ impl DataType {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_unsigned(&self) -> bool {
         matches!(
             self,
@@ -111,6 +112,7 @@ impl DataType {
         )
     }
 
+    #[allow(dead_code)]
     pub fn signed_variant(&self) -> Self {
         match self {
             DataType::TinyUInt => DataType::TinyInt,
@@ -121,6 +123,7 @@ impl DataType {
         }
     }
 
+    #[allow(dead_code)]
     pub fn unsigned_variant(&self) -> Self {
         match self {
             DataType::TinyInt => DataType::TinyUInt,

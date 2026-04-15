@@ -363,3 +363,93 @@ async fn test_ctes() {
     assert_eq!(result.rows.len(), 1);
     assert_eq!(result.rows[0][0], Value::Text("Alice".to_string()));
 }
+
+#[tokio::test]
+async fn test_enum_type() {
+    let db = Arc::new(RwLock::new(Database::new()));
+    let executor = Arc::new(Executor::new(db));
+
+    executor
+        .execute(
+            "CREATE TABLE tasks (id INT, status ENUM('pending','active','completed'))",
+            vec![],
+            Session::new(None, None),
+        )
+        .await
+        .unwrap();
+
+    executor
+        .execute(
+            "INSERT INTO tasks VALUES (1, 'pending')",
+            vec![],
+            Session::new(None, None),
+        )
+        .await
+        .unwrap();
+
+    executor
+        .execute(
+            "INSERT INTO tasks VALUES (2, 'completed')",
+            vec![],
+            Session::new(None, None),
+        )
+        .await
+        .unwrap();
+
+    let result = executor
+        .execute(
+            "SELECT * FROM tasks ORDER BY id",
+            vec![],
+            Session::new(None, None),
+        )
+        .await
+        .unwrap();
+    assert_eq!(result.rows.len(), 2);
+    assert_eq!(result.rows[0][1], Value::Text("pending".to_string()));
+    assert_eq!(result.rows[1][1], Value::Text("completed".to_string()));
+}
+
+#[tokio::test]
+async fn test_set_type() {
+    let db = Arc::new(RwLock::new(Database::new()));
+    let executor = Arc::new(Executor::new(db));
+
+    executor
+        .execute(
+            "CREATE TABLE colors (id INT, tags SET('red','green','blue'))",
+            vec![],
+            Session::new(None, None),
+        )
+        .await
+        .unwrap();
+
+    executor
+        .execute(
+            "INSERT INTO colors VALUES (1, 'red')",
+            vec![],
+            Session::new(None, None),
+        )
+        .await
+        .unwrap();
+
+    executor
+        .execute(
+            "INSERT INTO colors VALUES (2, 'green')",
+            vec![],
+            Session::new(None, None),
+        )
+        .await
+        .unwrap();
+
+    let result = executor
+        .execute(
+            "SELECT * FROM colors ORDER BY id",
+            vec![],
+            Session::new(None, None),
+        )
+        .await
+        .unwrap();
+    assert_eq!(result.rows.len(), 2);
+    assert_eq!(result.rows[0][1], Value::Text("red".to_string()));
+    assert_eq!(result.rows[1][1], Value::Text("green".to_string()));
+}
