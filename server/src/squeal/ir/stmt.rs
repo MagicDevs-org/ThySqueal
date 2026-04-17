@@ -14,6 +14,8 @@ pub enum Squeal {
     CreateTrigger(CreateTrigger),
     DropTrigger(DropTrigger),
     CreateMaterializedView(CreateMaterializedView),
+    CreateView(CreateView),
+    DropView(DropView),
     AlterTable(AlterTable),
     DropTable(DropTable),
     CreateIndex(CreateIndex),
@@ -304,6 +306,19 @@ pub struct CreateTable {
 pub struct CreateMaterializedView {
     pub name: String,
     pub query: Select,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CreateView {
+    pub name: String,
+    pub query: Select,
+    pub columns: Option<Vec<String>>,
+    pub with_check_option: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DropView {
+    pub name: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

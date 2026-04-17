@@ -13,6 +13,15 @@ impl From<SqlStmt> for Squeal {
             SqlStmt::CreateTrigger(s) => Squeal::CreateTrigger(s.into()),
             SqlStmt::DropTrigger(s) => Squeal::DropTrigger(s.into()),
             SqlStmt::CreateMaterializedView(s) => Squeal::CreateMaterializedView(s.into()),
+            SqlStmt::CreateView(s) => Squeal::CreateView(crate::squeal::ir::stmt::CreateView {
+                name: s.name,
+                query: s.query.into(),
+                columns: s.columns,
+                with_check_option: s.with_check_option,
+            }),
+            SqlStmt::DropView(s) => {
+                Squeal::DropView(crate::squeal::ir::stmt::DropView { name: s.name })
+            }
             SqlStmt::AlterTable(s) => Squeal::AlterTable(s.into()),
             SqlStmt::DropTable(s) => Squeal::DropTable(s.into()),
             SqlStmt::CreateIndex(s) => Squeal::CreateIndex(s.into()),

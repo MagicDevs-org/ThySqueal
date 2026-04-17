@@ -266,12 +266,12 @@ engines/elastic/
 - [x] ALTER TABLE ENGINE (InnoDB, MyISAM)
 - [x] ALTER TABLE CHARSET/COLLATION
 
-### Views (Non-Materialized) - 📋 TODO
+### Views (Non-Materialized) - ✅ COMPLETE
 
-- [ ] CREATE VIEW with SELECT
-- [ ] DROP VIEW
+- [x] CREATE VIEW with SELECT
+- [x] DROP VIEW
 - [ ] ALTER VIEW
-- [ ] WITH CHECK OPTION
+- [x] WITH CHECK OPTION
 - [ ] Updatable views
 
 ### Stored Procedures & Functions - 📋 TODO

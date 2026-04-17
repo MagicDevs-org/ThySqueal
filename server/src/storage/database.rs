@@ -39,6 +39,8 @@ pub struct DatabaseState {
     #[serde(default)]
     pub materialized_views: HashMap<String, Select>,
     #[serde(default)]
+    pub views: HashMap<String, View>,
+    #[serde(default)]
     pub triggers: HashMap<String, Trigger>,
     #[serde(default)]
     pub users: HashMap<String, User>,
@@ -79,6 +81,12 @@ pub struct Trigger {
     pub event: crate::squeal::ir::stmt::TriggerEvent,
     pub table: String,
     pub body: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct View {
+    pub name: String,
+    pub query: crate::squeal::ir::stmt::Select,
 }
 
 impl DatabaseState {
@@ -159,6 +167,7 @@ impl Database {
                 databases: HashMap::new(),
                 tables,
                 materialized_views: HashMap::new(),
+                views: HashMap::new(),
                 triggers: HashMap::new(),
                 users: HashMap::new(),
                 kv,

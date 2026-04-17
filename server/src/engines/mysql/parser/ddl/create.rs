@@ -1,7 +1,8 @@
 use super::super::utils::expect_identifier;
 use crate::engines::mysql::ast::{
     CreateDatabaseStmt, CreateIndexStmt, CreateMaterializedViewStmt, CreateTableStmt,
-    CreateTriggerStmt, IndexType, SqlStmt, TriggerEvent, TriggerTiming,
+    CreateTriggerStmt, CreateViewStmt, DropViewStmt, IndexType, SqlStmt, TriggerEvent,
+    TriggerTiming,
 };
 use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::engines::mysql::parser::Rule;
@@ -139,6 +140,65 @@ pub fn parse_create_materialized_view(pair: pest::iterators::Pair<Rule>) -> SqlR
     Ok(SqlStmt::CreateMaterializedView(
         CreateMaterializedViewStmt { name, query },
     ))
+}
+
+pub fn parse_create_view(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
+    let mut inner = pair.into_inner();
+    // Skip KW_CREATE, KW_VIEW
+    let _ = inner.next();
+    let _ = inner.next();
+
+    let name = inner
+        .next()
+        .map(|p| p.as_str().trim().to_string())
+        .ok_or_else(|| SqlError::Parse("Missing view name".to_string()))?;
+
+    let mut columns = None;
+    let mut query = None;
+    let mut with_check_option = false;
+
+    for p in inner {
+        match p.as_rule() {
+            Rule::column_list => {
+                columns = Some(
+                    p.into_inner()
+                        .map(|c| c.as_str().trim().to_string())
+                        .collect(),
+                );
+            }
+            Rule::select_stmt_inner => {
+                query = Some(super::super::select::parse_select_inner(p)?);
+            }
+            Rule::check_option => {
+                with_check_option = true;
+            }
+            _ => {}
+        }
+    }
+
+    let query =
+        query.ok_or_else(|| SqlError::Parse("Missing SELECT in CREATE VIEW".to_string()))?;
+
+    Ok(SqlStmt::CreateView(CreateViewStmt {
+        name,
+        query,
+        columns,
+        with_check_option,
+    }))
+}
+
+pub fn parse_drop_view(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
+    let mut inner = pair.into_inner();
+    // Skip KW_DROP, KW_VIEW
+    let _ = inner.next();
+    let _ = inner.next();
+
+    let name = inner
+        .next()
+        .map(|p| p.as_str().trim().to_string())
+        .ok_or_else(|| SqlError::Parse("Missing view name".to_string()))?;
+
+    Ok(SqlStmt::DropView(DropViewStmt { name }))
 }
 
 pub fn parse_column_def(pair: pest::iterators::Pair<Rule>) -> SqlResult<Column> {

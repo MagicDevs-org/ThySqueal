@@ -95,6 +95,19 @@ pub struct CreateMaterializedViewStmt {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CreateViewStmt {
+    pub name: String,
+    pub query: SelectStmt,
+    pub columns: Option<Vec<String>>,
+    pub with_check_option: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DropViewStmt {
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AlterTableStmt {
     pub table: String,
     pub action: AlterAction,

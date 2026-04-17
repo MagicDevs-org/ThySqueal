@@ -1,8 +1,10 @@
 use crate::squeal;
 use crate::squeal::exec::{ExecError, ExecResult};
-use crate::squeal::exec::{Executor, SelectQueryPlan};
+use crate::squeal::exec::{Executor, SelectQueryPlan, Session};
 use crate::storage::info_schema::get_info_schema_tables;
-use crate::storage::{Row, Table};
+use crate::storage::{
+    Column, DataType, Row, Table, TableData, TableIndex, TableIndexes, TableSchema,
+};
 use std::collections::HashMap;
 
 pub enum ResolvedTable<'b> {
@@ -39,6 +41,47 @@ impl Executor {
             Ok((ResolvedTable::Virtual(Box::new(dual_table)), rows))
         } else if let Some(t) = cte_tables.get(&stmt.table) {
             Ok((ResolvedTable::Cte(t), t.data.rows.clone()))
+        } else if let Some(v) = db_state.views.get(&stmt.table) {
+            let plan = SelectQueryPlan::new(v.query.clone(), db_state, Session::root());
+            let res = futures::executor::block_on(self.exec_select_recursive(plan))?;
+            let virtual_table = Table {
+                schema: TableSchema {
+                    name: stmt.table.clone(),
+                    columns: res
+                        .columns
+                        .iter()
+                        .map(|n| Column {
+                            name: n.clone(),
+                            data_type: DataType::Text,
+                            is_auto_increment: false,
+                            is_not_null: false,
+                            default_value: None,
+                        })
+                        .collect(),
+                    primary_key: None,
+                    foreign_keys: vec![],
+                },
+                data: TableData {
+                    rows: res
+                        .rows
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, vals)| Row {
+                            id: format!("v_{}_{}", stmt.table, i),
+                            values: vals,
+                        })
+                        .collect(),
+                    auto_inc_counters: HashMap::new(),
+                },
+                indexes: TableIndexes {
+                    secondary: HashMap::new(),
+                    search: None,
+                },
+            };
+            Ok((
+                ResolvedTable::Virtual(Box::new(virtual_table.clone())),
+                virtual_table.data.rows.clone(),
+            ))
         } else if stmt.table.starts_with("information_schema.") {
             let table_name = stmt.table.strip_prefix("information_schema.").unwrap();
             let info_schema_storage = get_info_schema_tables(db_state);

@@ -18,6 +18,8 @@ pub enum SqlStmt {
     CreateTrigger(CreateTriggerStmt),
     DropTrigger(DropTriggerStmt),
     CreateMaterializedView(CreateMaterializedViewStmt),
+    CreateView(CreateViewStmt),
+    DropView(DropViewStmt),
     AlterTable(AlterTableStmt),
     DropTable(DropTableStmt),
     CreateIndex(CreateIndexStmt),
@@ -55,6 +57,7 @@ impl SqlStmt {
             SqlStmt::Explain(s) => s.resolve_placeholders(&mut counter),
             SqlStmt::CreateIndex(ci) => ci.resolve_placeholders(&mut counter),
             SqlStmt::CreateMaterializedView(mv) => mv.query.resolve_placeholders(&mut counter),
+            SqlStmt::CreateView(cv) => cv.query.resolve_placeholders(&mut counter),
             SqlStmt::Insert(i) => i.resolve_placeholders(&mut counter),
             SqlStmt::Set(s) => s.resolve_placeholders(&mut counter),
             // No placeholders in these statements
@@ -72,6 +75,7 @@ impl SqlStmt {
             | SqlStmt::Describe(_)
             | SqlStmt::Use(_)
             | SqlStmt::Search(_)
+            | SqlStmt::DropView(_)
             | SqlStmt::Begin
             | SqlStmt::Commit
             | SqlStmt::Rollback
