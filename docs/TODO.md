@@ -112,7 +112,7 @@
 - [ ] **USE**: Switch database context
 - [ ] **SET TRANSACTION**: Transaction characteristics
 - [x] **KILL**: Terminate connections/queries
-- [ ] **DESCRIBE**: Table description (alias for EXPLAIN)
+- [x] **DESCRIBE**: Table description (alias for EXPLAIN)
 
 ## Phase 6: Key-Value Storage (v0.6) - ✅ COMPLETE
 
