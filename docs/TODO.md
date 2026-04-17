@@ -272,7 +272,7 @@ engines/elastic/
 - [x] DROP VIEW
 - [x] ALTER VIEW
 - [x] WITH CHECK OPTION
-- [ ] Updatable views
+- [x] Updatable views
 
 ### Stored Procedures & Functions - 📋 TODO
 

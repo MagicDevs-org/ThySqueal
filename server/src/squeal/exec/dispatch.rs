@@ -280,6 +280,15 @@ impl Executor {
     async fn dispatch_dml(&self, stmt: Squeal, ctx: &ExecutionContext) -> ExecResult<QueryResult> {
         match stmt {
             Squeal::Insert(i) => {
+                let db = self.db.read().await;
+                if let Some(base_table) = self.get_view_base_table(&i.table, db.state())? {
+                    let mut new_insert = i.clone();
+                    new_insert.table = base_table;
+                    return self
+                        .exec_insert(new_insert, &ctx.params, ctx.session.clone())
+                        .await;
+                }
+                drop(db);
                 {
                     let db = self.db.read().await;
                     check_privilege(
@@ -292,6 +301,15 @@ impl Executor {
                 self.exec_insert(i, &ctx.params, ctx.session.clone()).await
             }
             Squeal::Update(u) => {
+                let db = self.db.read().await;
+                if let Some(base_table) = self.get_view_base_table(&u.table, db.state())? {
+                    let mut new_update = u.clone();
+                    new_update.table = base_table;
+                    return self
+                        .exec_update(new_update, &ctx.params, ctx.session.clone())
+                        .await;
+                }
+                drop(db);
                 {
                     let db = self.db.read().await;
                     check_privilege(
@@ -304,6 +322,15 @@ impl Executor {
                 self.exec_update(u, &ctx.params, ctx.session.clone()).await
             }
             Squeal::Delete(d) => {
+                let db = self.db.read().await;
+                if let Some(base_table) = self.get_view_base_table(&d.table, db.state())? {
+                    let mut new_delete = d.clone();
+                    new_delete.table = base_table;
+                    return self
+                        .exec_delete(new_delete, &ctx.params, ctx.session.clone())
+                        .await;
+                }
+                drop(db);
                 {
                     let db = self.db.read().await;
                     check_privilege(
@@ -536,6 +563,30 @@ impl Executor {
         }
 
         self.exec_squeal(inner_stmt, exec_params, session).await
+    }
+
+    fn get_view_base_table<'a>(
+        &self,
+        table_name: &str,
+        state: &'a crate::storage::DatabaseState,
+    ) -> Result<Option<String>, ExecError> {
+        if let Some(_view) = state.views.get(table_name) {
+            let query = &_view.query;
+            if query.joins.is_empty()
+                && query.where_clause.is_none()
+                && query.group_by.is_empty()
+                && query.having.is_none()
+                && query.set_operations.is_empty()
+            {
+                Ok(Some(query.table.clone()))
+            } else {
+                Err(ExecError::Runtime(
+                    "View is not updatable (complex query)".to_string(),
+                ))
+            }
+        } else {
+            Ok(None)
+        }
     }
 
     pub async fn exec_deallocate(&self, name: &str) -> ExecResult<QueryResult> {
