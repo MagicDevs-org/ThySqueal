@@ -33,6 +33,9 @@ impl Executor {
                 | Squeal::CreateView(_)
                 | Squeal::AlterView(_)
                 | Squeal::DropView(_)
+                | Squeal::CreateProcedure(_)
+                | Squeal::DropProcedure(_)
+                | Squeal::Call(_)
                 | Squeal::CreateDatabase(_)
                 | Squeal::DropDatabase(_)
                 | Squeal::CreateTrigger(_)
@@ -202,6 +205,22 @@ impl Executor {
                 }
                 self.exec_drop_view(v).await
             }
+            Squeal::CreateProcedure(p) => {
+                {
+                    let db = self.db.read().await;
+                    check_privilege(&ctx.session.username, None, Privilege::Create, db.state())?;
+                }
+                self.exec_create_procedure(p, ctx.session.transaction_id.as_deref())
+                    .await
+            }
+            Squeal::DropProcedure(p) => {
+                {
+                    let db = self.db.read().await;
+                    check_privilege(&ctx.session.username, None, Privilege::Create, db.state())?;
+                }
+                self.exec_drop_procedure(p).await
+            }
+            Squeal::Call(c) => self.exec_call(c).await,
             Squeal::AlterTable(at) => {
                 {
                     let db = self.db.read().await;

@@ -114,6 +114,22 @@ pub struct AlterViewStmt {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CreateProcedureStmt {
+    pub name: String,
+    pub body: crate::squeal::ir::Squeal,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DropProcedureStmt {
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CallStmt {
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AlterTableStmt {
     pub table: String,
     pub action: AlterAction,

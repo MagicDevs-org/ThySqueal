@@ -26,6 +26,16 @@ impl From<SqlStmt> for Squeal {
             SqlStmt::DropView(s) => {
                 Squeal::DropView(crate::squeal::ir::stmt::DropView { name: s.name })
             }
+            SqlStmt::CreateProcedure(s) => {
+                Squeal::CreateProcedure(crate::squeal::ir::stmt::CreateProcedure {
+                    name: s.name,
+                    body: Box::new(s.body.into()),
+                })
+            }
+            SqlStmt::DropProcedure(s) => {
+                Squeal::DropProcedure(crate::squeal::ir::stmt::DropProcedure { name: s.name })
+            }
+            SqlStmt::Call(s) => Squeal::Call(crate::squeal::ir::stmt::Call { name: s.name }),
             SqlStmt::AlterTable(s) => Squeal::AlterTable(s.into()),
             SqlStmt::DropTable(s) => Squeal::DropTable(s.into()),
             SqlStmt::CreateIndex(s) => Squeal::CreateIndex(s.into()),

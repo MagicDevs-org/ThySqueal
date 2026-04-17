@@ -4,7 +4,7 @@ pub mod expr;
 pub mod select;
 pub mod utils;
 
-use crate::engines::mysql::ast::SqlStmt;
+use crate::engines::mysql::ast::{CallStmt, SqlStmt};
 use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::squeal::exec::ParseResult;
 use crate::squeal::ir::Squeal;
@@ -39,6 +39,17 @@ pub fn parse(sql: &str) -> SqlResult<SqlStmt> {
                 Rule::create_view_stmt => ddl::parse_create_view(inner),
                 Rule::alter_view_stmt => ddl::parse_alter_view(inner),
                 Rule::drop_view_stmt => ddl::parse_drop_view(inner),
+                Rule::create_procedure_stmt => ddl::parse_create_procedure(inner),
+                Rule::drop_procedure_stmt => ddl::parse_drop_procedure(inner),
+                Rule::call_stmt => {
+                    let inner = inner
+                        .into_inner()
+                        .next()
+                        .ok_or_else(|| SqlError::Parse("Missing procedure name".to_string()))?;
+                    Ok(SqlStmt::Call(CallStmt {
+                        name: inner.as_str().trim().to_string(),
+                    }))
+                }
                 Rule::alter_table_stmt => ddl::parse_alter_table(inner),
                 Rule::drop_table_stmt => ddl::parse_drop_table(inner),
                 Rule::drop_database_stmt => ddl::parse_drop_database(inner),

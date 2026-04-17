@@ -7,4 +7,5 @@ pub mod create_trigger;
 pub mod drop_database;
 pub mod drop_table;
 pub mod drop_trigger;
+pub mod procedure;
 pub mod view;

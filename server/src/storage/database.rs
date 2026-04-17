@@ -41,6 +41,8 @@ pub struct DatabaseState {
     #[serde(default)]
     pub views: HashMap<String, View>,
     #[serde(default)]
+    pub procedures: HashMap<String, crate::squeal::ir::stmt::Squeal>,
+    #[serde(default)]
     pub triggers: HashMap<String, Trigger>,
     #[serde(default)]
     pub users: HashMap<String, User>,
@@ -168,6 +170,7 @@ impl Database {
                 tables,
                 materialized_views: HashMap::new(),
                 views: HashMap::new(),
+                procedures: HashMap::new(),
                 triggers: HashMap::new(),
                 users: HashMap::new(),
                 kv,

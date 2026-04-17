@@ -1,8 +1,8 @@
 use super::super::utils::expect_identifier;
 use crate::engines::mysql::ast::{
-    AlterViewStmt, CreateDatabaseStmt, CreateIndexStmt, CreateMaterializedViewStmt,
-    CreateTableStmt, CreateTriggerStmt, CreateViewStmt, DropViewStmt, IndexType, SqlStmt,
-    TriggerEvent, TriggerTiming,
+    AlterViewStmt, CallStmt, CreateDatabaseStmt, CreateIndexStmt, CreateMaterializedViewStmt,
+    CreateProcedureStmt, CreateTableStmt, CreateTriggerStmt, CreateViewStmt, DropProcedureStmt,
+    DropViewStmt, IndexType, SqlStmt, TriggerEvent, TriggerTiming,
 };
 use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::engines::mysql::parser::Rule;
@@ -222,6 +222,43 @@ pub fn parse_alter_view(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt>
     let query = super::super::select::parse_select_inner(select_pair)?;
 
     Ok(SqlStmt::AlterView(AlterViewStmt { name, query }))
+}
+
+pub fn parse_create_procedure(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
+    let mut inner = pair.into_inner();
+    // Skip KW_CREATE, KW_PROCEDURE
+    let _ = inner.next();
+    let _ = inner.next();
+
+    let name = inner
+        .next()
+        .map(|p| p.as_str().trim().to_string())
+        .ok_or_else(|| SqlError::Parse("Missing procedure name".to_string()))?;
+
+    // Skip KW_AS
+    let _ = inner.next();
+
+    let stmt_pair = inner
+        .next()
+        .ok_or_else(|| SqlError::Parse("Missing procedure body".to_string()))?;
+
+    let body = super::super::parse(stmt_pair.as_str())?.into();
+
+    Ok(SqlStmt::CreateProcedure(CreateProcedureStmt { name, body }))
+}
+
+pub fn parse_drop_procedure(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
+    let mut inner = pair.into_inner();
+    // Skip KW_DROP, KW_PROCEDURE
+    let _ = inner.next();
+    let _ = inner.next();
+
+    let name = inner
+        .next()
+        .map(|p| p.as_str().trim().to_string())
+        .ok_or_else(|| SqlError::Parse("Missing procedure name".to_string()))?;
+
+    Ok(SqlStmt::DropProcedure(DropProcedureStmt { name }))
 }
 
 pub fn parse_column_def(pair: pest::iterators::Pair<Rule>) -> SqlResult<Column> {
