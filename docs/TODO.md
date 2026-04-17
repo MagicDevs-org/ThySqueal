@@ -287,17 +287,17 @@ engines/elastic/
 - [ ] Control flow (IF, CASE, WHILE, REPEAT, LOOP)
 - [ ] CALL statement
 
-### SHOW Commands - 📋 TODO
+### SHOW Commands - ✅ COMPLETE
 
-- [ ] SHOW TABLES [FROM db]
-- [ ] SHOW DATABASES
-- [ ] SHOW COLUMNS FROM table
-- [ ] SHOW CREATE TABLE table
-- [ ] SHOW CREATE DATABASE db
-- [ ] SHOW INDEX FROM table
-- [ ] SHOW VARIABLES
-- [ ] SHOW STATUS
-- [ ] SHOW PROCESSLIST
+- [x] SHOW TABLES [FROM db]
+- [x] SHOW DATABASES
+- [x] SHOW COLUMNS FROM table
+- [x] SHOW CREATE TABLE table
+- [x] SHOW CREATE DATABASE db
+- [x] SHOW INDEX FROM table
+- [x] SHOW VARIABLES
+- [x] SHOW STATUS
+- [x] SHOW PROCESSLIST
 
 ### Implementation Notes
 

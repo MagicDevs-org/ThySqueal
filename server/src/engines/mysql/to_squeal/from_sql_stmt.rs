@@ -54,6 +54,27 @@ impl From<SqlStmt> for Squeal {
                 Squeal::Select(select)
             }
             SqlStmt::Search(s) => Squeal::Search(s.into()),
+            SqlStmt::Show(s) => Squeal::Show(Show {
+                variant: match s.variant {
+                    crate::engines::mysql::ast::ShowVariant::Tables(db) => ShowVariant::Tables(db),
+                    crate::engines::mysql::ast::ShowVariant::Databases => ShowVariant::Databases,
+                    crate::engines::mysql::ast::ShowVariant::Columns(t) => ShowVariant::Columns(t),
+                    crate::engines::mysql::ast::ShowVariant::CreateTable(t) => {
+                        ShowVariant::CreateTable(t)
+                    }
+                    crate::engines::mysql::ast::ShowVariant::CreateDatabase(d) => {
+                        ShowVariant::CreateDatabase(d)
+                    }
+                    crate::engines::mysql::ast::ShowVariant::Index(t) => ShowVariant::Index(t),
+                    crate::engines::mysql::ast::ShowVariant::Variables(p) => {
+                        ShowVariant::Variables(p)
+                    }
+                    crate::engines::mysql::ast::ShowVariant::Status(p) => ShowVariant::Status(p),
+                    crate::engines::mysql::ast::ShowVariant::Processlist => {
+                        ShowVariant::Processlist
+                    }
+                },
+            }),
             SqlStmt::Prepare(s) => Squeal::Prepare(s.into()),
             SqlStmt::Execute(s) => Squeal::Execute(s.into()),
             SqlStmt::Deallocate(s) => Squeal::Deallocate(s),

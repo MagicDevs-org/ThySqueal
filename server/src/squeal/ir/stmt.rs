@@ -27,6 +27,7 @@ pub enum Squeal {
     Delete(Delete),
     Explain(Select),
     Search(Search),
+    Show(Show),
     Prepare(Prepare),
     Execute(Execute),
     Deallocate(String),
@@ -448,6 +449,24 @@ pub struct Revoke {
 pub struct Search {
     pub table: String,
     pub query: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Show {
+    pub variant: ShowVariant,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum ShowVariant {
+    Tables(Option<String>),
+    Databases,
+    Columns(String),
+    CreateTable(String),
+    CreateDatabase(String),
+    Index(String),
+    Variables(Option<String>),
+    Status(Option<String>),
+    Processlist,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

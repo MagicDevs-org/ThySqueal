@@ -78,6 +78,7 @@ pub fn parse(sql: &str) -> SqlResult<SqlStmt> {
                     Ok(SqlStmt::Use(db_name))
                 }
                 Rule::search_stmt => dml::parse_search(inner),
+                Rule::show_stmt => dml::parse_show(inner),
                 Rule::prepare_stmt => dml::parse_prepare(inner),
                 Rule::execute_stmt => dml::parse_execute(inner),
                 Rule::deallocate_stmt => dml::parse_deallocate(inner),

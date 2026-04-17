@@ -364,6 +364,24 @@ pub struct LimitClause {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ShowStmt {
+    pub variant: ShowVariant,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum ShowVariant {
+    Tables(Option<String>),
+    Databases,
+    Columns(String),
+    CreateTable(String),
+    CreateDatabase(String),
+    Index(String),
+    Variables(Option<String>),
+    Status(Option<String>),
+    Processlist,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct InsertStmt {
     pub table: String,
     pub columns: Option<Vec<String>>,

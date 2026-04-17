@@ -1,5 +1,6 @@
 use crate::engines::mysql::parser::parse_to_squeal;
 use crate::squeal::exec::{ExecError, ExecResult};
+use crate::squeal::ir::ShowVariant;
 use crate::squeal::ir::Squeal;
 
 use super::privilege::check_privilege;
@@ -50,7 +51,7 @@ impl Executor {
                 Squeal::Kill(k) => self.exec_kill(k).await?,
 
                 // Queries
-                Squeal::Select(_) | Squeal::Search(_) | Squeal::Explain(_) => {
+                Squeal::Select(_) | Squeal::Search(_) | Squeal::Explain(_) | Squeal::Show(_) => {
                     self.dispatch_query(stmt, &ctx).await?
                 }
 
@@ -383,6 +384,67 @@ impl Executor {
                         db.state(),
                     )?;
                     self.exec_search(s, db.state(), None).await
+                }
+            }
+            Squeal::Show(s) => {
+                let db = ctx.session.database.clone().unwrap_or_default();
+                let select = match &s.variant {
+                    ShowVariant::Tables(db_filter) => {
+                        let filter = db_filter.as_ref().map(|d| d.as_str()).unwrap_or(&db);
+                        format!(
+                            "SELECT TABLE_NAME FROM information_schema.TABLES \
+                             WHERE TABLE_SCHEMA = '{}' AND TABLE_TYPE = 'BASE TABLE'",
+                            filter.replace('\'', "''")
+                        )
+                    }
+                    ShowVariant::Databases => {
+                        "SELECT SCHEMA_NAME AS Database FROM information_schema.SCHEMATA".to_string()
+                    }
+                    ShowVariant::Columns(table) => {
+                        format!(
+                            "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_KEY, COLUMN_DEFAULT, EXTRA \
+                             FROM information_schema.COLUMNS WHERE TABLE_NAME = '{}' ORDER BY ORDINAL_POSITION",
+                            table.replace('\'', "''")
+                        )
+                    }
+                    ShowVariant::CreateTable(table) => {
+                        format!(
+                            "SELECT TABLE_NAME, TABLE_COMMENT FROM information_schema.TABLES WHERE TABLE_NAME = '{}'",
+                            table.replace('\'', "''")
+                        )
+                    }
+                    ShowVariant::CreateDatabase(db_name) => {
+                        format!(
+                            "SELECT SCHEMA_NAME, SCHEMA_COMMENT FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = '{}'",
+                            db_name.replace('\'', "''")
+                        )
+                    }
+                    ShowVariant::Index(table) => {
+                        format!(
+                            "SELECT INDEX_NAME, COLUMN_NAME, NON_UNIQUE, SEQ_IN_INDEX \
+                             FROM information_schema.STATISTICS WHERE TABLE_NAME = '{}' ORDER BY INDEX_NAME, SEQ_IN_INDEX",
+                            table.replace('\'', "''")
+                        )
+                    }
+                    ShowVariant::Variables(_) => {
+                        "SELECT VARIABLE_NAME, VARIABLE_VALUE FROM information_schema.GLOBAL_VARIABLES".to_string()
+                    }
+                    ShowVariant::Status(_) => {
+                        "SELECT VARIABLE_NAME, VARIABLE_VALUE FROM information_schema.SESSION_STATUS".to_string()
+                    }
+                    ShowVariant::Processlist => {
+                        "SELECT ID, USER, HOST, DB, COMMAND, TIME, STATE FROM information_schema.PROCESSLIST".to_string()
+                    }
+                };
+                let plan = crate::engines::mysql::parser::parse_to_squeal(&select).unwrap();
+                if let Squeal::Select(s) = plan {
+                    let db_guard = self.db.read().await;
+                    let query_plan = SelectQueryPlan::new(s, db_guard.state(), ctx.session.clone());
+                    self.exec_select_recursive(query_plan).await
+                } else {
+                    Err(ExecError::Runtime(
+                        "SHOW should produce a SELECT".to_string(),
+                    ))
                 }
             }
             Squeal::Explain(s) => {
