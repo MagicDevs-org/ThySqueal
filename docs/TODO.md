@@ -278,8 +278,8 @@ engines/elastic/
 
 - [x] CREATE PROCEDURE
 - [x] DROP PROCEDURE
-- [ ] CREATE FUNCTION
-- [ ] DROP FUNCTION
+- [x] CREATE FUNCTION
+- [x] DROP FUNCTION
 - [ ] DELIMITER support
 - [ ] BEGIN/END blocks
 - [ ] Parameter passing (IN, OUT, INOUT)

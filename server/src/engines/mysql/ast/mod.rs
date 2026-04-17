@@ -23,6 +23,8 @@ pub enum SqlStmt {
     DropView(DropViewStmt),
     CreateProcedure(CreateProcedureStmt),
     DropProcedure(DropProcedureStmt),
+    CreateFunction(CreateFunctionStmt),
+    DropFunction(DropFunctionStmt),
     Call(CallStmt),
     AlterTable(AlterTableStmt),
     DropTable(DropTableStmt),

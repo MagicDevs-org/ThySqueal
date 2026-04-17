@@ -19,6 +19,8 @@ pub enum Squeal {
     DropView(DropView),
     CreateProcedure(CreateProcedure),
     DropProcedure(DropProcedure),
+    CreateFunction(CreateFunction),
+    DropFunction(DropFunction),
     Call(Call),
     AlterTable(AlterTable),
     DropTable(DropTable),
@@ -344,6 +346,17 @@ pub struct DropProcedure {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Call {
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CreateFunction {
+    pub name: String,
+    pub body: Box<Squeal>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DropFunction {
     pub name: String,
 }
 

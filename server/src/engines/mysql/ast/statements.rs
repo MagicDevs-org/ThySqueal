@@ -125,6 +125,17 @@ pub struct DropProcedureStmt {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CreateFunctionStmt {
+    pub name: String,
+    pub body: crate::squeal::ir::Squeal,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DropFunctionStmt {
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CallStmt {
     pub name: String,
 }

@@ -35,6 +35,15 @@ impl From<SqlStmt> for Squeal {
             SqlStmt::DropProcedure(s) => {
                 Squeal::DropProcedure(crate::squeal::ir::stmt::DropProcedure { name: s.name })
             }
+            SqlStmt::CreateFunction(s) => {
+                Squeal::CreateFunction(crate::squeal::ir::stmt::CreateFunction {
+                    name: s.name,
+                    body: Box::new(s.body.into()),
+                })
+            }
+            SqlStmt::DropFunction(s) => {
+                Squeal::DropFunction(crate::squeal::ir::stmt::DropFunction { name: s.name })
+            }
             SqlStmt::Call(s) => Squeal::Call(crate::squeal::ir::stmt::Call { name: s.name }),
             SqlStmt::AlterTable(s) => Squeal::AlterTable(s.into()),
             SqlStmt::DropTable(s) => Squeal::DropTable(s.into()),

@@ -41,6 +41,8 @@ pub fn parse(sql: &str) -> SqlResult<SqlStmt> {
                 Rule::drop_view_stmt => ddl::parse_drop_view(inner),
                 Rule::create_procedure_stmt => ddl::parse_create_procedure(inner),
                 Rule::drop_procedure_stmt => ddl::parse_drop_procedure(inner),
+                Rule::create_function_stmt => ddl::parse_create_function(inner),
+                Rule::drop_function_stmt => ddl::parse_drop_function(inner),
                 Rule::call_stmt => {
                     let inner = inner
                         .into_inner()
