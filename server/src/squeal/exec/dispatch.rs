@@ -31,6 +31,7 @@ impl Executor {
                 | Squeal::CreateIndex(_)
                 | Squeal::CreateMaterializedView(_)
                 | Squeal::CreateView(_)
+                | Squeal::AlterView(_)
                 | Squeal::DropView(_)
                 | Squeal::CreateDatabase(_)
                 | Squeal::DropDatabase(_)
@@ -184,6 +185,14 @@ impl Executor {
                     check_privilege(&ctx.session.username, None, Privilege::Create, db.state())?;
                 }
                 self.exec_create_view(v, ctx.session.transaction_id.as_deref())
+                    .await
+            }
+            Squeal::AlterView(v) => {
+                {
+                    let db = self.db.read().await;
+                    check_privilege(&ctx.session.username, None, Privilege::Create, db.state())?;
+                }
+                self.exec_alter_view(v, ctx.session.transaction_id.as_deref())
                     .await
             }
             Squeal::DropView(v) => {

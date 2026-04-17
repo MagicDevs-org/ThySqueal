@@ -108,6 +108,12 @@ pub struct DropViewStmt {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AlterViewStmt {
+    pub name: String,
+    pub query: SelectStmt,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AlterTableStmt {
     pub table: String,
     pub action: AlterAction,

@@ -1,7 +1,7 @@
 // MySQL Grammar
 
 // Main statement
-statement = { SOI ~ (show_stmt | explain_stmt | describe_stmt | use_stmt | search_stmt | select_stmt | insert_stmt | update_stmt | delete_stmt | create_table_stmt | create_database_stmt | create_trigger_stmt | create_materialized_view_stmt | create_view_stmt | drop_view_stmt | alter_table_stmt | drop_table_stmt | drop_database_stmt | drop_trigger_stmt | create_index_stmt | create_user_stmt | drop_user_stmt | grant_stmt | revoke_stmt | begin_stmt | commit_stmt | rollback_stmt | prepare_stmt | execute_stmt | deallocate_stmt | set_stmt) ~ ";"? ~ EOI }
+statement = { SOI ~ (show_stmt | explain_stmt | describe_stmt | use_stmt | search_stmt | select_stmt | insert_stmt | update_stmt | delete_stmt | create_table_stmt | create_database_stmt | create_trigger_stmt | create_materialized_view_stmt | create_view_stmt | alter_view_stmt | drop_view_stmt | alter_table_stmt | drop_table_stmt | drop_database_stmt | drop_trigger_stmt | create_index_stmt | create_user_stmt | drop_user_stmt | grant_stmt | revoke_stmt | begin_stmt | commit_stmt | rollback_stmt | prepare_stmt | execute_stmt | deallocate_stmt | set_stmt) ~ ";"? ~ EOI }
 
 show_stmt = { KW_SHOW ~ show_variant }
 show_variant = { show_tables | show_databases | show_columns | show_create_table | show_create_database | show_index | show_variables | show_status | show_processlist }
@@ -80,6 +80,7 @@ create_table_stmt = { KW_CREATE ~ KW_TABLE ~ table_name ~ "(" ~ create_definitio
 
 create_materialized_view_stmt = { KW_CREATE ~ KW_MATERIALIZED ~ KW_VIEW ~ identifier ~ KW_AS ~ select_stmt_inner }
 create_view_stmt = { KW_CREATE ~ KW_VIEW ~ identifier ~ column_list? ~ KW_AS ~ select_stmt_inner ~ check_option? }
+alter_view_stmt = { KW_ALTER ~ KW_VIEW ~ identifier ~ KW_AS ~ select_stmt_inner }
 drop_view_stmt = { KW_DROP ~ KW_VIEW ~ identifier }
 
 create_user_stmt = { KW_CREATE ~ KW_USER ~ string_literal ~ KW_IDENTIFIED ~ KW_BY ~ string_literal }

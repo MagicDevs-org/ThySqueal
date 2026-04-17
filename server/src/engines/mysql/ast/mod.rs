@@ -19,6 +19,7 @@ pub enum SqlStmt {
     DropTrigger(DropTriggerStmt),
     CreateMaterializedView(CreateMaterializedViewStmt),
     CreateView(CreateViewStmt),
+    AlterView(AlterViewStmt),
     DropView(DropViewStmt),
     AlterTable(AlterTableStmt),
     DropTable(DropTableStmt),
@@ -58,6 +59,7 @@ impl SqlStmt {
             SqlStmt::CreateIndex(ci) => ci.resolve_placeholders(&mut counter),
             SqlStmt::CreateMaterializedView(mv) => mv.query.resolve_placeholders(&mut counter),
             SqlStmt::CreateView(cv) => cv.query.resolve_placeholders(&mut counter),
+            SqlStmt::AlterView(av) => av.query.resolve_placeholders(&mut counter),
             SqlStmt::Insert(i) => i.resolve_placeholders(&mut counter),
             SqlStmt::Set(s) => s.resolve_placeholders(&mut counter),
             // No placeholders in these statements
@@ -66,15 +68,6 @@ impl SqlStmt {
             | SqlStmt::DropDatabase(_)
             | SqlStmt::CreateTrigger(_)
             | SqlStmt::DropTrigger(_)
-            | SqlStmt::AlterTable(_)
-            | SqlStmt::DropTable(_)
-            | SqlStmt::CreateUser(_)
-            | SqlStmt::DropUser(_)
-            | SqlStmt::Grant(_)
-            | SqlStmt::Revoke(_)
-            | SqlStmt::Describe(_)
-            | SqlStmt::Use(_)
-            | SqlStmt::Search(_)
             | SqlStmt::DropView(_)
             | SqlStmt::Begin
             | SqlStmt::Commit
@@ -85,6 +78,7 @@ impl SqlStmt {
             | SqlStmt::Prepare(_)
             | SqlStmt::Execute(_)
             | SqlStmt::Deallocate(_) => {}
+            _ => {}
         }
     }
 }

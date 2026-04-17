@@ -1,6 +1,6 @@
 use super::super::{Executor, QueryResult};
 use crate::squeal::exec::{ExecError, ExecResult};
-use crate::squeal::ir::{CreateView, DropView};
+use crate::squeal::ir::{AlterView, CreateView, DropView};
 use crate::storage::View;
 
 impl Executor {
@@ -26,6 +26,31 @@ impl Executor {
                     query: stmt.query.clone(),
                 },
             );
+            Ok(())
+        })
+        .await?;
+
+        Ok(QueryResult {
+            columns: vec![],
+            rows: vec![],
+            rows_affected: 0,
+            transaction_id: tx_id.map(|s| s.to_string()),
+            session: None,
+        })
+    }
+
+    pub async fn exec_alter_view(
+        &self,
+        stmt: AlterView,
+        tx_id: Option<&str>,
+    ) -> ExecResult<QueryResult> {
+        self.mutate_state(tx_id, |state| {
+            let view = state.views.get_mut(&stmt.name).ok_or_else(|| {
+                ExecError::Storage(crate::storage::error::StorageError::PersistenceError(
+                    format!("View {} does not exist", stmt.name),
+                ))
+            })?;
+            view.query = stmt.query.clone();
             Ok(())
         })
         .await?;

@@ -270,7 +270,7 @@ engines/elastic/
 
 - [x] CREATE VIEW with SELECT
 - [x] DROP VIEW
-- [ ] ALTER VIEW
+- [x] ALTER VIEW
 - [x] WITH CHECK OPTION
 - [ ] Updatable views
 

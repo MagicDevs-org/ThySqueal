@@ -1,8 +1,8 @@
 use super::super::utils::expect_identifier;
 use crate::engines::mysql::ast::{
-    CreateDatabaseStmt, CreateIndexStmt, CreateMaterializedViewStmt, CreateTableStmt,
-    CreateTriggerStmt, CreateViewStmt, DropViewStmt, IndexType, SqlStmt, TriggerEvent,
-    TriggerTiming,
+    AlterViewStmt, CreateDatabaseStmt, CreateIndexStmt, CreateMaterializedViewStmt,
+    CreateTableStmt, CreateTriggerStmt, CreateViewStmt, DropViewStmt, IndexType, SqlStmt,
+    TriggerEvent, TriggerTiming,
 };
 use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::engines::mysql::parser::Rule;
@@ -199,6 +199,29 @@ pub fn parse_drop_view(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> 
         .ok_or_else(|| SqlError::Parse("Missing view name".to_string()))?;
 
     Ok(SqlStmt::DropView(DropViewStmt { name }))
+}
+
+pub fn parse_alter_view(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
+    let mut inner = pair.into_inner();
+    // Skip KW_ALTER, KW_VIEW
+    let _ = inner.next();
+    let _ = inner.next();
+
+    let name = inner
+        .next()
+        .map(|p| p.as_str().trim().to_string())
+        .ok_or_else(|| SqlError::Parse("Missing view name".to_string()))?;
+
+    // Skip KW_AS
+    let _ = inner.next();
+
+    let select_pair = inner
+        .next()
+        .ok_or_else(|| SqlError::Parse("Missing SELECT in ALTER VIEW".to_string()))?;
+
+    let query = super::super::select::parse_select_inner(select_pair)?;
+
+    Ok(SqlStmt::AlterView(AlterViewStmt { name, query }))
 }
 
 pub fn parse_column_def(pair: pest::iterators::Pair<Rule>) -> SqlResult<Column> {

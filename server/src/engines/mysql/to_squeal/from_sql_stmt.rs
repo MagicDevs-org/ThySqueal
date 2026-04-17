@@ -19,6 +19,10 @@ impl From<SqlStmt> for Squeal {
                 columns: s.columns,
                 with_check_option: s.with_check_option,
             }),
+            SqlStmt::AlterView(s) => Squeal::AlterView(crate::squeal::ir::stmt::AlterView {
+                name: s.name,
+                query: s.query.into(),
+            }),
             SqlStmt::DropView(s) => {
                 Squeal::DropView(crate::squeal::ir::stmt::DropView { name: s.name })
             }

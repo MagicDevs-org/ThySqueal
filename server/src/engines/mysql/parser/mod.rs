@@ -37,6 +37,7 @@ pub fn parse(sql: &str) -> SqlResult<SqlStmt> {
                 Rule::create_trigger_stmt => ddl::parse_create_trigger(inner),
                 Rule::create_materialized_view_stmt => ddl::parse_create_materialized_view(inner),
                 Rule::create_view_stmt => ddl::parse_create_view(inner),
+                Rule::alter_view_stmt => ddl::parse_alter_view(inner),
                 Rule::drop_view_stmt => ddl::parse_drop_view(inner),
                 Rule::alter_table_stmt => ddl::parse_alter_table(inner),
                 Rule::drop_table_stmt => ddl::parse_drop_table(inner),
