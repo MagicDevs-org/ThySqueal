@@ -7,7 +7,8 @@ pub mod utils;
 pub use ddl::parse_data_type_from_rule;
 
 use crate::engines::mysql::ast::{
-    CallStmt, CaseStmt, IfStmt, LoopStmt, RepeatStmt, SqlStmt, VariableDeclaration, WhileStmt,
+    CallStmt, CaseStmt, IfStmt, LoopStmt, RepeatStmt, SetStmt, SqlStmt, VariableDeclaration,
+    WhileStmt,
 };
 use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::squeal::exec::ParseResult;
@@ -18,6 +19,22 @@ use pest_derive::Parser;
 #[derive(Parser)]
 #[grammar = "engines/mysql/mysql.pest"]
 pub struct SqlParser;
+
+static CURRENT_DELIMITER: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+#[allow(dead_code)]
+fn get_delimiter() -> String {
+    CURRENT_DELIMITER.get_or_init(|| ";".to_string()).clone()
+}
+
+pub fn set_delimiter(delimiter: &str) {
+    let _ = CURRENT_DELIMITER.set(delimiter.to_string());
+}
+
+#[allow(dead_code)]
+pub fn reset_delimiter() {
+    let _ = CURRENT_DELIMITER.set(";".to_string());
+}
 
 pub fn parse_to_squeal(sql: &str) -> ParseResult<Squeal> {
     let mysql_stmt = parse(sql)?;
@@ -32,6 +49,17 @@ pub fn parse(sql: &str) -> SqlResult<SqlStmt> {
         if pair.as_rule() == Rule::statement {
             let inner = pair.into_inner().next().unwrap();
             let mut stmt = match inner.as_rule() {
+                Rule::delimiter_stmt => {
+                    let delim = inner
+                        .into_inner()
+                        .next()
+                        .map(|p| p.as_str().trim().to_string())
+                        .unwrap_or_else(|| ";".to_string());
+                    set_delimiter(&delim);
+                    return Ok(SqlStmt::Set(SetStmt {
+                        assignments: vec![],
+                    }));
+                }
                 Rule::select_stmt => select::parse_select(inner),
                 Rule::insert_stmt => dml::parse_insert(inner),
                 Rule::update_stmt => dml::parse_update(inner),
