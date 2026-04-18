@@ -41,9 +41,21 @@ pub struct DatabaseState {
     #[serde(default)]
     pub views: HashMap<String, View>,
     #[serde(default)]
-    pub procedures: HashMap<String, crate::squeal::ir::stmt::Squeal>,
+    pub procedures: HashMap<
+        String,
+        (
+            Vec<crate::squeal::ir::ProcedureParam>,
+            crate::squeal::ir::stmt::Squeal,
+        ),
+    >,
     #[serde(default)]
-    pub functions: HashMap<String, crate::squeal::ir::stmt::Squeal>,
+    pub functions: HashMap<
+        String,
+        (
+            Vec<crate::squeal::ir::ProcedureParam>,
+            crate::squeal::ir::stmt::Squeal,
+        ),
+    >,
     #[serde(default)]
     pub triggers: HashMap<String, Trigger>,
     #[serde(default)]

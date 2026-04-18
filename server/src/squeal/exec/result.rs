@@ -1,7 +1,7 @@
 use super::Session;
 use crate::storage::Value;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct QueryResult {
     pub columns: Vec<String>,
     pub rows: Vec<Vec<Value>>,

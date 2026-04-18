@@ -3,11 +3,15 @@
 // Main statement
 statement = { SOI ~ (show_stmt | explain_stmt | describe_stmt | use_stmt | search_stmt | select_stmt | insert_stmt | update_stmt | delete_stmt | create_table_stmt | create_database_stmt | create_trigger_stmt | create_materialized_view_stmt | create_view_stmt | alter_view_stmt | drop_view_stmt | create_procedure_stmt | drop_procedure_stmt | create_function_stmt | drop_function_stmt | call_stmt | alter_table_stmt | drop_table_stmt | drop_database_stmt | drop_trigger_stmt | create_index_stmt | create_user_stmt | drop_user_stmt | grant_stmt | revoke_stmt | begin_stmt | commit_stmt | rollback_stmt | prepare_stmt | execute_stmt | deallocate_stmt | set_stmt) ~ ";"? ~ EOI }
 
-create_procedure_stmt = { KW_CREATE ~ KW_PROCEDURE ~ identifier ~ KW_AS ~ statement }
+create_procedure_stmt = { KW_CREATE ~ KW_PROCEDURE ~ identifier ~ "(" ~ param_list? ~ ")" ~ KW_AS ~ statement }
 drop_procedure_stmt = { KW_DROP ~ KW_PROCEDURE ~ identifier }
-create_function_stmt = { KW_CREATE ~ KW_FUNCTION ~ identifier ~ KW_AS ~ statement }
+create_function_stmt = { KW_CREATE ~ KW_FUNCTION ~ identifier ~ "(" ~ param_list? ~ ")" ~ KW_RETURNS ~ data_type ~ KW_AS ~ statement }
 drop_function_stmt = { KW_DROP ~ KW_FUNCTION ~ identifier }
-call_stmt = { KW_CALL ~ identifier }
+call_stmt = { KW_CALL ~ identifier ~ "(" ~ expression_list? ~ ")" }
+
+param_list = { param ~ ("," ~ param)* }
+param = { param_mode? ~ identifier ~ data_type }
+param_mode = { KW_IN | KW_OUT | KW_INOUT }
 
 show_stmt = { KW_SHOW ~ show_variant }
 show_variant = { show_tables | show_databases | show_columns | show_create_table | show_create_database | show_index | show_variables | show_status | show_processlist }
@@ -405,6 +409,9 @@ KW_CASE = @{ ^"CASE" ~ !id_char }
 KW_WHEN = @{ ^"WHEN" ~ !id_char }
 KW_THEN = @{ ^"THEN" ~ !id_char }
 KW_ELSE = @{ ^"ELSE" ~ !id_char }
+KW_RETURNS = @{ ^"RETURNS" ~ !id_char }
+KW_OUT = @{ ^"OUT" ~ !id_char }
+KW_INOUT = @{ ^"INOUT" ~ !id_char }
 
 id_char = _{ ASCII_ALPHA | ASCII_DIGIT | "_" }
 

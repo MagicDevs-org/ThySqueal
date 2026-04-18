@@ -41,11 +41,9 @@ pub enum VariableScope {
 impl Expression {
     pub fn resolve_placeholders(&mut self, counter: &mut usize) {
         match self {
-            Expression::Placeholder(i) => {
-                if *i == 0 {
-                    *counter += 1;
-                    *i = *counter;
-                }
+            Expression::Placeholder(i) if *i == 0 => {
+                *counter += 1;
+                *i = *counter;
             }
             Expression::BinaryOp(l, _, r) => {
                 l.resolve_placeholders(counter);

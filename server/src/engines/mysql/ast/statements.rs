@@ -114,8 +114,23 @@ pub struct AlterViewStmt {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ProcedureParam {
+    pub name: String,
+    pub data_type: crate::storage::DataType,
+    pub mode: ParamMode,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum ParamMode {
+    In,
+    Out,
+    InOut,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CreateProcedureStmt {
     pub name: String,
+    pub params: Vec<ProcedureParam>,
     pub body: crate::squeal::ir::Squeal,
 }
 
@@ -127,6 +142,8 @@ pub struct DropProcedureStmt {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CreateFunctionStmt {
     pub name: String,
+    pub params: Vec<ProcedureParam>,
+    pub return_type: crate::storage::DataType,
     pub body: crate::squeal::ir::Squeal,
 }
 
@@ -138,6 +155,7 @@ pub struct DropFunctionStmt {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CallStmt {
     pub name: String,
+    pub args: Vec<crate::squeal::ir::Expression>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -29,7 +29,26 @@ impl From<SqlStmt> for Squeal {
             SqlStmt::CreateProcedure(s) => {
                 Squeal::CreateProcedure(crate::squeal::ir::stmt::CreateProcedure {
                     name: s.name,
-                    body: Box::new(s.body.into()),
+                    params: s
+                        .params
+                        .into_iter()
+                        .map(|p| crate::squeal::ir::ProcedureParam {
+                            name: p.name,
+                            data_type: p.data_type,
+                            mode: match p.mode {
+                                crate::engines::mysql::ast::ParamMode::In => {
+                                    crate::squeal::ir::ParamMode::In
+                                }
+                                crate::engines::mysql::ast::ParamMode::Out => {
+                                    crate::squeal::ir::ParamMode::Out
+                                }
+                                crate::engines::mysql::ast::ParamMode::InOut => {
+                                    crate::squeal::ir::ParamMode::InOut
+                                }
+                            },
+                        })
+                        .collect(),
+                    body: Box::new(s.body),
                 })
             }
             SqlStmt::DropProcedure(s) => {
@@ -38,13 +57,36 @@ impl From<SqlStmt> for Squeal {
             SqlStmt::CreateFunction(s) => {
                 Squeal::CreateFunction(crate::squeal::ir::stmt::CreateFunction {
                     name: s.name,
-                    body: Box::new(s.body.into()),
+                    params: s
+                        .params
+                        .into_iter()
+                        .map(|p| crate::squeal::ir::ProcedureParam {
+                            name: p.name,
+                            data_type: p.data_type,
+                            mode: match p.mode {
+                                crate::engines::mysql::ast::ParamMode::In => {
+                                    crate::squeal::ir::ParamMode::In
+                                }
+                                crate::engines::mysql::ast::ParamMode::Out => {
+                                    crate::squeal::ir::ParamMode::Out
+                                }
+                                crate::engines::mysql::ast::ParamMode::InOut => {
+                                    crate::squeal::ir::ParamMode::InOut
+                                }
+                            },
+                        })
+                        .collect(),
+                    return_type: s.return_type,
+                    body: Box::new(s.body),
                 })
             }
             SqlStmt::DropFunction(s) => {
                 Squeal::DropFunction(crate::squeal::ir::stmt::DropFunction { name: s.name })
             }
-            SqlStmt::Call(s) => Squeal::Call(crate::squeal::ir::stmt::Call { name: s.name }),
+            SqlStmt::Call(s) => Squeal::Call(crate::squeal::ir::stmt::Call {
+                name: s.name,
+                args: s.args,
+            }),
             SqlStmt::AlterTable(s) => Squeal::AlterTable(s.into()),
             SqlStmt::DropTable(s) => Squeal::DropTable(s.into()),
             SqlStmt::CreateIndex(s) => Squeal::CreateIndex(s.into()),

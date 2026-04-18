@@ -133,6 +133,17 @@ impl Executor {
                         .await?
                 }
                 Squeal::PubSubPublish(kv) => self.exec_pubsub_publish(kv).await?,
+
+                // Sequence of statements (for procedure body)
+                Squeal::Sequence(stmts) => {
+                    let mut result = QueryResult::default();
+                    for stmt in stmts {
+                        result = self
+                            .exec_squeal(stmt, ctx.params.clone(), ctx.session.clone())
+                            .await?;
+                    }
+                    result
+                }
             };
 
             if res.transaction_id.is_none() {
@@ -601,10 +612,10 @@ impl Executor {
         self.exec_squeal(inner_stmt, exec_params, session).await
     }
 
-    fn get_view_base_table<'a>(
+    fn get_view_base_table(
         &self,
         table_name: &str,
-        state: &'a crate::storage::DatabaseState,
+        state: &crate::storage::DatabaseState,
     ) -> Result<Option<String>, ExecError> {
         if let Some(_view) = state.views.get(table_name) {
             let query = &_view.query;

@@ -1,21 +1,40 @@
 use super::super::{Executor, QueryResult, Session};
+use crate::squeal::eval::{EvalContext, evaluate_expression_joined};
 use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::ir::{Call, CreateFunction, CreateProcedure, DropFunction, DropProcedure};
 
 impl Executor {
     pub async fn exec_call(&self, stmt: Call) -> ExecResult<QueryResult> {
         let db = self.db.read().await;
-        let callable = db
+        let (params, body) = db
             .state()
             .procedures
             .get(&stmt.name)
-            .or_else(|| db.state().functions.get(&stmt.name))
+            .map(|(p, b)| (p.clone(), b.clone()))
+            .or_else(|| {
+                db.state()
+                    .functions
+                    .get(&stmt.name)
+                    .map(|(p, b)| (p.clone(), b.clone()))
+            })
             .ok_or_else(|| {
                 ExecError::Runtime(format!("Function/Procedure {} not found", stmt.name))
-            })?
-            .clone();
+            })?;
+
+        let db_state = db.state();
+        let mut session = Session::root();
+        for (i, arg) in stmt.args.iter().enumerate() {
+            if i < params.len() {
+                let param_name = format!("@{}", params[i].name);
+                let eval_ctx = EvalContext::new(&[], &[], &[], db_state).with_session(&session);
+                if let Ok(value) = evaluate_expression_joined(self, arg, &eval_ctx) {
+                    session.variables.insert(param_name, value);
+                }
+            }
+        }
         drop(db);
-        self.exec_squeal(callable, vec![], Session::root()).await
+
+        self.exec_squeal(body, vec![], session).await
     }
 
     pub async fn exec_create_procedure(
@@ -32,7 +51,9 @@ impl Executor {
                     )),
                 ));
             }
-            state.procedures.insert(stmt.name.clone(), *stmt.body);
+            state
+                .procedures
+                .insert(stmt.name.clone(), (stmt.params, *stmt.body));
             Ok(())
         })
         .await?;
@@ -84,7 +105,9 @@ impl Executor {
                     )),
                 ));
             }
-            state.functions.insert(stmt.name.clone(), *stmt.body);
+            state
+                .functions
+                .insert(stmt.name.clone(), (stmt.params, *stmt.body));
             Ok(())
         })
         .await?;

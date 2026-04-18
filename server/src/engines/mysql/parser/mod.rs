@@ -4,6 +4,8 @@ pub mod expr;
 pub mod select;
 pub mod utils;
 
+pub use ddl::parse_data_type_from_rule;
+
 use crate::engines::mysql::ast::{CallStmt, SqlStmt};
 use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::squeal::exec::ParseResult;
@@ -44,13 +46,28 @@ pub fn parse(sql: &str) -> SqlResult<SqlStmt> {
                 Rule::create_function_stmt => ddl::parse_create_function(inner),
                 Rule::drop_function_stmt => ddl::parse_drop_function(inner),
                 Rule::call_stmt => {
-                    let inner = inner
-                        .into_inner()
-                        .next()
+                    let call_inner: Vec<_> = inner.into_inner().collect();
+                    let name = call_inner
+                        .first()
+                        .map(|p| p.as_str().trim().to_string())
                         .ok_or_else(|| SqlError::Parse("Missing procedure name".to_string()))?;
-                    Ok(SqlStmt::Call(CallStmt {
-                        name: inner.as_str().trim().to_string(),
-                    }))
+
+                    let args = if call_inner.len() > 1 {
+                        let expr_list = &call_inner[1];
+                        if expr_list.as_rule() == Rule::expression_list {
+                            expr_list
+                                .clone()
+                                .into_inner()
+                                .map(|p| expr::parse_expression(p).map(|e| e.into()))
+                                .collect::<SqlResult<Vec<_>>>()?
+                        } else {
+                            vec![]
+                        }
+                    } else {
+                        vec![]
+                    };
+
+                    Ok(SqlStmt::Call(CallStmt { name, args }))
                 }
                 Rule::alter_table_stmt => ddl::parse_alter_table(inner),
                 Rule::drop_table_stmt => ddl::parse_drop_table(inner),

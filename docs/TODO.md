@@ -274,18 +274,18 @@ engines/elastic/
 - [x] WITH CHECK OPTION
 - [x] Updatable views
 
-### Stored Procedures & Functions - ✅ COMPLETE
+### Stored Procedures & Functions - 🏗 IN PROGRESS
 
 - [x] CREATE PROCEDURE
 - [x] DROP PROCEDURE
 - [x] CREATE FUNCTION
 - [x] DROP FUNCTION
+- [x] CALL statement
+- [x] Parameter support (IN, OUT, INOUT) with types
 - [ ] DELIMITER support
 - [ ] BEGIN/END blocks
-- [ ] Parameter passing (IN, OUT, INOUT)
 - [ ] Variable declarations
 - [ ] Control flow (IF, CASE, WHILE, REPEAT, LOOP)
-- [x] CALL statement
 
 ### SHOW Commands - ✅ COMPLETE
 

@@ -61,6 +61,7 @@ pub enum Squeal {
     KvStreamRange(KvStreamRange),
     KvStreamLen(KvStreamLen),
     PubSubPublish(PubSubPublish),
+    Sequence(Vec<Squeal>),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -334,8 +335,23 @@ pub struct DropView {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ProcedureParam {
+    pub name: String,
+    pub data_type: DataType,
+    pub mode: ParamMode,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum ParamMode {
+    In,
+    Out,
+    InOut,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CreateProcedure {
     pub name: String,
+    pub params: Vec<ProcedureParam>,
     pub body: Box<Squeal>,
 }
 
@@ -347,11 +363,14 @@ pub struct DropProcedure {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Call {
     pub name: String,
+    pub args: Vec<Expression>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CreateFunction {
     pub name: String,
+    pub params: Vec<ProcedureParam>,
+    pub return_type: DataType,
     pub body: Box<Squeal>,
 }
 

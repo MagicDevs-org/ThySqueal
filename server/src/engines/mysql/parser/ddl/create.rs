@@ -1,9 +1,9 @@
 use super::super::utils::expect_identifier;
 use crate::engines::mysql::ast::{
-    AlterViewStmt, CallStmt, CreateDatabaseStmt, CreateFunctionStmt, CreateIndexStmt,
+    AlterViewStmt, CreateDatabaseStmt, CreateFunctionStmt, CreateIndexStmt,
     CreateMaterializedViewStmt, CreateProcedureStmt, CreateTableStmt, CreateTriggerStmt,
-    CreateViewStmt, DropFunctionStmt, DropProcedureStmt, DropViewStmt, IndexType, SqlStmt,
-    TriggerEvent, TriggerTiming,
+    CreateViewStmt, DropFunctionStmt, DropProcedureStmt, DropViewStmt, IndexType, ParamMode,
+    ProcedureParam, SqlStmt, TriggerEvent, TriggerTiming,
 };
 use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::engines::mysql::parser::Rule;
@@ -227,7 +227,6 @@ pub fn parse_alter_view(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt>
 
 pub fn parse_create_procedure(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
     let mut inner = pair.into_inner();
-    // Skip KW_CREATE, KW_PROCEDURE
     let _ = inner.next();
     let _ = inner.next();
 
@@ -236,8 +235,21 @@ pub fn parse_create_procedure(pair: pest::iterators::Pair<Rule>) -> SqlResult<Sq
         .map(|p| p.as_str().trim().to_string())
         .ok_or_else(|| SqlError::Parse("Missing procedure name".to_string()))?;
 
-    // Skip KW_AS
-    let _ = inner.next();
+    let params = if let Some(params_pair) = inner.next() {
+        if params_pair.as_rule() == Rule::param_list {
+            parse_param_list(params_pair)?
+        } else {
+            vec![]
+        }
+    } else {
+        vec![]
+    };
+
+    for _ in 0..3 {
+        if inner.peek().map(|p| p.as_rule()) != Some(Rule::statement) {
+            let _ = inner.next();
+        }
+    }
 
     let stmt_pair = inner
         .next()
@@ -245,7 +257,11 @@ pub fn parse_create_procedure(pair: pest::iterators::Pair<Rule>) -> SqlResult<Sq
 
     let body = super::super::parse(stmt_pair.as_str())?.into();
 
-    Ok(SqlStmt::CreateProcedure(CreateProcedureStmt { name, body }))
+    Ok(SqlStmt::CreateProcedure(CreateProcedureStmt {
+        name,
+        params,
+        body,
+    }))
 }
 
 pub fn parse_drop_procedure(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
@@ -272,7 +288,26 @@ pub fn parse_create_function(pair: pest::iterators::Pair<Rule>) -> SqlResult<Sql
         .map(|p| p.as_str().trim().to_string())
         .ok_or_else(|| SqlError::Parse("Missing function name".to_string()))?;
 
-    let _ = inner.next();
+    let params = if let Some(params_pair) = inner.next() {
+        if params_pair.as_rule() == Rule::param_list {
+            parse_param_list(params_pair)?
+        } else {
+            vec![]
+        }
+    } else {
+        vec![]
+    };
+
+    let return_type_pair = inner
+        .next()
+        .ok_or_else(|| SqlError::Parse("Missing return type".to_string()))?;
+    let return_type = super::super::parse_data_type_from_rule(return_type_pair)?;
+
+    for _ in 0..2 {
+        if inner.peek().map(|p| p.as_rule()) != Some(Rule::statement) {
+            let _ = inner.next();
+        }
+    }
 
     let stmt_pair = inner
         .next()
@@ -280,7 +315,12 @@ pub fn parse_create_function(pair: pest::iterators::Pair<Rule>) -> SqlResult<Sql
 
     let body = super::super::parse(stmt_pair.as_str())?.into();
 
-    Ok(SqlStmt::CreateFunction(CreateFunctionStmt { name, body }))
+    Ok(SqlStmt::CreateFunction(CreateFunctionStmt {
+        name,
+        params,
+        return_type,
+        body,
+    }))
 }
 
 pub fn parse_drop_function(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
@@ -294,6 +334,45 @@ pub fn parse_drop_function(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlSt
         .ok_or_else(|| SqlError::Parse("Missing function name".to_string()))?;
 
     Ok(SqlStmt::DropFunction(DropFunctionStmt { name }))
+}
+
+fn parse_param_list(pair: pest::iterators::Pair<Rule>) -> SqlResult<Vec<ProcedureParam>> {
+    let mut params = Vec::new();
+    for param_pair in pair.into_inner() {
+        let mut param_inner = param_pair.into_inner();
+
+        let mut mode = ParamMode::In;
+        if let Some(first) = param_inner.peek()
+            && first.as_rule() == Rule::param_mode
+        {
+            let mode_str = first.as_str().to_uppercase();
+            mode = match mode_str.as_str() {
+                "IN" => ParamMode::In,
+                "OUT" => ParamMode::Out,
+                "INOUT" => ParamMode::InOut,
+                _ => ParamMode::In,
+            };
+            let _ = param_inner.next();
+        }
+
+        let name = param_inner
+            .next()
+            .map(|p| p.as_str().trim().to_string())
+            .ok_or_else(|| SqlError::Parse("Missing parameter name".to_string()))?;
+
+        let data_type_pair = param_inner
+            .next()
+            .ok_or_else(|| SqlError::Parse("Missing parameter type".to_string()))?;
+
+        let data_type = super::super::parse_data_type_from_rule(data_type_pair)?;
+
+        params.push(ProcedureParam {
+            name,
+            data_type,
+            mode,
+        });
+    }
+    Ok(params)
 }
 
 pub fn parse_column_def(pair: pest::iterators::Pair<Rule>) -> SqlResult<Column> {
@@ -404,10 +483,8 @@ pub fn parse_create_index(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStm
     for p in inner {
         match p.as_rule() {
             Rule::unique => unique = true,
-            Rule::identifier => {
-                if index_name.is_none() {
-                    index_name = Some(p.as_str().trim().to_string());
-                }
+            Rule::identifier if index_name.is_none() => {
+                index_name = Some(p.as_str().trim().to_string());
             }
             Rule::table_name => {
                 let column_ref_rule = p.into_inner().next().unwrap();

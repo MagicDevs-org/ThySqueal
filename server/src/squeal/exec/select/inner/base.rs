@@ -2,9 +2,7 @@ use crate::squeal;
 use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::exec::{Executor, SelectQueryPlan, Session};
 use crate::storage::info_schema::get_info_schema_tables;
-use crate::storage::{
-    Column, DataType, Row, Table, TableData, TableIndex, TableIndexes, TableSchema,
-};
+use crate::storage::{Column, DataType, Row, Table, TableData, TableIndexes, TableSchema};
 use std::collections::HashMap;
 
 pub enum ResolvedTable<'b> {
