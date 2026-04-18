@@ -74,8 +74,8 @@
 - [x] **REPLACE INTO**: Upsert behavior (DELETE + INSERT on duplicate key)
 - [x] **ON DUPLICATE KEY UPDATE**: INSERT ... ON DUPLICATE KEY UPDATE
 - [x] **SAVEPOINT**: Transaction savepoint support for partial rollback
-- [ ] **CALL**: Stored procedure support
-- [x] **CASE WHEN**: Statement that acts like an IF-THEN-ELSE logic controller
+- [x] **CALL**: Stored procedure support
+- [x] **CASE WHEN**: Expression that acts like an IF-THEN-ELSE logic controller
 
 ## Missing MySQL SQL Statements - 📋 TODO
 
@@ -83,7 +83,7 @@
 
 - [ ] **CREATE/DROP DATABASE**: Database creation and deletion
 - [ ] **CREATE/DROP EVENT**: Event scheduler support
-- [ ] **CREATE/DROP FUNCTION/PROCEDURE**: Stored routines
+- [x] **CREATE/DROP FUNCTION/PROCEDURE**: Stored routines
 - [ ] **CREATE/DROP TRIGGER**: Trigger support
 - [ ] **CREATE/DROP TABLESPACE**: Tablespace management
 
@@ -274,7 +274,7 @@ engines/elastic/
 - [x] WITH CHECK OPTION
 - [x] Updatable views
 
-### Stored Procedures & Functions - 🏗 IN PROGRESS
+### Stored Procedures & Functions - ✅ COMPLETE
 
 - [x] CREATE PROCEDURE
 - [x] DROP PROCEDURE
