@@ -48,6 +48,7 @@ pub enum SqlStmt {
     Kill(KillStmt),
     Show(ShowStmt),
     Begin,
+    BeginEndBlock(Vec<SqlStmt>),
     Commit,
     Rollback,
     Savepoint(squeal::ir::stmt::SavepointStmt),

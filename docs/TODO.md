@@ -282,8 +282,8 @@ engines/elastic/
 - [x] DROP FUNCTION
 - [x] CALL statement
 - [x] Parameter support (IN, OUT, INOUT) with types
+- [x] BEGIN/END blocks
 - [ ] DELIMITER support
-- [ ] BEGIN/END blocks
 - [ ] Variable declarations
 - [ ] Control flow (IF, CASE, WHILE, REPEAT, LOOP)
 

@@ -165,6 +165,10 @@ impl From<SqlStmt> for Squeal {
                 },
             }),
             SqlStmt::Begin => Squeal::Begin,
+            SqlStmt::BeginEndBlock(stmts) => {
+                let squeal_stmts: Vec<Squeal> = stmts.into_iter().map(|s| s.into()).collect();
+                Squeal::Sequence(squeal_stmts)
+            }
             SqlStmt::Commit => Squeal::Commit,
             SqlStmt::Rollback => Squeal::Rollback,
             SqlStmt::Savepoint(sp) => Squeal::Savepoint(sp),
