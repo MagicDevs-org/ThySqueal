@@ -283,8 +283,8 @@ engines/elastic/
 - [x] CALL statement
 - [x] Parameter support (IN, OUT, INOUT) with types
 - [x] BEGIN/END blocks
+- [x] Variable declarations (DECLARE name TYPE DEFAULT value)
 - [ ] DELIMITER support
-- [ ] Variable declarations
 - [ ] Control flow (IF, CASE, WHILE, REPEAT, LOOP)
 
 ### SHOW Commands - ✅ COMPLETE

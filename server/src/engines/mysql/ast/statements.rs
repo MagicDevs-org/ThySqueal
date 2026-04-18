@@ -121,6 +121,13 @@ pub struct ProcedureParam {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct VariableDeclaration {
+    pub name: String,
+    pub data_type: crate::storage::DataType,
+    pub default_value: Option<crate::squeal::ir::Expression>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ParamMode {
     In,
     Out,

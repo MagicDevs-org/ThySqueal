@@ -165,8 +165,29 @@ impl From<SqlStmt> for Squeal {
                 },
             }),
             SqlStmt::Begin => Squeal::Begin,
-            SqlStmt::BeginEndBlock(stmts) => {
-                let squeal_stmts: Vec<Squeal> = stmts.into_iter().map(|s| s.into()).collect();
+            SqlStmt::BeginEndBlock(declarations, stmts) => {
+                let mut squeal_stmts = Vec::new();
+                for decl in declarations {
+                    let var_name = format!("@{}", decl.name);
+                    let value =
+                        decl.default_value
+                            .unwrap_or(crate::squeal::ir::Expression::Literal(
+                                crate::storage::Value::Null,
+                            ));
+                    squeal_stmts.push(Squeal::Set(crate::squeal::ir::stmt::Set {
+                        assignments: vec![(
+                            crate::squeal::ir::Expression::Variable(crate::squeal::ir::Variable {
+                                name: var_name,
+                                is_system: false,
+                                scope: crate::squeal::ir::VariableScope::User,
+                            }),
+                            value,
+                        )],
+                    }));
+                }
+                for stmt in stmts {
+                    squeal_stmts.push(stmt.into());
+                }
                 Squeal::Sequence(squeal_stmts)
             }
             SqlStmt::Commit => Squeal::Commit,

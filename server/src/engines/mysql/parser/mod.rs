@@ -6,7 +6,7 @@ pub mod utils;
 
 pub use ddl::parse_data_type_from_rule;
 
-use crate::engines::mysql::ast::{CallStmt, SqlStmt};
+use crate::engines::mysql::ast::{CallStmt, SqlStmt, VariableDeclaration};
 use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::squeal::exec::ParseResult;
 use crate::squeal::ir::Squeal;
@@ -118,6 +118,43 @@ pub fn parse(sql: &str) -> SqlResult<SqlStmt> {
                 Rule::begin_stmt => Ok(SqlStmt::Begin),
                 Rule::begin_end_block => {
                     let inner: Vec<_> = inner.into_inner().collect();
+                    let declarations: Vec<VariableDeclaration> = inner
+                        .iter()
+                        .filter(|p| p.as_rule() == Rule::declare_stmt)
+                        .map(|p| {
+                            let mut decl_inner = p.clone().into_inner();
+                            let name = decl_inner
+                                .next()
+                                .map(|n| n.as_str().trim().to_string())
+                                .ok_or_else(|| {
+                                    SqlError::Parse("Missing declare name".to_string())
+                                })?;
+                            let data_type_pair = decl_inner.next().ok_or_else(|| {
+                                SqlError::Parse("Missing declare type".to_string())
+                            })?;
+                            let data_type =
+                                crate::engines::mysql::parser::ddl::parse_data_type_from_rule(
+                                    data_type_pair,
+                                )?;
+                            let default_value = if decl_inner.peek().map(|p| p.as_rule())
+                                == Some(Rule::KW_DEFAULT)
+                            {
+                                let _ = decl_inner.next();
+                                let expr_pair = decl_inner.next();
+                                expr_pair
+                                    .map(|e| expr::parse_expression(e).map(|ex| ex.into()))
+                                    .transpose()?
+                            } else {
+                                None
+                            };
+                            Ok(VariableDeclaration {
+                                name,
+                                data_type,
+                                default_value,
+                            })
+                        })
+                        .collect::<SqlResult<Vec<_>>>()?;
+
                     let stmts: Vec<SqlStmt> = inner
                         .into_iter()
                         .filter(|p| p.as_rule() == Rule::statement)
@@ -126,7 +163,7 @@ pub fn parse(sql: &str) -> SqlResult<SqlStmt> {
                             parse_statement(stmt_inner)
                         })
                         .collect::<SqlResult<Vec<_>>>()?;
-                    Ok(SqlStmt::BeginEndBlock(stmts))
+                    Ok(SqlStmt::BeginEndBlock(declarations, stmts))
                 }
                 Rule::commit_stmt => Ok(SqlStmt::Commit),
                 Rule::rollback_stmt => dml::parse_rollback(inner),
@@ -203,6 +240,39 @@ fn parse_statement(inner: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
         Rule::begin_stmt => Ok(SqlStmt::Begin),
         Rule::begin_end_block => {
             let inner: Vec<_> = inner.into_inner().collect();
+            let declarations: Vec<VariableDeclaration> = inner
+                .iter()
+                .filter(|p| p.as_rule() == Rule::declare_stmt)
+                .map(|p| {
+                    let mut decl_inner = p.clone().into_inner();
+                    let name = decl_inner
+                        .next()
+                        .map(|n| n.as_str().trim().to_string())
+                        .ok_or_else(|| SqlError::Parse("Missing declare name".to_string()))?;
+                    let data_type_pair = decl_inner
+                        .next()
+                        .ok_or_else(|| SqlError::Parse("Missing declare type".to_string()))?;
+                    let data_type = crate::engines::mysql::parser::ddl::parse_data_type_from_rule(
+                        data_type_pair,
+                    )?;
+                    let default_value =
+                        if decl_inner.peek().map(|p| p.as_rule()) == Some(Rule::KW_DEFAULT) {
+                            let _ = decl_inner.next();
+                            let expr_pair = decl_inner.next();
+                            expr_pair
+                                .map(|e| expr::parse_expression(e).map(|ex| ex.into()))
+                                .transpose()?
+                        } else {
+                            None
+                        };
+                    Ok(VariableDeclaration {
+                        name,
+                        data_type,
+                        default_value,
+                    })
+                })
+                .collect::<SqlResult<Vec<_>>>()?;
+
             let stmts: Vec<SqlStmt> = inner
                 .into_iter()
                 .filter(|p| p.as_rule() == Rule::statement)
@@ -211,7 +281,7 @@ fn parse_statement(inner: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {
                     parse_statement(stmt_inner)
                 })
                 .collect::<SqlResult<Vec<_>>>()?;
-            Ok(SqlStmt::BeginEndBlock(stmts))
+            Ok(SqlStmt::BeginEndBlock(declarations, stmts))
         }
         Rule::commit_stmt => Ok(SqlStmt::Commit),
         Rule::rollback_stmt => dml::parse_rollback(inner),

@@ -10,7 +10,10 @@ drop_function_stmt = { KW_DROP ~ KW_FUNCTION ~ identifier }
 call_stmt = { KW_CALL ~ identifier ~ "(" ~ expression_list? ~ ")" }
 
 // BEGIN...END block for stored procedures
-begin_end_block = { KW_BEGIN ~ statement_list? ~ KW_END }
+begin_end_block = { KW_BEGIN ~ declare_list? ~ statement_list? ~ KW_END }
+declare_list = { declare_stmt ~ (";" ~ declare_stmt)* }
+declare_stmt = { KW_DECLARE ~ identifier ~ data_type ~ (KW_DEFAULT ~ expression)? }
+
 statement_list = { statement ~ (";" ~ statement)* }
 
 param_list = { param ~ ("," ~ param)* }
@@ -369,6 +372,7 @@ KW_REVOKE   = @{ ^"REVOKE" ~ !id_char }
 KW_ALL      = @{ ^"ALL" ~ !id_char }
 KW_MODIFY   = @{ ^"MODIFY" ~ !id_char }
 KW_DEFAULT  = @{ ^"DEFAULT" ~ !id_char }
+KW_DECLARE = @{ ^"DECLARE" ~ !id_char }
 KW_NOT_NULL = @{ ^"NOT_NULL" | "^NOT NULL" ~ !id_char }
 KW_ROW_NUMBER = @{ ^"ROW_NUMBER" ~ !id_char }
 KW_RANK = @{ ^"RANK" ~ !id_char }
