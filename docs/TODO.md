@@ -286,7 +286,7 @@ engines/elastic/
 - [x] Variable declarations (DECLARE name TYPE DEFAULT value)
 - [ ] DELIMITER support
 - [x] Control flow - IF/CASE
-- [ ] Control flow - WHILE/REPEAT/LOOP
+- [x] Control flow - WHILE/REPEAT/LOOP
 
 ### SHOW Commands - ✅ COMPLETE
 

@@ -20,6 +20,26 @@ pub struct CaseStmt {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WhileStmt {
+    pub condition: crate::squeal::ir::Expression,
+    pub body: Vec<Squeal>,
+    pub label: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RepeatStmt {
+    pub body: Vec<Squeal>,
+    pub condition: crate::squeal::ir::Expression,
+    pub label: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LoopStmt {
+    pub body: Vec<Squeal>,
+    pub label: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SetStmt {
     pub assignments: Vec<(Expression, Expression)>,
 }

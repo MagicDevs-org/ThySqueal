@@ -6,7 +6,9 @@ pub mod utils;
 
 pub use ddl::parse_data_type_from_rule;
 
-use crate::engines::mysql::ast::{CallStmt, CaseStmt, IfStmt, SqlStmt, VariableDeclaration};
+use crate::engines::mysql::ast::{
+    CallStmt, CaseStmt, IfStmt, LoopStmt, RepeatStmt, SqlStmt, VariableDeclaration, WhileStmt,
+};
 use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::squeal::exec::ParseResult;
 use crate::squeal::ir::Squeal;
@@ -167,6 +169,9 @@ pub fn parse(sql: &str) -> SqlResult<SqlStmt> {
                 }
                 Rule::if_stmt => parse_if_stmt(inner.clone().into_inner()),
                 Rule::case_stmt => parse_case_stmt(inner.clone().into_inner()),
+                Rule::while_stmt => parse_while_stmt(inner.clone().into_inner()),
+                Rule::repeat_stmt => parse_repeat_stmt(inner.clone().into_inner()),
+                Rule::loop_stmt => parse_loop_stmt(inner.clone().into_inner()),
                 Rule::commit_stmt => Ok(SqlStmt::Commit),
                 Rule::rollback_stmt => dml::parse_rollback(inner),
                 Rule::savepoint_stmt => dml::parse_savepoint(inner),
@@ -435,4 +440,90 @@ fn parse_case_stmt(inner: pest::iterators::Pairs<Rule>) -> SqlResult<SqlStmt> {
         when_clauses,
         else_body,
     }))
+}
+
+fn parse_while_stmt(inner: pest::iterators::Pairs<Rule>) -> SqlResult<SqlStmt> {
+    let inner: Vec<_> = inner.collect();
+
+    let condition = inner
+        .iter()
+        .find(|p| p.as_rule() == Rule::expression)
+        .ok_or_else(|| SqlError::Parse("Missing WHILE condition".to_string()))?;
+    let condition = expr::parse_expression(condition.clone())?.into();
+
+    let body: Vec<crate::squeal::ir::Squeal> = inner
+        .iter()
+        .find(|p| p.as_rule() == Rule::statement_list)
+        .map(|p| {
+            p.clone()
+                .into_inner()
+                .filter(|sp| sp.as_rule() == Rule::statement)
+                .map(|sp| {
+                    let stmt_inner = sp.into_inner().next().unwrap();
+                    let parsed = parse_statement(stmt_inner)?;
+                    Ok(parsed.into())
+                })
+                .collect::<SqlResult<Vec<_>>>()
+        })
+        .unwrap_or(Ok(vec![]))?;
+
+    Ok(SqlStmt::While(WhileStmt {
+        condition,
+        body,
+        label: None,
+    }))
+}
+
+fn parse_repeat_stmt(inner: pest::iterators::Pairs<Rule>) -> SqlResult<SqlStmt> {
+    let inner: Vec<_> = inner.collect();
+
+    let body: Vec<crate::squeal::ir::Squeal> = inner
+        .iter()
+        .find(|p| p.as_rule() == Rule::statement_list)
+        .map(|p| {
+            p.clone()
+                .into_inner()
+                .filter(|sp| sp.as_rule() == Rule::statement)
+                .map(|sp| {
+                    let stmt_inner = sp.into_inner().next().unwrap();
+                    let parsed = parse_statement(stmt_inner)?;
+                    Ok(parsed.into())
+                })
+                .collect::<SqlResult<Vec<_>>>()
+        })
+        .unwrap_or(Ok(vec![]))?;
+
+    let condition = inner
+        .iter()
+        .find(|p| p.as_rule() == Rule::expression)
+        .ok_or_else(|| SqlError::Parse("Missing REPEAT until condition".to_string()))?;
+    let condition = expr::parse_expression(condition.clone())?.into();
+
+    Ok(SqlStmt::Repeat(RepeatStmt {
+        body,
+        condition,
+        label: None,
+    }))
+}
+
+fn parse_loop_stmt(inner: pest::iterators::Pairs<Rule>) -> SqlResult<SqlStmt> {
+    let inner: Vec<_> = inner.collect();
+
+    let body: Vec<crate::squeal::ir::Squeal> = inner
+        .iter()
+        .find(|p| p.as_rule() == Rule::statement_list)
+        .map(|p| {
+            p.clone()
+                .into_inner()
+                .filter(|sp| sp.as_rule() == Rule::statement)
+                .map(|sp| {
+                    let stmt_inner = sp.into_inner().next().unwrap();
+                    let parsed = parse_statement(stmt_inner)?;
+                    Ok(parsed.into())
+                })
+                .collect::<SqlResult<Vec<_>>>()
+        })
+        .unwrap_or(Ok(vec![]))?;
+
+    Ok(SqlStmt::Loop(LoopStmt { body, label: None }))
 }

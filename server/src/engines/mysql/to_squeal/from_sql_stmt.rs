@@ -240,6 +240,27 @@ impl From<SqlStmt> for Squeal {
                 }
                 Squeal::Sequence(seq)
             }
+            SqlStmt::While(while_stmt) => {
+                let mut seq = Vec::new();
+                for stmt in while_stmt.body {
+                    seq.push(stmt);
+                }
+                Squeal::Sequence(seq)
+            }
+            SqlStmt::Repeat(repeat_stmt) => {
+                let mut seq = Vec::new();
+                for stmt in repeat_stmt.body {
+                    seq.push(stmt);
+                }
+                Squeal::Sequence(seq)
+            }
+            SqlStmt::Loop(loop_stmt) => {
+                let mut seq = Vec::new();
+                for stmt in loop_stmt.body {
+                    seq.push(stmt);
+                }
+                Squeal::Sequence(seq)
+            }
             SqlStmt::Commit => Squeal::Commit,
             SqlStmt::Rollback => Squeal::Rollback,
             SqlStmt::Savepoint(sp) => Squeal::Savepoint(sp),
