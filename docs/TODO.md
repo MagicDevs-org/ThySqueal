@@ -284,7 +284,8 @@ engines/elastic/
 - [x] Parameter support (IN, OUT, INOUT) with types
 - [x] BEGIN/END blocks
 - [x] Variable declarations (DECLARE name TYPE DEFAULT value)
-- [x] DELIMITER support
+- [x] DELIMITER support (basic)
+- [ ] DELIMITER support (full - multi-statement parsing)
 - [x] Control flow - IF/CASE
 - [x] Control flow - WHILE/REPEAT/LOOP
 
