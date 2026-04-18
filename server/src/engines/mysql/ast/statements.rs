@@ -1,8 +1,23 @@
 use super::condition::Condition;
 use super::expression::Expression;
+use crate::squeal::ir::Squeal;
 use crate::storage::{Column, DataType, ForeignKey, Privilege, Value};
 use serde::{Deserialize, Serialize};
 use strum_macros::{AsRefStr, Display};
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct IfStmt {
+    pub condition: crate::squeal::ir::Expression,
+    pub then_body: Vec<Squeal>,
+    pub else_body: Option<Vec<Squeal>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CaseStmt {
+    pub expr: Option<crate::squeal::ir::Expression>,
+    pub when_clauses: Vec<(crate::squeal::ir::Expression, Vec<Squeal>)>,
+    pub else_body: Option<Vec<Squeal>>,
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SetStmt {

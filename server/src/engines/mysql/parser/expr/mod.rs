@@ -7,6 +7,7 @@ use crate::engines::mysql::ast::{BinaryOp, Expression, SqlStmt};
 use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::engines::mysql::parser::Rule;
 
+#[allow(unused_imports)]
 pub use case_when::parse_case_when;
 pub use condition::{parse_condition, parse_where_clause};
 pub use functions::{parse_aggregate, parse_scalar_func, parse_window_function};
@@ -159,7 +160,6 @@ pub fn parse_factor(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expression> 
         Rule::aggregate_func => parse_aggregate(first),
         Rule::scalar_func => parse_scalar_func(first),
         Rule::window_func => parse_window_function(first),
-        Rule::case_when => parse_case_when(first),
         Rule::literal
         | Rule::string_literal
         | Rule::number_literal
@@ -191,6 +191,7 @@ pub fn parse_factor(pair: pest::iterators::Pair<Rule>) -> SqlResult<Expression> 
             }
         }
         Rule::expression => parse_any_expression(first),
+        Rule::case_expr => parse_case_when(first),
         Rule::KW_NOT => {
             let next_factor = inner
                 .next()

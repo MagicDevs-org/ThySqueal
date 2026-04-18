@@ -190,6 +190,56 @@ impl From<SqlStmt> for Squeal {
                 }
                 Squeal::Sequence(squeal_stmts)
             }
+            SqlStmt::If(if_stmt) => {
+                let mut seq = Vec::new();
+                let condition_var = "@_if_cond";
+                seq.push(Squeal::Set(crate::squeal::ir::stmt::Set {
+                    assignments: vec![(
+                        crate::squeal::ir::Expression::Variable(crate::squeal::ir::Variable {
+                            name: condition_var.to_string(),
+                            is_system: false,
+                            scope: crate::squeal::ir::VariableScope::User,
+                        }),
+                        if_stmt.condition,
+                    )],
+                }));
+                for stmt in if_stmt.then_body {
+                    seq.push(stmt);
+                }
+                if let Some(else_body) = if_stmt.else_body {
+                    for stmt in else_body {
+                        seq.push(stmt);
+                    }
+                }
+                Squeal::Sequence(seq)
+            }
+            SqlStmt::Case(case_stmt) => {
+                let mut seq = Vec::new();
+                let expr_var = "@_case_expr";
+                if let Some(e) = case_stmt.expr {
+                    seq.push(Squeal::Set(crate::squeal::ir::stmt::Set {
+                        assignments: vec![(
+                            crate::squeal::ir::Expression::Variable(crate::squeal::ir::Variable {
+                                name: expr_var.to_string(),
+                                is_system: false,
+                                scope: crate::squeal::ir::VariableScope::User,
+                            }),
+                            e,
+                        )],
+                    }));
+                }
+                for (_when_expr, then_stmts) in case_stmt.when_clauses {
+                    for stmt in then_stmts {
+                        seq.push(stmt);
+                    }
+                }
+                if let Some(else_body) = case_stmt.else_body {
+                    for stmt in else_body {
+                        seq.push(stmt);
+                    }
+                }
+                Squeal::Sequence(seq)
+            }
             SqlStmt::Commit => Squeal::Commit,
             SqlStmt::Rollback => Squeal::Rollback,
             SqlStmt::Savepoint(sp) => Squeal::Savepoint(sp),

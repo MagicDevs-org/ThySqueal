@@ -1,7 +1,7 @@
 // MySQL Grammar
 
 // Main statement
-statement = { SOI ~ (show_stmt | explain_stmt | describe_stmt | use_stmt | search_stmt | select_stmt | insert_stmt | update_stmt | delete_stmt | create_table_stmt | create_database_stmt | create_trigger_stmt | create_materialized_view_stmt | create_view_stmt | alter_view_stmt | drop_view_stmt | create_procedure_stmt | drop_procedure_stmt | create_function_stmt | drop_function_stmt | call_stmt | alter_table_stmt | drop_table_stmt | drop_database_stmt | drop_trigger_stmt | create_index_stmt | create_user_stmt | drop_user_stmt | grant_stmt | revoke_stmt | begin_stmt | begin_end_block | commit_stmt | rollback_stmt | prepare_stmt | execute_stmt | deallocate_stmt | set_stmt) ~ ";"? ~ EOI }
+statement = { SOI ~ (show_stmt | explain_stmt | describe_stmt | use_stmt | search_stmt | select_stmt | insert_stmt | update_stmt | delete_stmt | create_table_stmt | create_database_stmt | create_trigger_stmt | create_materialized_view_stmt | create_view_stmt | alter_view_stmt | drop_view_stmt | create_procedure_stmt | drop_procedure_stmt | create_function_stmt | drop_function_stmt | call_stmt | if_stmt | case_stmt | alter_table_stmt | drop_table_stmt | drop_database_stmt | drop_trigger_stmt | create_index_stmt | create_user_stmt | drop_user_stmt | grant_stmt | revoke_stmt | begin_stmt | begin_end_block | commit_stmt | rollback_stmt | prepare_stmt | execute_stmt | deallocate_stmt | set_stmt) ~ ";"? ~ EOI }
 
 create_procedure_stmt = { KW_CREATE ~ KW_PROCEDURE ~ identifier ~ "(" ~ param_list? ~ ")" ~ KW_AS ~ statement }
 drop_procedure_stmt = { KW_DROP ~ KW_PROCEDURE ~ identifier }
@@ -13,6 +13,12 @@ call_stmt = { KW_CALL ~ identifier ~ "(" ~ expression_list? ~ ")" }
 begin_end_block = { KW_BEGIN ~ declare_list? ~ statement_list? ~ KW_END }
 declare_list = { declare_stmt ~ (";" ~ declare_stmt)* }
 declare_stmt = { KW_DECLARE ~ identifier ~ data_type ~ (KW_DEFAULT ~ expression)? }
+
+// Control flow statements
+if_stmt = { KW_IF ~ expression ~ KW_THEN ~ statement_list ~ (KW_ELSE ~ statement_list)? ~ KW_END ~ KW_IF }
+case_stmt = { KW_CASE ~ expression? ~ case_branch_list ~ (KW_ELSE ~ statement_list)? ~ KW_END }
+case_branch_list = { case_branch ~ (case_branch)* }
+case_branch = { KW_WHEN ~ expression ~ KW_THEN ~ statement_list }
 
 statement_list = { statement ~ (";" ~ statement)* }
 
@@ -219,9 +225,9 @@ plus_minus = { "+" | "-" }
 term = { factor ~ (mul_div ~ factor)* }
 mul_div = { "*" | "/" | "%" }
 
-factor = { window_func | aggregate_func | scalar_func | case_when | variable | column_ref | literal | placeholder | "(" ~ select_stmt_inner ~ ")" | "(" ~ expression ~ ")" | KW_NOT ~ factor | "-" ~ factor }
+factor = { window_func | aggregate_func | scalar_func | case_expr | variable | column_ref | literal | placeholder | "(" ~ select_stmt_inner ~ ")" | "(" ~ expression ~ ")" | KW_NOT ~ factor | "-" ~ factor }
 
-case_when = { KW_CASE ~ when_clause+ ~ (KW_ELSE ~ expression)? ~ KW_END }
+case_expr = { KW_CASE ~ when_clause+ ~ (KW_ELSE ~ expression)? ~ KW_END }
 when_clause = { KW_WHEN ~ expression ~ KW_THEN ~ expression }
 
 window_func = { window_func_name ~ "(" ~ (star | expression ~ ("," ~ expression)*)? ~ ")" ~ KW_OVER ~ "(" ~ window_spec ~ ")" }

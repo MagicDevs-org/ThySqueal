@@ -49,6 +49,8 @@ pub enum SqlStmt {
     Show(ShowStmt),
     Begin,
     BeginEndBlock(Vec<VariableDeclaration>, Vec<SqlStmt>),
+    If(IfStmt),
+    Case(CaseStmt),
     Commit,
     Rollback,
     Savepoint(squeal::ir::stmt::SavepointStmt),
