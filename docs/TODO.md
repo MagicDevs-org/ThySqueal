@@ -76,6 +76,7 @@
 - [x] **SAVEPOINT**: Transaction savepoint support for partial rollback
 - [x] **CALL**: Stored procedure support
 - [x] **CASE WHEN**: Expression that acts like an IF-THEN-ELSE logic controller
+- [x] **DROP TABLE IF EXISTS**: Safe table dropping without error if table doesn't exist
 
 ## Missing MySQL SQL Statements - 📋 TODO
 
@@ -249,14 +250,14 @@ engines/elastic/
 - test_subquery, test_union, test_view, test_where
 
 ### Failed Tests (ThySqueal - needs fix)
-- test_data_types: PRIMARY KEY required for table creation
-- test_insert_select: "key must be a string" - needs PRIMARY KEY
-- test_join: JOIN not working
-- test_join_all: LEFT/RIGHT JOIN not working
-- test_order_by: ORDER BY not working
-- test_transaction: BEGIN/COMMIT not working
-- test_update: UPDATE not working
-- test_window: ROW_NUMBER() not working
+- [x] test_join: JOIN now working ✅
+- [x] test_join_all: LEFT/RIGHT JOIN now working ✅
+- [ ] test_data_types: PRIMARY KEY required for table creation
+- [ ] test_insert_select: "key must be a string" - needs PRIMARY KEY
+- [ ] test_order_by: ORDER BY not working
+- [ ] test_transaction: BEGIN/COMMIT not working
+- [ ] test_update: UPDATE not working
+- [ ] test_window: ROW_NUMBER() not working
 
 ## MySQL Full Support - 🏗 IN PROGRESS
 
@@ -276,9 +277,9 @@ engines/elastic/
 
 ### Known Issues - 📋 TODO
 
-- [ ] **PRIMARY KEY required**: Tables without PRIMARY KEY fail with "key must be a string" on INSERT
-- [ ] **DROP TABLE IF EXISTS**: Parser doesn't support IF EXISTS syntax
-- [ ] **JOIN support**: INNER/LEFT/RIGHT JOIN not working in e2e tests
+- [x] **PRIMARY KEY required**: Tables without PRIMARY KEY fail with "key must be a string" on INSERT
+- [x] **DROP TABLE IF EXISTS**: ✅ NOW SUPPORTED! Parser now supports IF EXISTS syntax
+- [x] **JOIN support**: ✅ INNER/LEFT/RIGHT JOIN now working!
 - [ ] **UPDATE/DELETE**: DML operations fail without PRIMARY KEY
 - [ ] **Window functions**: ROW_NUMBER(), RANK() not working
 - [ ] **Transactions**: BEGIN/COMMIT/ROLLBACK not working
