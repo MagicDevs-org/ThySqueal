@@ -2,14 +2,14 @@
 
 ## Overview
 
-Redis-compatible in-memory key-value store with multiple data structures. Accessible via Redis protocol (RESP on port 6379) and JSqueal (JSON API).
+Redis-compatible in-memory key-value store with multiple data structures. Accessible via Redis protocol (RESP on port 16379) and JSqueal (JSON API).
 
 ## Storage Backend
 
 - Primary: In-memory hash maps for concurrent access
 - Persistence: Sled-based snapshots and WAL for durability
 
-## Redis Protocol (Port 6379)
+## Redis Protocol (Port 16379)
 
 ### Strings
 

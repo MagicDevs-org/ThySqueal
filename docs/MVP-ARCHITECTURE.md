@@ -18,8 +18,8 @@ engines/
 
 HTTP (Axum)       →  POST /_query (SQL)
 HTTP (Axum)       →  POST /_jsqueal (JSON)
-MySQL TCP (3306)   →  Parser → Squeal IR
-Redis TCP (6379)    →  RESP → Squeal IR
+MySQL TCP (13306)   →  Parser → Squeal IR
+Redis TCP (16379)    →  RESP → Squeal IR
                         ↓
                    Executor (shared)
                         ↓
@@ -109,7 +109,7 @@ server/src/
 | Feature | Status | Description |
 | --- | --- | --- |
 | SQL Dump/Restore | ✅ Done | Export/Import database state as .sql scripts |
-| MySQL Protocol | ✅ Done | Support standard MySQL clients over TCP port 3306 |
+| MySQL Protocol | ✅ Done | Support standard MySQL clients over TCP port 13306 |
 | Parameterized Queries | ✅ Done | Prevention of SQL injection and query reuse |
 | AUTO_INCREMENT | ✅ Done | Automated ID generation for integer columns |
 | ALTER TABLE | ✅ Done | Non-destructive schema evolution |

@@ -1,6 +1,6 @@
 compatibility:
   version: "8.6"
 tcp:
-  addr: "127.0.0.1:6379"
+  addr: "127.0.0.1:16379"
 uds:
   addr: "/tmp/thysqueal/redis.sock"

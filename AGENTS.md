@@ -17,8 +17,8 @@ ThySqueal is a SQL server with HTTP JSON API, built with Rust. It's a Cargo work
 - **SQL Execution**: Modularized executor processing Squeal IR. Supports JOINs, Subqueries, Aggregations, GROUP BY, etc.
 - **Materialized Views**: Pre-calculated views with automatic data refresh on mutations
 - **Auto-Increment**: Support for `AUTO_INCREMENT` attribute and `SERIAL` data type
-- **MySQL Protocol**: Native TCP support on port 3306
-- **Redis Protocol**: RESP-based TCP support on port 6379, routes through Squeal IR
+- **MySQL Protocol**: Native TCP support on port 13306
+- **Redis Protocol**: RESP-based TCP support on port 16379, routes through Squeal IR
 - **Storage**: Hybrid in-memory storage with Sled-based WAL and snapshotting
 - **Information Schema**: Virtual `information_schema` tables (tables, columns, indexes)
 
@@ -76,7 +76,7 @@ cargo build
 cargo build -p thysqueal-server   # Server
 cargo build -p thysqueal-cli      # Client
 
-# Run server (HTTP on port 9200)
+# Run server (HTTP on port 8888)
 cargo run -p thysqueal-server
 
 # Run server with custom config

@@ -1,6 +1,6 @@
 compatibility:
   version: "9.6"
 tcp:
-  addr: "127.0.0.1:3306"
+  addr: "127.0.0.1:13306"
 uds:
   addr: "/tmp/thysqueal/mysql.sock"

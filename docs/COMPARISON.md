@@ -66,7 +66,7 @@ While ThySqueal implements a significant subset of the MySQL dialect, it is opti
 | **Transactions (ACID)** | ✅ Snapshot | ✅ Multi-level | ThySqueal uses WAL and snapshotting for ACID compliance. |
 | **Prepared Statements** | ✅ Supported | ✅ Supported | `PREPARE`, `EXECUTE`, `DEALLOCATE` commands. |
 | **User & RBAC** | ✅ Supported | ✅ Full Support | `GRANT`, `REVOKE`, and privilege-based access control. |
-| **Key-Value API** | ✅ RESP (Redis) | ❌ No | ThySqueal exposes a Redis-compatible port (6379). |
+| **Key-Value API** | ✅ RESP (Redis) | ❌ No | ThySqueal exposes a Redis-compatible port (16379). |
 | **JSON Query (JSqueal)** | ✅ Native | ❌ No | Programmatic JSON-to-IR interface bypassing the SQL parser. |
 | **Stored Procs / Triggers** | ❌ No | ✅ Supported | Logic is preferred in the application layer. |
 

@@ -22,7 +22,7 @@ REST API for ThySqueal, Elasticsearch-style endpoints for data access.
 ```yaml
 server:
   host: "0.0.0.0"
-  http_port: 9200
+  http_port: 8888
 
 logging:
   level: "info"

@@ -27,7 +27,7 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 
 | Binary | Port | Purpose |
 | --- | --- | --- |
-| `thysqueal-server` | 3306 (SQL), 9200 (HTTP) | Server daemon |
+| `thysqueal-server` | 13306, 8888 (HTTP) | Server daemon |
 | `thysqueal-cli` | CLI | Interactive JS REPL + CLI tool |
 
 ---
@@ -142,7 +142,7 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 ### Current Status (as of v0.8)
 
 - [x] Workspace setup
-- [x] Server binary with Axum HTTP, MySQL TCP (3306), and RESP (6379)
+- [x] Server binary with Axum HTTP, MySQL TCP (13306), and RESP (16379)
 - [x] Client binary with REPL
 - [x] **Pluggable Engine Architecture**: Protocol, Engine, Registry traits
 - [x] **Squeal IR**: Unified internal representation
@@ -162,13 +162,13 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 
 | Engine | Status | Port | Protocol |
 |--------|--------|------|----------|
-| MySQL | ✅ Complete | 3306 | MySQL wire |
-| Redis | ✅ Complete | 6379 | RESP |
+| MySQL | ✅ Complete | 13306 | MySQL wire |
+| Redis | ✅ Complete | 16379 | RESP |
 | PostgreSQL | 📋 TODO | 5432 | PostgreSQL wire |
 | MongoDB | 📋 TODO | 27017 | MongoDB wire |
 | MSSQL | 📋 TODO | 1433 | TDS |
 | Oracle | 📋 TODO | 1521 | TNS |
-| Elasticsearch | 📋 TODO | 9200 | REST |
+| Elasticsearch | 📋 TODO | 8888 | REST |
 
 ---
 
@@ -177,7 +177,7 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 ### Phase 1: Foundation (v0.1) - ✅ COMPLETE
 
 - [x] Set up workspace with Cargo workspace
-- [x] Server binary with Axum HTTP (port 9200)
+- [x] Server binary with Axum HTTP (port 8888)
 - [x] Client binary with REPL
 - [x] SQL parser using Pest (SELECT, INSERT, UPDATE, DELETE, CREATE TABLE, DROP TABLE, WHERE)
 - [x] In-memory table storage
@@ -211,7 +211,7 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 - [x] **Information Schema**: Metadata discoverability
 - [x] **Explain Plan**: Query execution transparency
 - [x] **SQL Dump/Restore**: Export/Import SQL scripts
-- [x] **MySQL Protocol Compatibility**: Native TCP support (Port 3306)
+- [x] **MySQL Protocol Compatibility**: Native TCP support (Port 13306)
 
 ### Phase 5: Compatibility & Ecosystem (v0.5) - ✅ COMPLETE
 
@@ -229,7 +229,7 @@ A MySQL-compatible SQL server with dual-protocol support (SQL over TCP + HTTP JS
 
 ### Phase 6: Key-Value Storage (v0.6) - ✅ COMPLETE
 
-- [x] **Redis Protocol Compatibility**: Support for RESP protocol on port 6379
+- [x] **Redis Protocol Compatibility**: Support for RESP protocol on port 16379
 - [x] **Core Commands**: GET, SET, DEL, EXISTS, EXPIRE, TTL, KEYS
 - [x] **Data Structures**: Lists, Sets, Hashes, Sorted Sets, **Streams (XADD, XREAD, etc.)**
 - [x] **Persistence**: RDB-style snapshots and AOF (Append Only File) integration with existing WAL

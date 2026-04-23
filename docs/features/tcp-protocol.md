@@ -17,8 +17,8 @@ Server -> Client: OKPacket (auth success)
 ### Connection URI
 
 ```bash
-thysqueal-cli thysqueal://localhost:3306
-thysqueal-cli 127.0.0.1:3306
+thysqueal-cli thysqueal://localhost:13306
+thysqueal-cli 127.0.0.1:13306
 ```
 
 ## Packet Format

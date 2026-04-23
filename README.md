@@ -7,7 +7,7 @@ A lightweight, MySQL-compatible SQL server with dual-protocol support (SQL over 
 ## Features
 
 - **SQL Engine**: Pest-based parser supporting SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, JOINs, Subqueries, Aggregations, and more.
-- **MySQL Compatible**: Native TCP support on port 3306. Connect via standard `mysql` CLI or GUI tools.
+- **MySQL Compatible**: Native TCP support on port 13306. Connect via standard `mysql` CLI or GUI tools.
 - **Full-Text Search**: Integrated Tantivy-powered search with `SEARCH` command.
 - **Persistence**: Hybrid in-memory storage with Sled-based snapshotting.
 - **HTTP API**: Axum-based JSON API supporting both standard SQL (`POST /_query`) and **JSqueal** JSON-based queries (`POST /_jsqueal`).
@@ -21,14 +21,14 @@ A lightweight, MySQL-compatible SQL server with dual-protocol support (SQL over 
 ### Build and Run Server
 
 ```bash
-# Start the server (default HTTP port 9200)
+# Start the server (default HTTP port 8888)
 cargo run -p thysqueal-server
 ```
 
 ### JSqueal Example (JSON Query)
 
 ```bash
-curl -X POST http://localhost:9200/_jsqueal -H "Content-Type: application/json" -d '{
+curl -X POST http://localhost:8888/_jsqueal -H "Content-Type: application/json" -d '{
   "squeal": {
     "Select": {
       "table": "users",

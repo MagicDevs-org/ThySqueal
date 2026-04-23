@@ -21,10 +21,10 @@ cargo install thysqueal-cli
 thysqueal-cli
 
 # Execute SQL
-thysqueal-cli -h localhost -p 3306 -e "SELECT * FROM users"
+thysqueal-cli -h localhost -p 13306 -e "SELECT * FROM users"
 
 # HTTP mode
-thysqueal-cli --http localhost:9200 -e "SELECT * FROM users"
+thysqueal-cli --http localhost:8888 -e "SELECT * FROM users"
 
 # Run script
 thysqueal-cli script.js
@@ -42,10 +42,10 @@ thysqueal-cli --export data.json
 const thy = require('ThySqueal');
 
 // TCP SQL connection
-const conn = thy.connect('thysqueal://localhost:3306');
+const conn = thy.connect('thysqueal://localhost:13306');
 
 // HTTP connection
-const conn = thy.connect('http://localhost:9200');
+const conn = thy.connect('http://localhost:8888');
 ```
 
 ### Query
@@ -133,7 +133,7 @@ try {
 # ~/.thysqueal-cli/config.yaml
 connection:
   default_host: "localhost"
-  default_port: 9200
+  default_port: 8888
 
 repl:
   history_size: 1000

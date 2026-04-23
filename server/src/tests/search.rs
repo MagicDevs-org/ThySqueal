@@ -29,9 +29,9 @@ async fn test_full_text_search() {
     let config = Config {
         server: ServerConfig {
             host: "127.0.0.1".to_string(),
-            http_port: Some(9200),
-            sql_port: Some(3306),
-            redis_port: Some(6379),
+            http_port: Some(8888),
+            sql_port: Some(13306),
+            redis_port: Some(16379),
         },
         storage: StorageConfig {
             max_memory_mb: 1024,

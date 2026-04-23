@@ -76,10 +76,10 @@ security:
 
 ```bash
 # SQL with TLS
-thysqueal-cli thysqueal://localhost:3306
+thysqueal-cli thysqueal://localhost:13306
 
 # HTTP with TLS
-curl https://localhost:9200/health
+curl https://localhost:8888/health
 ```
 
 ## SQL Injection Prevention

@@ -14,7 +14,7 @@ help:
 	@echo "  make clean         - Clean build artifacts"
 	@echo "  make deps          - Show dependencies"
 	@echo ""
-	@echo "Server runs on http://localhost:9200"
+	@echo "Server runs on http://localhost:8888"
 
 build:
 	cargo build

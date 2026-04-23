@@ -42,7 +42,7 @@
 - [x] Write-Ahead Logging (WAL) for durability
 - [x] Information Schema (tables, columns metadata)
 - [x] SQL Dump/Restore (.sql script export)
-- [x] MySQL Protocol Compatibility (TCP 3306)
+- [x] MySQL Protocol Compatibility (port 13306)
 - [x] Parameterized Queries (Prepared Statements)
 
 ## Code Quality & Refactoring - ✅ COMPLETE
@@ -116,7 +116,7 @@
 
 ## Phase 6: Key-Value Storage (v0.6) - ✅ COMPLETE
 
-- [x] **Redis Protocol Compatibility**: Support for RESP protocol on port 6379
+- [x] **Redis Protocol Compatibility**: Support for RESP protocol on port 16379
 - [x] **Core Commands**: GET, SET, DEL, EXISTS, EXPIRE, TTL, KEYS
 - [x] **Data Structures**: Hash (HSET/HGET/HDEL/HGETALL), Lists (LPUSH/RPUSH/LRANGE/LPOP/RPOP/LLEN), Sets (SADD/SREM/SMEMBERS/SISMEMBER), Sorted Sets (ZADD/ZRANGE/ZRANGEBYSCORE/ZREM)
 - [x] **Streams (XADD, XREAD, etc.)**: XADD, XRANGE, XLEN
@@ -212,7 +212,7 @@ engines/oracle/
 ```code
 engines/elastic/
 ├── elastic_engine.rs # Engine trait impl
-├── protocol.rs      # HTTP/REST (port 9200)
+├── protocol.rs      # HTTP/REST (port 8888)
 └── to_squeal/     # Elasticsearch query -> Squeal IR
 ```
 

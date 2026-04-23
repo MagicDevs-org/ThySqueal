@@ -32,7 +32,7 @@
 
 ### Added
 
-- **Redis Protocol Compatibility**: RESP protocol support on port 6379 with comprehensive command implementation.
+- **Redis Protocol Compatibility**: RESP protocol support on port 16379 with comprehensive command implementation.
 - **Core KV Commands**: GET, SET, DEL, EXISTS, EXPIRE, TTL, KEYS
 - **Hash Commands**: HSET, HGET, HDEL, HGETALL
 - **List Commands**: LPUSH, RPUSH, LRANGE, LPOP, RPOP, LLEN
@@ -86,7 +86,7 @@
 
 ### Added
 
-- **MySQL Protocol Compatibility**: Native TCP support on port 3306. Allows standard MySQL clients (CLI, DBeaver, etc.) to connect.
+- **MySQL Protocol Compatibility**: Native TCP support on port 13306. Allows standard MySQL clients (CLI, DBeaver, etc.) to connect.
 - **Prepared Statements**: Full support for `PREPARE`, `EXECUTE`, and `DEALLOCATE` commands.
 - **Parameterized Queries**: Support for `?` and `$1`, `$2` style placeholders in SELECT, INSERT, UPDATE, and DELETE.
 - **Enhanced INSERT**: Added support for specifying target columns in INSERT statements (e.g., `INSERT INTO table (col1, col2) VALUES (...)`).

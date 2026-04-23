@@ -14,7 +14,7 @@ struct Cli {
     #[arg(short, long, default_value = "localhost")]
     host: String,
 
-    #[arg(short, long, default_value_t = 9200)]
+    #[arg(short, long, default_value_t = 8888)]
     port: u16,
 
     #[arg(long, default_value_t = true)]

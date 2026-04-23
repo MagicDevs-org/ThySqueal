@@ -34,7 +34,7 @@ fn default_host() -> String {
 
 #[allow(dead_code)]
 fn default_port() -> u16 {
-    9200
+    8888
 }
 
 #[allow(dead_code)]
