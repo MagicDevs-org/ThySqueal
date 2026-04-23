@@ -149,6 +149,7 @@ impl From<squeal::ir::Join> for Join {
             join_type: match j.join_type {
                 squeal::ir::JoinType::Inner => JoinType::Inner,
                 squeal::ir::JoinType::Left => JoinType::Left,
+                squeal::ir::JoinType::Right => JoinType::Right,
             },
             on: j.on.into(),
         }

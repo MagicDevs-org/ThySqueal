@@ -15,6 +15,9 @@ pub fn parse_join(pair: pest::iterators::Pair<Rule>) -> SqlResult<Join> {
             Rule::KW_LEFT => {
                 join_type = JoinType::Left;
             }
+            Rule::KW_RIGHT => {
+                join_type = JoinType::Right;
+            }
             Rule::table_name_with_alias => {
                 table_name_pair = Some(p);
             }
@@ -23,6 +26,9 @@ pub fn parse_join(pair: pest::iterators::Pair<Rule>) -> SqlResult<Join> {
             }
             _ if p.as_str().to_uppercase().contains("LEFT") => {
                 join_type = JoinType::Left;
+            }
+            _ if p.as_str().to_uppercase().contains("RIGHT") => {
+                join_type = JoinType::Right;
             }
             _ => {}
         }

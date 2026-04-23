@@ -358,6 +358,7 @@ pub struct Join {
 pub enum JoinType {
     Inner,
     Left,
+    Right,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
