@@ -241,12 +241,30 @@ engines/elastic/
 - [ ] **Character set handling**: Proper UTF-8 encoding/decoding based on connection charset
 - [ ] **Server version consistency**: Match `@@version` with server greeting string
 
+## MySQL E2E Test Results (v0.8.x) - 📋 TODO
+
+### Passed Tests (ThySqueal)
+- basic_select, test_aggregations, test_date_funcs, test_datetime, test_ddl, test_delete
+- test_group_by, test_index, test_math_funcs, test_nulls, test_string_funcs
+- test_subquery, test_union, test_view, test_where
+
+### Failed Tests (ThySqueal - needs fix)
+- test_data_types: PRIMARY KEY required for table creation
+- test_insert_select: "key must be a string" - needs PRIMARY KEY
+- test_join: JOIN not working
+- test_join_all: LEFT/RIGHT JOIN not working
+- test_order_by: ORDER BY not working
+- test_transaction: BEGIN/COMMIT not working
+- test_update: UPDATE not working
+- test_window: ROW_NUMBER() not working
+
 ## MySQL Full Support - 🏗 IN PROGRESS
 
-### Data Types - ✅ COMPLETE
+### Data Types - ⚠️ PARTIAL
 
 - [x] **DECIMAL/NUMERIC**: Fixed-point precision numbers
 - [x] **CHAR/VARCHAR(n)**: Fixed and variable-length character types with length specification
+- [ ] **TEXT**: Large text storage fails without PRIMARY KEY
 - [x] **TINYINT/SMALLINT/BIGINT**: 8-bit, 16-bit, 64-bit integers
 - [x] **UNSIGNED**: Support for unsigned integer variants
 - [x] **ENUM**: Enumeration type support
@@ -255,6 +273,15 @@ engines/elastic/
 - [x] **TIMESTAMP**: Timestamp type support
 - [x] **BINARY/VARBINARY**: Binary data types
 - [ ] **GEOMETRY/GEOGRAPHY**: Spatial data types (future)
+
+### Known Issues - 📋 TODO
+
+- [ ] **PRIMARY KEY required**: Tables without PRIMARY KEY fail with "key must be a string" on INSERT
+- [ ] **DROP TABLE IF EXISTS**: Parser doesn't support IF EXISTS syntax
+- [ ] **JOIN support**: INNER/LEFT/RIGHT JOIN not working in e2e tests
+- [ ] **UPDATE/DELETE**: DML operations fail without PRIMARY KEY
+- [ ] **Window functions**: ROW_NUMBER(), RANK() not working
+- [ ] **Transactions**: BEGIN/COMMIT/ROLLBACK not working
 
 ### Enhanced ALTER TABLE - ✅ COMPLETE
 
