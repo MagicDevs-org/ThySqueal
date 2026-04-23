@@ -1,33 +1,33 @@
 # ThySqueal Server Configuration
 # Example config file
 
-version: "1.0"
-
 server:
   host: "127.0.0.1"
   http:
+    enabled: true
     port: 8888
-    tls_enabled: false
+    # Unix socket path (optional)
+    # path: "/tmp/thysqueal/http.sock"
   mysql:
+    enabled: true
     port: 13306
     version: "8.0.0"
+    # Unix socket path (optional)
+    # path: "/tmp/thysqueal/mysql.sock"
   redis:
+    enabled: true
     port: 16379
+    # Unix socket path (optional)
+    # path: "/tmp/thysqueal/redis.sock"
 
 storage:
   data_dir: "./data"
   max_memory_mb: 1024
-  default_cache_size: 1000
-  default_eviction: "LRU"
-  snapshot_interval_sec: 300
   wal_enabled: true
 
 security:
   auth_enabled: false
-  tls_enabled: false
   default_user: "root"
-  default_password: ""
 
 logging:
   level: "info"
-  format: "json"

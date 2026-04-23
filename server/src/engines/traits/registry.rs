@@ -28,6 +28,16 @@ impl Registry {
 
     pub fn get_port(&self, engine: &dyn Engine, config: &Config) -> Option<u16> {
         let key = engine.config_key();
+        let enabled = match key {
+            "mysql" => config.server.mysql.enabled,
+            "redis" => config.server.redis.enabled,
+            _ => false,
+        };
+        
+        if !enabled {
+            return None;
+        }
+        
         match key {
             "mysql" => config.server.mysql.port,
             "redis" => config.server.redis.port,

@@ -36,14 +36,20 @@ impl Default for ServerConfig {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HttpConfig {
+    pub enabled: bool,
     pub port: Option<u16>,
+    pub host: Option<String>,
+    pub path: Option<String>,
     pub tls_enabled: Option<bool>,
 }
 
 impl Default for HttpConfig {
     fn default() -> Self {
         Self {
+            enabled: true,
             port: Some(8888),
+            host: None,
+            path: None,
             tls_enabled: Some(false),
         }
     }
@@ -51,14 +57,20 @@ impl Default for HttpConfig {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MySqlConfig {
+    pub enabled: bool,
     pub port: Option<u16>,
+    pub host: Option<String>,
+    pub path: Option<String>,
     pub version: Option<String>,
 }
 
 impl Default for MySqlConfig {
     fn default() -> Self {
         Self {
+            enabled: true,
             port: Some(13306),
+            host: None,
+            path: None,
             version: Some("8.0.0".to_string()),
         }
     }
@@ -66,13 +78,19 @@ impl Default for MySqlConfig {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RedisConfig {
+    pub enabled: bool,
     pub port: Option<u16>,
+    pub host: Option<String>,
+    pub path: Option<String>,
 }
 
 impl Default for RedisConfig {
     fn default() -> Self {
         Self {
+            enabled: true,
             port: Some(16379),
+            host: None,
+            path: None,
         }
     }
 }
