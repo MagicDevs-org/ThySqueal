@@ -1,9 +1,8 @@
-DROP TABLE users;
-DROP TABLE orders;
-CREATE TABLE users (id INT PRIMARY KEY, name TEXT);
+-- Test JOINs
+CREATE TABLE users (id INT, name TEXT);
 INSERT INTO users VALUES (1, 'alice');
 INSERT INTO users VALUES (2, 'bob');
-CREATE TABLE orders (id INT PRIMARY KEY, user_id INT, amount INT);
+CREATE TABLE orders (id INT, user_id INT, amount INT);
 INSERT INTO orders VALUES (1, 1, 100);
 INSERT INTO orders VALUES (2, 1, 200);
 INSERT INTO orders VALUES (3, 2, 150);

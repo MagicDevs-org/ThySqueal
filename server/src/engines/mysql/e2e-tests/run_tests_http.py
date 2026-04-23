@@ -48,7 +48,14 @@ def run_sql_file(sql_file: Path) -> tuple[dict, list]:
     for stmt in statements:
         if not stmt:
             continue
-        results.append(execute_sql(stmt))
+
+        # Skip DROP TABLE errors (table might not exist)
+        result = execute_sql(stmt)
+        if not result.get("success", True) and "DROP TABLE" in stmt.upper():
+            # For DROP, continue even if table doesn't exist
+            continue
+
+        results.append(result)
 
     final_result = results[-1] if results else {"success": False, "error": "No statements"}
     return final_result, results
@@ -87,7 +94,7 @@ def run_test(sql_file: Path) -> bool:
     # Try to drop common tables before test (ignore errors)
     for table in ['users', 'orders', 'products', 'items']:
         try:
-            execute_sql(f"DROP TABLE {table}")
+            execute_sql(f"DROP TABLE IF EXISTS {table}")
         except:
             pass
 

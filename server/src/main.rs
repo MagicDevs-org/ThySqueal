@@ -74,9 +74,18 @@ fn load_config(config_path: &str) -> anyhow::Result<Arc<Config>> {
     let cfg = config::load_config(config_path)?;
     let config = Arc::new(cfg);
     info!("Configuration loaded:");
-    info!("http.enabled={} port={:?}", config.server.http.enabled, config.server.http.port);
-    info!("mysql.enabled={} port={:?}", config.server.mysql.enabled, config.server.mysql.port);
-    info!("redis.enabled={} port={:?}", config.server.redis.enabled, config.server.redis.port);
+    info!(
+        "http.enabled={} port={:?}",
+        config.server.http.enabled, config.server.http.port
+    );
+    info!(
+        "mysql.enabled={} port={:?}",
+        config.server.mysql.enabled, config.server.mysql.port
+    );
+    info!(
+        "redis.enabled={} port={:?}",
+        config.server.redis.enabled, config.server.redis.port
+    );
     Ok(config)
 }
 

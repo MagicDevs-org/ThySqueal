@@ -166,7 +166,7 @@ kw_enum = @{ ^"ENUM" }
 kw_set = @{ ^"SET" }
 
 // DROP TABLE statement
-drop_table_stmt = { KW_DROP ~ KW_TABLE ~ table_name }
+drop_table_stmt = { KW_DROP ~ KW_TABLE ~ if_exists? ~ table_name }
 
 // ALTER TABLE statement
 alter_table_stmt = { KW_ALTER ~ KW_TABLE ~ table_name ~ (alter_add_column | alter_drop_column | alter_rename_column | alter_rename_table | alter_modify_column | alter_set_default | alter_drop_default | alter_set_not_null | alter_drop_not_null | alter_add_primary_key | alter_drop_primary_key | alter_add_foreign_key | alter_drop_foreign_key | alter_engine | alter_charset) }
