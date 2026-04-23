@@ -1,0 +1,8 @@
+-- DDL: CREATE/DROP/ALTER TABLE
+CREATE TABLE test_ddl (id INT, name TEXT);
+INSERT INTO test_ddl VALUES (1, 'test');
+ALTER TABLE test_ddl ADD COLUMN age INT;
+ALTER TABLE test_ddl MODIFY COLUMN name VARCHAR(50);
+ALTER TABLE test_ddl CHANGE COLUMN name full_name TEXT;
+ALTER TABLE test_ddl ADD PRIMARY KEY (id);
+SELECT * FROM test_ddl

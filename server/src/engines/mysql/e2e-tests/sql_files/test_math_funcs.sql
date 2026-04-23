@@ -1,0 +1,5 @@
+-- Math Functions
+SELECT ABS(-5), CEIL(5.5), FLOOR(5.5), ROUND(5.6), TRUNCATE(5.678, 2);
+SELECT POW(2, 3), SQRT(16), MOD(10, 3);
+SELECT GREATEST(1, 2, 3), LEAST(1, 2, 3);
+SELECT 10 + 5, 10 - 5, 10 * 5, 10 / 5, 10 % 3;

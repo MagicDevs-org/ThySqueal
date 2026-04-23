@@ -1,102 +1,60 @@
-# E2E Test Results
+# MySQL E2E Test Suite
 
-## Test Summary
+Comprehensive MySQL feature tests for ThySqueal compatibility.
 
-### ThySqueal (HTTP port 8888)
+## Test Files
 
-| Test | Status | MySQL Feature |
-|------|--------|--------------|
-| basic_select | ✅ PASS | CREATE, INSERT, SELECT, ORDER BY |
-| test_insert_select | ❌ FAIL | Multiple INSERT |
-| test_update | ❌ FAIL | UPDATE |
-| test_delete | ❌ FAIL | DELETE |
-| test_datetime | ❌ FAIL | NOW(), DATETIME |
-| test_aggregations | ⚠️ SKIP | AVG, SUM, COUNT (no expected) |
-| test_join | ❌ FAIL | JOIN (INNER) |
-| test_order_by | ❌ FAIL | ORDER BY DESC |
-| test_window | ❌ FAIL | ROW_NUMBER() |
+### Data Types
+| Test File | Feature |
+|----------|--------|
+| basic_select | CREATE, INSERT, SELECT, ORDER BY |
+| test_data_types | VARCHAR, TEXT, DATETIME, DATE, TIME |
+| test_nulls | NULL handling, IFNULL, COALESCE, IF |
 
-### Real MySQL (port 3306)
+### DDL
+| Test File | Feature |
+|----------|--------|
+| test_ddl | ALTER TABLE (ADD, MODIFY, CHANGE) |
 
-| Test | Status | MySQL Feature |
-|------|--------|--------------|
-| basic_select | ✅ PASS | CREATE, INSERT, SELECT, ORDER BY |
-| test_insert_select | ✅ PASS | Multiple INSERT |
-| test_update | ✅ PASS | UPDATE |
-| test_delete | ✅ PASS | DELETE |
-| test_datetime | ✅ PASS | NOW(), DATETIME |
-| test_aggregations | ✅ PASS | AVG, SUM, COUNT |
-| test_join | ✅ PASS | JOIN (INNER) |
-| test_order_by | ✅ PASS | ORDER BY DESC |
-| test_window | ✅ PASS | ROW_NUMBER() |
+### DML
+| Test File | Feature |
+|----------|--------|
+| test_insert_select | Multiple INSERT |
+| test_update | UPDATE ... WHERE |
+| test_delete | DELETE ... WHERE |
 
-## Test Details
+### Queries
+| Test File | Feature |
+|----------|--------|
+| test_where | WHERE, AND, OR, IN, BETWEEN |
+| test_subquery | Subqueries |
+| test_group_by | GROUP BY, HAVING |
+| test_order_by | ORDER BY DESC |
+| test_join | INNER JOIN |
+| test_join_all | LEFT/RIGHT JOIN |
 
-### basic_select
-Basic table creation, insert, and select.
-- **Features**: CREATE TABLE, INSERT, SELECT, ORDER BY
-- **ThySqueal**: ✅ PASS
+### Functions
+| Test File | Feature |
+|----------|--------|
+| test_string_funcs | CONCAT, LENGTH, UPPER, LOWER, SUBSTRING, REPLACE |
+| test_math_funcs | ABS, ROUND, POW, SQRT, MOD |
+| test_date_funcs | NOW, DATE_FORMAT, DATEDIFF, DATE_ADD |
+| test_aggregations | AVG, SUM, COUNT |
+| test_window | ROW_NUMBER, RANK, LEAD/LAG |
 
-### test_insert_select
-Multiple rows insert.
-- **Features**: Multiple INSERT statements
-- **ThySqueal**: ❌ FAIL - "key must be a string" (PRIMARY KEY required)
-- **Real MySQL**: ✅ PASS
-
-### test_update
-Update existing rows.
-- **Features**: UPDATE ... WHERE
-- **ThySqueal**: ❌ FAIL
-- **Real MySQL**: ✅ PASS
-
-### test_delete
-Delete rows.
-- **Features**: DELETE ... WHERE
-- **ThySqueal**: ❌ FAIL
-- **Real MySQL**: ✅ PASS
-
-### test_datetime
-Datetime functions.
-- **Features**: NOW(), DATETIME type
-- **ThySqueal**: ❌ FAIL
-- **Real MySQL**: ✅ PASS
-
-### test_aggregations
-Aggregate functions.
-- **Features**: AVG(), SUM(), COUNT()
-- **ThySqueal**: ⚠️ SKIP - no expected file
-- **Real MySQL**: ✅ PASS
-
-### test_join
-INNER JOIN between tables.
-- **Features**: JOIN ... ON
-- **ThySqueal**: ❌ FAIL
-- **Real MySQL**: ✅ PASS
-
-### test_order_by
-Ordering results.
-- **Features**: ORDER BY DESC
-- **ThySqueal**: ❌ FAIL
-- **Real MySQL**: ✅ PASS
-
-### test_window
-Window functions.
-- **Features**: ROW_NUMBER() OVER()
-- **ThySqueal**: ❌ FAIL
-- **Real MySQL**: ✅ PASS
-
-## Known Issues (ThySqueal)
-
-1. **PRIMARY KEY required** - Tables without PRIMARY KEY fail with "key must be a string" error on INSERT
-2. **DROP TABLE IF EXISTS** not supported - parser error on "IF"
-3. **Data persists between runs** - Need to drop tables before each test
+### Advanced
+| Test File | Feature |
+|----------|--------|
+| test_union | UNION, UNION ALL |
+| test_view | CREATE/DROP VIEW |
+| test_index | CREATE/DROP INDEX |
+| test_transaction | BEGIN, COMMIT, ROLLBACK |
 
 ## Running Tests
 
 ### ThySqueal (HTTP on port 8888)
 ```bash
-# Clean start
-rm -rf server/data
+# Start server
 cargo run -p thysqueal-server -- -c server/src/engines/mysql/e2e-tests/test-config.yaml &
 
 # Run tests
@@ -112,30 +70,27 @@ mysql -h localhost -P 3306 -u root -pmysql123 -e "CREATE DATABASE IF NOT EXISTS 
 REAL_MYSQL=true MYSQL_PWD=mysql123 python3 run_tests.py
 ```
 
-## Adding New Tests
+## Test Summary (Real MySQL)
 
-1. Create SQL file in `sql_files/`:
-   ```
-   sql_files/test_new_feature.sql
-   ```
-
-2. Create expected output in `expected/`:
-   ```
-   expected/test_new_feature.txt  # tab-separated
-   # or
-   expected/test_new_feature.csv  # comma-separated
-   ```
-
-3. For expected errors:
-   ```
-   expected/test_new_feature.err
-   ```
-
-4. Run tests to verify:
-   ```bash
-   # ThySqueal
-   python3 run_tests_http.py
-
-   # Real MySQL
-   REAL_MYSQL=true MYSQL_PWD=mysql123 python3 run_tests.py
-   ```
+| Feature | Status |
+|---------|--------|
+| CREATE/INSERT/SELECT | ✅ |
+| Data Types | ✅ |
+| NULL handling | ✅ |
+| ALTER TABLE | ✅ |
+| UPDATE | ✅ |
+| DELETE | ✅ |
+| WHERE clauses | ✅ |
+| Subqueries | ✅ |
+| GROUP BY | ✅ |
+| ORDER BY | ✅ |
+| JOIN (INNER/LEFT/RIGHT) | ✅ |
+| String functions | ✅ |
+| Math functions | ✅ |
+| Date functions | ✅ |
+| Aggregations | ✅ |
+| Window functions | ✅ |
+| UNION | ✅ |
+| Views | ✅ |
+| Indexes | ✅ |
+| Transactions | ✅ |
