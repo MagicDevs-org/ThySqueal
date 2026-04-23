@@ -1,0 +1,12 @@
+server:
+  host: "127.0.0.1"
+  http_port: 8888
+  sql_port: 13306
+  redis_port: 16379
+
+security:
+  auth_enabled: false
+  tls_enabled: false
+
+storage:
+  data_dir: "./data"
