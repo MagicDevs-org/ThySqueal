@@ -74,9 +74,9 @@ fn load_config(config_path: &str) -> anyhow::Result<Arc<Config>> {
     let cfg = config::load_config(config_path)?;
     let config = Arc::new(cfg);
     info!("Configuration loaded:");
-    info!("http_port={:?}", config.server.http_port);
-    info!("sql_port={:?}", config.server.sql_port);
-    info!("redis_port={:?}", config.server.redis_port);
+    info!("http_port={:?}", config.server.http.port);
+    info!("sql_port={:?}", config.server.mysql.port);
+    info!("redis_port={:?}", config.server.redis.port);
     Ok(config)
 }
 
@@ -99,7 +99,7 @@ fn create_executor(config: Arc<Config>, db: Arc<RwLock<Database>>) -> Arc<Execut
 
 // HTTP Server handle
 fn handle_http(executor: Arc<Executor>, config: Arc<Config>) -> Option<JoinHandle<()>> {
-    match config.server.http_port {
+    match config.server.http.port {
         None => None,
         Some(port) => {
             let addr = format!("{}:{}", config.server.host, port);

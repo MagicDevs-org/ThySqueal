@@ -1,8 +1,13 @@
 server:
   host: "127.0.0.1"
-  http_port: 8888
-  sql_port: 13306
-  redis_port: 16379
+  http:
+    port: 8888
+    tls_enabled: false
+  mysql:
+    port: 13306
+    version: "8.0.0"
+  redis:
+    port: 16379
 
 security:
   auth_enabled: false

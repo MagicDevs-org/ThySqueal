@@ -1,16 +1,33 @@
+# ThySqueal Server Configuration
+# Example config file
+
 version: "1.0"
 
-squeal:
+server:
+  host: "127.0.0.1"
   http:
-    addr: "http://localhost:8000/"
-  uds:
-    addr: "/tmp/thysqueal/squeal.sock"
-  admin:
-    addr: "http://localhost:8080/"
-    user: "${THYSQUEAL_ADMIN_USER}"
-    pass: "${THYSQUEAL_ADMIN_PASS}"
-  data_dir: "/tmp/thysqueal/data"
+    port: 8888
+    tls_enabled: false
+  mysql:
+    port: 13306
+    version: "8.0.0"
+  redis:
+    port: 16379
 
-engines:
-  mysql: "./engines/mysql.yml"
-  redis: "./engines/redis.yml"
+storage:
+  data_dir: "./data"
+  max_memory_mb: 1024
+  default_cache_size: 1000
+  default_eviction: "LRU"
+  snapshot_interval_sec: 300
+  wal_enabled: true
+
+security:
+  auth_enabled: false
+  tls_enabled: false
+  default_user: "root"
+  default_password: ""
+
+logging:
+  level: "info"
+  format: "json"

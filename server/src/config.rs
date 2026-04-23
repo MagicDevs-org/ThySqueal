@@ -18,66 +18,91 @@ pub struct Config {
 pub struct ServerConfig {
     #[serde(default = "default_host")]
     pub host: String,
-    pub http_port: Option<u16>,
-    pub sql_port: Option<u16>,
-    pub redis_port: Option<u16>,
+    pub http: HttpConfig,
+    pub mysql: MySqlConfig,
+    pub redis: RedisConfig,
 }
 
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
             host: default_host(),
-            http_port: None,
-            sql_port: None,
-            redis_port: None,
+            http: HttpConfig::default(),
+            mysql: MySqlConfig::default(),
+            redis: RedisConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct HttpConfig {
+    pub port: Option<u16>,
+    pub tls_enabled: Option<bool>,
+}
+
+impl Default for HttpConfig {
+    fn default() -> Self {
+        Self {
+            port: Some(8888),
+            tls_enabled: Some(false),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MySqlConfig {
+    pub port: Option<u16>,
+    pub version: Option<String>,
+}
+
+impl Default for MySqlConfig {
+    fn default() -> Self {
+        Self {
+            port: Some(13306),
+            version: Some("8.0.0".to_string()),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RedisConfig {
+    pub port: Option<u16>,
+}
+
+impl Default for RedisConfig {
+    fn default() -> Self {
+        Self {
+            port: Some(16379),
         }
     }
 }
 
 fn default_host() -> String {
-    "127.0.0.0".to_string()
+    "127.0.0.1".to_string()
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct StorageConfig {
-    #[serde(default = "default_max_memory")]
-    pub max_memory_mb: u64,
-    #[serde(default = "default_cache_size")]
-    pub default_cache_size: u64,
-    #[serde(default = "default_eviction")]
-    pub default_eviction: String,
-    #[serde(default = "default_snapshot_interval")]
-    pub snapshot_interval_sec: u64,
     #[serde(default = "default_data_dir")]
     pub data_dir: String,
+    pub max_memory_mb: Option<u64>,
+    pub default_cache_size: Option<u64>,
+    pub default_eviction: Option<String>,
+    pub snapshot_interval_sec: Option<u64>,
+    pub wal_enabled: Option<bool>,
 }
 
 impl Default for StorageConfig {
     fn default() -> Self {
         Self {
-            max_memory_mb: default_max_memory(),
-            default_cache_size: default_cache_size(),
-            default_eviction: default_eviction(),
-            snapshot_interval_sec: default_snapshot_interval(),
             data_dir: default_data_dir(),
+            max_memory_mb: Some(1024),
+            default_cache_size: Some(1000),
+            default_eviction: Some("LRU".to_string()),
+            snapshot_interval_sec: Some(300),
+            wal_enabled: Some(true),
         }
     }
-}
-
-fn default_max_memory() -> u64 {
-    1024
-}
-
-fn default_cache_size() -> u64 {
-    1000
-}
-
-fn default_eviction() -> String {
-    "LRU".to_string()
-}
-
-fn default_snapshot_interval() -> u64 {
-    300
 }
 
 fn default_data_dir() -> String {
@@ -86,20 +111,24 @@ fn default_data_dir() -> String {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct SecurityConfig {
-    pub auth_enabled: bool,
-    pub tls_enabled: bool,
+    pub auth_enabled: Option<bool>,
+    pub tls_enabled: Option<bool>,
+    pub default_user: Option<String>,
+    pub default_password: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct LoggingConfig {
     #[serde(default = "default_log_level")]
     pub level: String,
+    pub format: Option<String>,
 }
 
 impl Default for LoggingConfig {
     fn default() -> Self {
         Self {
             level: default_log_level(),
+            format: Some("text".to_string()),
         }
     }
 }

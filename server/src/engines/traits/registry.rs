@@ -29,8 +29,8 @@ impl Registry {
     pub fn get_port(&self, engine: &dyn Engine, config: &Config) -> Option<u16> {
         let key = engine.config_key();
         match key {
-            "mysql" => config.server.sql_port,
-            "redis" => config.server.redis_port,
+            "mysql" => config.server.mysql.port,
+            "redis" => config.server.redis.port,
             _ => None,
         }
     }
