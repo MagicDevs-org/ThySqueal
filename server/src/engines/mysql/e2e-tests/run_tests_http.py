@@ -84,13 +84,12 @@ def compare_results(actual: list[list], expected: list[list]) -> bool:
 def run_test(sql_file: Path) -> bool:
     test_name = sql_file.stem
 
-    # Read setup if exists
-    setup_file = OUTPUT_DIR / f"{test_name}.setup"
-    if setup_file.exists():
-        run_setup(setup_file.read_text().strip())
-    else:
-        # Try to drop the test table
-        execute_sql("DROP TABLE users")
+    # Try to drop common tables before test (ignore errors)
+    for table in ['users', 'orders', 'products', 'items']:
+        try:
+            execute_sql(f"DROP TABLE {table}")
+        except:
+            pass
 
     expected_file_txt = OUTPUT_DIR / f"{test_name}.txt"
     expected_file_csv = OUTPUT_DIR / f"{test_name}.csv"
