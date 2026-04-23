@@ -1,4 +1,4 @@
-use crate::engines::mysql::ast::{DropDatabaseStmt, DropTableStmt, DropTriggerStmt, SqlStmt};
+use crate::engines::mysql::ast::{DropDatabaseStmt, DropTriggerStmt, SqlStmt};
 use crate::engines::mysql::error::{SqlError, SqlResult};
 use crate::engines::mysql::parser::Rule;
 
@@ -16,7 +16,9 @@ pub fn parse_drop_table(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt>
         .collect::<Vec<_>>()
         .join(".");
 
-    Ok(SqlStmt::DropTable(DropTableStmt { name }))
+    let if_exists = inner.find(|p| p.as_rule() == Rule::if_exists).is_some();
+
+    Ok(SqlStmt::DropTable(crate::engines::mysql::ast::DropTableStmt { name }))
 }
 
 pub fn parse_drop_database(pair: pest::iterators::Pair<Rule>) -> SqlResult<SqlStmt> {

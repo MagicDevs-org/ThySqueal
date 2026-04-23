@@ -33,11 +33,11 @@ impl Registry {
             "redis" => config.server.redis.enabled,
             _ => false,
         };
-        
+
         if !enabled {
             return None;
         }
-        
+
         match key {
             "mysql" => config.server.mysql.port,
             "redis" => config.server.redis.port,

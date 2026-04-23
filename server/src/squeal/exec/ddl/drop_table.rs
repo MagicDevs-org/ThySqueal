@@ -9,6 +9,20 @@ impl Executor {
         stmt: DropTable,
         tx_id: Option<&str>,
     ) -> ExecResult<QueryResult> {
+        // Check if table exists first
+        if stmt.if_exists {
+            let db = self.db.read().await;
+            if !db.state().tables.contains_key(&stmt.name) {
+                return Ok(QueryResult {
+                    columns: vec![],
+                    rows: vec![],
+                    rows_affected: 0,
+                    transaction_id: tx_id.map(|s| s.to_string()),
+                    session: None,
+                });
+            }
+        }
+
         // 1. Log to WAL
         {
             let db = self.db.read().await;

@@ -452,6 +452,7 @@ pub enum IndexType {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DropTable {
     pub name: String,
+    pub if_exists: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

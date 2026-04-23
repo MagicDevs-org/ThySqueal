@@ -13,7 +13,7 @@ impl NetworkAddr {
         let addr = format!("{}:{}", host, port);
         NetworkAddr::Tcp(addr.parse().expect("Invalid socket address"))
     }
-    
+
     pub fn unix(path: &str) -> Self {
         NetworkAddr::Unix(PathBuf::from(path))
     }
@@ -28,11 +28,11 @@ pub fn get_listen_addr(config: &MySqlConfig, host: &str) -> Option<NetworkAddr> 
     if !config.enabled {
         return None;
     }
-    
+
     if let Some(ref path) = config.path {
         return Some(NetworkAddr::unix(path));
     }
-    
+
     config.port.map(|port| NetworkAddr::tcp(host, port))
 }
 
@@ -40,11 +40,11 @@ pub fn get_listen_addr_redis(config: &RedisConfig, host: &str) -> Option<Network
     if !config.enabled {
         return None;
     }
-    
+
     if let Some(ref path) = config.path {
         return Some(NetworkAddr::unix(path));
     }
-    
+
     config.port.map(|port| NetworkAddr::tcp(host, port))
 }
 
@@ -52,10 +52,10 @@ pub fn get_listen_addr_http(config: &HttpConfig, host: &str) -> Option<NetworkAd
     if !config.enabled {
         return None;
     }
-    
+
     if let Some(ref path) = config.path {
         return Some(NetworkAddr::unix(path));
     }
-    
+
     config.port.map(|port| NetworkAddr::tcp(host, port))
 }

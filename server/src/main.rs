@@ -102,7 +102,7 @@ fn handle_http(executor: Arc<Executor>, config: Arc<Config>) -> Option<JoinHandl
     if !config.server.http.enabled {
         return None;
     }
-    
+
     match config.server.http.port {
         None => None,
         Some(port) => {
