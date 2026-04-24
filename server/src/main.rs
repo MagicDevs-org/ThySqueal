@@ -106,7 +106,6 @@ fn create_executor(config: Arc<Config>, db: Arc<RwLock<Database>>) -> Arc<Execut
     let data_dir = config.storage.data_dir.clone();
     let executor = Executor::new(db).with_data_dir(data_dir);
 
-    let start_time = Instant::now();
     let metrics = executor.metrics.clone();
     std::thread::spawn(move || {
         loop {

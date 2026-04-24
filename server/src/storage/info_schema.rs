@@ -28,19 +28,7 @@ pub fn session_status_table() -> Table {
         column("VARIABLE_NAME", DataType::Text),
         column("VARIABLE_VALUE", DataType::Text),
     ];
-    let mut table = Table::new("session_status".to_string(), cols, None, vec![]);
-    table.data.rows.push(Row {
-        id: "uptime".to_string(),
-        values: vec![
-            Value::Text("Uptime".to_string()),
-            Value::Text("0".to_string()),
-        ],
-    });
-    table
-}
-
-pub fn global_status_table() -> Table {
-    session_status_table()
+    Table::new("session_status".to_string(), cols, None, vec![])
 }
 
 fn column(name: &str, data_type: DataType) -> Column {
