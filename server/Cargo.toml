@@ -45,6 +45,9 @@ hex = "0.4"
 rand = "0.8"
 strum = "0.28"
 strum_macros = "0.28"
+rustls.workspace = true
+rustls-pemfile.workspace = true
+tokio-rustls.workspace = true
 
 [features]
 default = []

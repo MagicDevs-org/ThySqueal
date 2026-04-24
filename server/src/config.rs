@@ -62,6 +62,9 @@ pub struct MySqlConfig {
     pub host: Option<String>,
     pub path: Option<String>,
     pub version: Option<String>,
+    pub tls_enabled: Option<bool>,
+    pub tls_cert: Option<String>,
+    pub tls_key: Option<String>,
 }
 
 impl Default for MySqlConfig {
@@ -72,6 +75,9 @@ impl Default for MySqlConfig {
             host: None,
             path: None,
             version: Some("8.0.0".to_string()),
+            tls_enabled: Some(false),
+            tls_cert: None,
+            tls_key: None,
         }
     }
 }

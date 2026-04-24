@@ -2,6 +2,7 @@ pub mod commands;
 pub mod connection;
 pub mod constants;
 pub mod packet;
+pub mod tls;
 pub mod types;
 
 use crate::engines::traits::Protocol;
@@ -13,11 +14,27 @@ use std::sync::Arc;
 
 pub struct MysqlProtocol {
     executor: Arc<Executor>,
+    tls_config: Option<Arc<tls::TlsConfig>>,
 }
 
 impl MysqlProtocol {
     pub fn new(executor: Arc<Executor>) -> Self {
-        Self { executor }
+        Self {
+            executor,
+            tls_config: None,
+        }
+    }
+
+    pub fn with_tls(executor: Arc<Executor>, cert: &str, key: &str) -> Result<Self> {
+        let tls_config = Arc::new(tls::TlsConfig::new(cert, key)?);
+        Ok(Self {
+            executor,
+            tls_config: Some(tls_config),
+        })
+    }
+
+    pub fn has_tls(&self) -> bool {
+        self.tls_config.is_some()
     }
 }
 

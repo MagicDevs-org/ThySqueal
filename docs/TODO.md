@@ -235,7 +235,7 @@ engines/elastic/
 - [x] **COM_STMT_EXECUTE**: Implement binary protocol parameter binding for prepared statements
 - [x] **Missing commands**: `USE db`, `SHOW TABLES`, `SHOW DATABASES`, `COM_CREATE_DB`, `COM_DROP_DB`
 - [ ] **SSL/TLS**: Implement actual TLS handshake (capability flags advertise it but handshake missing)
-- [ ] **Real metrics**: `SHOW STATUS` with actual `Uptime`, `Threads_connected`, `Questions` values
+- [x] **Real metrics**: `SHOW STATUS` with actual `Uptime`, `Threads_connected`, `Questions` values
 
 ### Low Priority
 

@@ -11,9 +11,11 @@ pub const CHAR_SET_UTF8: u16 = 33;
 pub const CHAR_SET_CODE: u8 = 33;
 pub const STATUS_FLAGS: u16 = 0x0002;
 
-pub const CAPABILITY_LOWER: u16 = 0xF7FF;
+pub const CAPABILITY_LOWER: u16 = 0xF7FF | 0x0800; // includes SSL (0x0800)
 #[allow(unused)]
 pub const CAPABILITY_UPPER: u16 = 0x8000;
+
+pub const MYSQL_SSL: u16 = 0x0800;
 
 pub const MYSQL_NULL_TYPE: u8 = 0x06;
 pub const MYSQL_TINYINT: u8 = 0x01;
