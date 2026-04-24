@@ -52,7 +52,6 @@ impl Executor {
                         .ok_or_else(|| ExecError::ColumnNotFound(col_name.clone()))?;
                     let mut val = evaluate_expression_joined(self, expr, &eval_ctx)?;
 
-                    // Perform type casting for UPDATE
                     let target_type = &table.columns()[col_idx].data_type;
                     val = val.cast(target_type).map_err(|e| {
                         ExecError::TypeMismatch(format!(

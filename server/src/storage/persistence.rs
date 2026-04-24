@@ -201,7 +201,6 @@ impl Persister for SledPersister {
             .flush()
             .map_err(|e| StorageError::PersistenceError(e.to_string()))?;
 
-        // After successful snapshot, we can clear the WAL
         self.clear_logs()?;
 
         Ok(())

@@ -29,6 +29,14 @@ impl SearchIndex {
             Index::create_in_dir(path, schema.clone())?
         };
 
+        // Save schema for future validation
+        let meta_path = format!("{}/schema_fields.json", path);
+        let meta = serde_json::json!({ "fields": fields });
+        let _ = std::fs::write(
+            &meta_path,
+            serde_json::to_string_pretty(&meta).unwrap_or_default(),
+        );
+
         // 50MB heap for indexer
         let writer = index.writer(50_000_000)?;
 

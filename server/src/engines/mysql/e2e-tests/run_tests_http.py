@@ -73,7 +73,7 @@ def read_expected(file_path: Path) -> list[list]:
         if file_path.suffix == ".csv":
             return list(csv.reader(f))
         else:
-            return [line.strip().split("\t") for line in f.readlines() if line.strip()]
+            return [line.rstrip('\n').split("\t") for line in f.readlines() if line.strip() or line.endswith('\n')]
 
 
 def compare_results(actual: list[list], expected: list[list]) -> bool:
@@ -91,8 +91,7 @@ def compare_results(actual: list[list], expected: list[list]) -> bool:
 def run_test(sql_file: Path) -> bool:
     test_name = sql_file.stem
 
-    # Try to drop common tables before test (ignore errors)
-    for table in ['users', 'orders', 'products', 'items']:
+    for table in ['users', 'orders', 'products', 'items', 'test_types', 'test_tx', 'test_j1', 'test_j2', 'test_j']:
         try:
             execute_sql(f"DROP TABLE IF EXISTS {table}")
         except:
@@ -121,9 +120,9 @@ def run_test(sql_file: Path) -> bool:
         actual_flat = []
         for row in actual_data:
             if isinstance(row, list):
-                actual_flat.append([str(v) for v in row])
+                actual_flat.append([str(v) if v is not None else "" for v in row])
             else:
-                actual_flat.append([str(row)])
+                actual_flat.append([str(row) if row is not None else ""])
 
         if expected_file_txt.exists():
             expected_data = read_expected(expected_file_txt)

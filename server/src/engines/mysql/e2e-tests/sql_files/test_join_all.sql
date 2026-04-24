@@ -1,4 +1,6 @@
--- Test LEFT JOIN
+DROP TABLE IF EXISTS test_j1;
+DROP TABLE IF EXISTS test_j2;
+DROP TABLE IF EXISTS test_j;
 CREATE TABLE test_j1 (id INT, name TEXT);
 INSERT INTO test_j1 VALUES (1, 'a');
 INSERT INTO test_j1 VALUES (2, 'b');

@@ -85,12 +85,17 @@ pub fn parse_value_list(pair: pest::iterators::Pair<Rule>) -> SqlResult<Vec<Expr
     let mut values = Vec::new();
     for p in inner {
         match p.as_rule() {
-            Rule::literal
+            Rule::expression
+            | Rule::term
+            | Rule::factor
+            | Rule::literal
             | Rule::string_literal
             | Rule::number_literal
             | Rule::boolean_literal
             | Rule::KW_NULL
-            | Rule::placeholder => {
+            | Rule::placeholder
+            | Rule::scalar_func
+            | Rule::aggregate_func => {
                 values.push(parse_any_expression(p)?);
             }
             _ => {}

@@ -1,6 +1,6 @@
-DROP TABLE users;
-DROP TABLE orders;
-DROP TABLE users;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS users;
 CREATE TABLE users (id INT, name TEXT, age INT);
 INSERT INTO users VALUES (1, 'alice', 25);
 INSERT INTO users VALUES (2, 'bob', 30);

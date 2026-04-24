@@ -2,7 +2,7 @@ use crate::squeal;
 use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::exec::{Executor, SelectQueryPlan, Session};
 use crate::storage::info_schema::get_info_schema_tables;
-use crate::storage::{Column, DataType, Row, Table, TableData, TableIndexes, TableSchema};
+use crate::storage::{Column, DataType, Row, Table, TableData, TableIndexes, TableSchema, Value};
 use std::collections::HashMap;
 
 pub enum ResolvedTable<'b> {
@@ -117,7 +117,7 @@ impl Executor {
             for (idx_name, index) in &t.indexes.secondary {
                 let exprs = index.expressions();
                 if exprs.len() == 1 && &exprs[0] == left_expr {
-                    let key = vec![val.clone()];
+                    let key = vec![coerce_index_value(val, t, left_expr, &exprs[0])];
                     let estimated = if let Some(ids) = index.get(&key) {
                         ids.len()
                     } else {
@@ -145,10 +145,33 @@ impl Executor {
                     .cloned()
                     .collect()
             } else {
-                vec![]
+                t.data.rows.clone()
             }
         } else {
             t.data.rows.clone()
         }
     }
+}
+
+#[allow(clippy::collapsible_if)]
+fn coerce_index_value(
+    val: &Value,
+    t: &Table,
+    _left_expr: &squeal::ir::Expression,
+    index_expr: &squeal::ir::Expression,
+) -> Value {
+    if let squeal::ir::Expression::Column(col_name) = index_expr {
+        if let Some(col_idx) = t.column_index(col_name) {
+            let col_type = &t.columns()[col_idx].data_type;
+            #[allow(clippy::collapsible_if)]
+            if matches!(col_type, DataType::Int) && matches!(val, Value::Text(_)) {
+                if let Value::Text(s) = val
+                    && let Ok(i) = s.parse::<i64>()
+                {
+                    return Value::Int(i);
+                }
+            }
+        }
+    }
+    val.clone()
 }

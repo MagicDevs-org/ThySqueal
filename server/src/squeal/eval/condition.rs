@@ -4,6 +4,37 @@ use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::ir::{ComparisonOp, Condition, IsOp};
 use crate::storage::Value;
 
+fn coerce_comparison_values(a: &Value, b: &Value) -> (Value, Value) {
+    match (a, b) {
+        (Value::Text(s), Value::Int(_)) => {
+            if let Ok(parsed) = s.parse::<i64>() {
+                (Value::Int(parsed), b.clone())
+            } else {
+                (a.clone(), b.clone())
+            }
+        }
+        (Value::Int(_), Value::Text(s)) => {
+            if let Ok(parsed) = s.parse::<i64>() {
+                (a.clone(), Value::Int(parsed))
+            } else {
+                (a.clone(), b.clone())
+            }
+        }
+        (Value::Text(a_str), Value::Text(b_str)) => {
+            if let (Ok(ai), Ok(bi)) = (a_str.parse::<i64>(), b_str.parse::<i64>()) {
+                (Value::Int(ai), Value::Int(bi))
+            } else if let (Ok(af), Ok(bf)) = (a_str.parse::<f64>(), b_str.parse::<f64>()) {
+                (Value::Float(af), Value::Float(bf))
+            } else {
+                (a.clone(), b.clone())
+            }
+        }
+        (Value::Int(i), Value::Float(_)) => (Value::Float(*i as f64), b.clone()),
+        (Value::Float(_), Value::Int(i)) => (a.clone(), Value::Float(*i as f64)),
+        _ => (a.clone(), b.clone()),
+    }
+}
+
 pub fn evaluate_condition_joined(
     executor: &dyn Evaluator,
     cond: &Condition,
@@ -32,6 +63,8 @@ pub fn evaluate_condition_joined(
             if matches!(left_val, Value::Null) || matches!(right_val, Value::Null) {
                 return Ok(false);
             }
+
+            let (left_val, right_val) = coerce_comparison_values(&left_val, &right_val);
 
             match op {
                 ComparisonOp::Eq => Ok(left_val == right_val),

@@ -95,7 +95,7 @@ alias = { (KW_AS ~ identifier) | identifier }
 // INSERT statement
 insert_stmt = { (KW_INSERT | KW_REPLACE) ~ KW_INTO ~ table_name ~ (KW_IGNORE)? ~ ("(" ~ column_list ~ ")")? ~ KW_VALUES ~ "(" ~ value_list ~ ")" ~ (KW_ON ~ KW_DUPLICATE ~ KW_KEY ~ KW_UPDATE ~ set_list)? }
 
-value_list = { (literal | placeholder) ~ ("," ~ (literal | placeholder))* }
+value_list = { (expression | placeholder) ~ ("," ~ (expression | placeholder))* }
 
 // UPDATE statement
 update_stmt = { KW_UPDATE ~ table_name ~ KW_SET ~ set_list ~ where_clause? }
