@@ -234,7 +234,8 @@ engines/elastic/
 - [x] **Proper column type mapping**: Map Squeal `Value` types to MySQL wire protocol types (INT, BIGINT, DECIMAL, etc.)
 - [x] **COM_STMT_EXECUTE**: Implement binary protocol parameter binding for prepared statements
 - [x] **Missing commands**: `USE db`, `SHOW TABLES`, `SHOW DATABASES`, `COM_CREATE_DB`, `COM_DROP_DB`
-- [ ] **SSL/TLS**: Implement actual TLS handshake (capability flags advertise it but handshake missing)
+- [x] **SSL/TLS**: Add rustls infrastructure + config
+- [ ] **Real TLS handshake**: Complete TLS acceptor for MySQL protocol
 - [x] **Real metrics**: `SHOW STATUS` with actual `Uptime`, `Threads_connected`, `Questions` values
 
 ### Low Priority
