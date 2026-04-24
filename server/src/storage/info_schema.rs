@@ -1,4 +1,4 @@
-use crate::storage::{Column, DataType, DatabaseState, Row, Table};
+use crate::storage::{Column, DataType, DatabaseState, Row, Table, Value};
 use std::collections::HashMap;
 
 pub fn get_info_schema_tables(db_state: &DatabaseState) -> HashMap<String, Table> {
@@ -12,6 +12,8 @@ pub fn get_info_schema_tables(db_state: &DatabaseState) -> HashMap<String, Table
         key_column_usage_table(db_state),
     );
     tables.insert("indexes".to_string(), indexes_table(db_state));
+    tables.insert("session_status".to_string(), session_status_table());
+    tables.insert("global_status".to_string(), session_status_table());
     tables.insert("kv_strings".to_string(), kv_strings_table(db_state));
     tables.insert("kv_hash".to_string(), kv_hash_table(db_state));
     tables.insert("kv_list".to_string(), kv_list_table(db_state));
@@ -19,6 +21,26 @@ pub fn get_info_schema_tables(db_state: &DatabaseState) -> HashMap<String, Table
     tables.insert("kv_zset".to_string(), kv_zset_table(db_state));
     tables.insert("kv_stream".to_string(), kv_stream_table(db_state));
     tables
+}
+
+pub fn session_status_table() -> Table {
+    let cols = vec![
+        column("VARIABLE_NAME", DataType::Text),
+        column("VARIABLE_VALUE", DataType::Text),
+    ];
+    let mut table = Table::new("session_status".to_string(), cols, None, vec![]);
+    table.data.rows.push(Row {
+        id: "uptime".to_string(),
+        values: vec![
+            Value::Text("Uptime".to_string()),
+            Value::Text("0".to_string()),
+        ],
+    });
+    table
+}
+
+pub fn global_status_table() -> Table {
+    session_status_table()
 }
 
 fn column(name: &str, data_type: DataType) -> Column {

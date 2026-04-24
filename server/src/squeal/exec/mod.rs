@@ -10,6 +10,7 @@ pub mod helpers;
 pub mod kill;
 pub mod kv;
 pub mod materialized;
+pub mod metrics;
 pub mod plan;
 pub mod privilege;
 pub mod pubsub;

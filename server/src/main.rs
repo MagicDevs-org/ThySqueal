@@ -18,6 +18,7 @@ use clap::Parser;
 use futures::future;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::{sync::RwLock, task::JoinHandle};
 use tracing::{Level, error, info};
 use tracing_subscriber::FmtSubscriber;
@@ -103,7 +104,20 @@ fn load_db(config: Arc<Config>) -> Arc<RwLock<Database>> {
 
 fn create_executor(config: Arc<Config>, db: Arc<RwLock<Database>>) -> Arc<Executor> {
     let data_dir = config.storage.data_dir.clone();
-    Arc::new(Executor::new(db).with_data_dir(data_dir))
+    let executor = Executor::new(db).with_data_dir(data_dir);
+
+    let start_time = Instant::now();
+    let metrics = executor.metrics.clone();
+    std::thread::spawn(move || {
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(1));
+            metrics
+                .uptime_secs
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        }
+    });
+
+    Arc::new(executor)
 }
 
 // HTTP Server handle

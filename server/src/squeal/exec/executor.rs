@@ -2,6 +2,7 @@ use super::QueryResult;
 use crate::engines::mysql::parser::parse_to_squeal;
 use crate::squeal::eval::Evaluator;
 use crate::squeal::exec::ExecResult;
+use crate::squeal::exec::metrics::ServerMetrics;
 use crate::squeal::exec::plan::SelectQueryPlan;
 use crate::squeal::exec::pubsub::PubSubState;
 use crate::squeal::exec::session::Session;
@@ -21,6 +22,7 @@ pub struct Executor {
     pub prepared_statements: DashMap<String, Squeal>,         // name -> stmt
     pub data_dir: Option<String>,
     pub pubsub: Arc<tokio::sync::RwLock<PubSubState>>,
+    pub metrics: Arc<ServerMetrics>,
 }
 
 impl Executor {
@@ -32,6 +34,7 @@ impl Executor {
             prepared_statements: DashMap::new(),
             data_dir: None,
             pubsub: Arc::new(tokio::sync::RwLock::new(PubSubState::default())),
+            metrics: Arc::new(ServerMetrics::new()),
         }
     }
 

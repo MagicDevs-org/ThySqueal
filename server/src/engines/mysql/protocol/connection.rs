@@ -34,6 +34,7 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
     drop(db);
 
     if auth_ok {
+        executor.metrics.inc_connection();
         send_ok_packet(&mut socket, seq + 1, "Welcome to ThySqueal").await?;
     } else {
         send_sql_error(
@@ -249,6 +250,20 @@ async fn handle_query(
     payload: &[u8],
 ) -> Result<()> {
     let query = String::from_utf8_lossy(&payload[1..]).to_string();
+    executor.metrics.inc_question();
+    executor.metrics.inc_query();
+
+    let query_upper = query.to_uppercase();
+    if query_upper.trim_start().starts_with("SELECT") {
+        executor.metrics.inc_select();
+    } else if query_upper.trim_start().starts_with("INSERT") {
+        executor.metrics.inc_insert();
+    } else if query_upper.trim_start().starts_with("UPDATE") {
+        executor.metrics.inc_update();
+    } else if query_upper.trim_start().starts_with("DELETE") {
+        executor.metrics.inc_delete();
+    }
+
     let result = executor
         .execute(&query, vec![], Session::new(None, None))
         .await;

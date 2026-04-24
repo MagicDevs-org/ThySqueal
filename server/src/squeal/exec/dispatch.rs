@@ -1,5 +1,6 @@
 use crate::engines::mysql::parser::parse_to_squeal;
-use crate::squeal::exec::{ExecError, ExecResult};
+use crate::squeal::exec::ExecError;
+use crate::squeal::exec::ExecResult;
 use crate::squeal::ir::ShowVariant;
 use crate::squeal::ir::Squeal;
 
@@ -529,8 +530,24 @@ impl Executor {
                     ShowVariant::Variables(_) => {
                         "SELECT VARIABLE_NAME, VARIABLE_VALUE FROM information_schema.GLOBAL_VARIABLES".to_string()
                     }
-                    ShowVariant::Status(_) => {
-                        "SELECT VARIABLE_NAME, VARIABLE_VALUE FROM information_schema.SESSION_STATUS".to_string()
+                    ShowVariant::Status(like_pattern) => {
+                        let metrics = self.metrics.get_status_vars();
+                        let rows: Vec<Vec<Value>> = metrics
+                            .into_iter()
+                            .filter(|(name, _)| {
+                                like_pattern.as_ref().map_or(true, |p| {
+                                    name.to_uppercase().contains(&p.replace("'", "").to_uppercase())
+                                })
+                            })
+                            .map(|(name, value)| vec![Value::Text(name), Value::Text(value)])
+                            .collect();
+                        return Ok(QueryResult {
+                            columns: vec!["VARIABLE_NAME".to_string(), "VARIABLE_VALUE".to_string()],
+                            rows,
+                            rows_affected: 0,
+                            transaction_id: None,
+                            session: None,
+                        });
                     }
                     ShowVariant::Processlist => {
                         "SELECT ID, USER, HOST, DB, COMMAND, TIME, STATE FROM information_schema.PROCESSLIST".to_string()
