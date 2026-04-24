@@ -2,7 +2,14 @@ use super::{Executor, QueryResult};
 use crate::squeal::exec::{ExecError, ExecResult};
 use crate::squeal::ir::{CreateUser, DropUser, Grant, Revoke};
 use crate::storage::User;
+use sha1::{Digest, Sha1};
 use std::collections::HashMap;
+
+fn compute_sha1_hash(password: &str) -> String {
+    let mut hasher = Sha1::new();
+    hasher.update(password.as_bytes());
+    hex::encode(hasher.finalize())
+}
 
 impl Executor {
     pub async fn exec_create_user(
@@ -12,6 +19,7 @@ impl Executor {
     ) -> ExecResult<QueryResult> {
         let hashed = bcrypt::hash(&stmt.password, bcrypt::DEFAULT_COST)
             .map_err(|e| ExecError::Runtime(format!("Bcrypt error: {}", e)))?;
+        let auth_string = compute_sha1_hash(&stmt.password);
 
         self.mutate_state(tx_id, |state| {
             if state.users.contains_key(&stmt.username) {
@@ -25,6 +33,7 @@ impl Executor {
                 User {
                     username: stmt.username,
                     password_hash: hashed,
+                    auth_string: Some(auth_string),
                     global_privileges: vec![],
                     table_privileges: HashMap::new(),
                 },

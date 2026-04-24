@@ -9,6 +9,7 @@ use crate::squeal::exec::ExecResult;
 use crate::squeal::ir::{Expression, Select};
 use crate::storage::error::StorageError;
 use serde::{Deserialize, Serialize};
+use sha1::{Digest, Sha1};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -27,6 +28,7 @@ pub enum Privilege {
 pub struct User {
     pub username: String,
     pub password_hash: String,
+    pub auth_string: Option<String>,
     pub global_privileges: Vec<Privilege>,
     pub table_privileges: HashMap<String, Vec<Privilege>>, // table_name -> privileges
 }
@@ -218,11 +220,17 @@ impl Database {
     fn ensure_root_user(&mut self) {
         if !self.state.users.contains_key("root") {
             let hashed = bcrypt::hash("root", bcrypt::DEFAULT_COST).unwrap();
+            let auth_string = hex::encode({
+                let mut hasher = Sha1::new();
+                hasher.update(b"root");
+                hasher.finalize()
+            });
             self.state.users.insert(
                 "root".to_string(),
                 User {
                     username: "root".to_string(),
                     password_hash: hashed,
+                    auth_string: Some(auth_string),
                     global_privileges: vec![Privilege::All],
                     table_privileges: HashMap::new(),
                 },

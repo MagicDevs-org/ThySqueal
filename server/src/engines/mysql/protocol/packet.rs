@@ -56,7 +56,7 @@ pub fn write_len_enc_str(buf: &mut Vec<u8>, s: &str) {
     buf.extend_from_slice(s.as_bytes());
 }
 
-pub async fn send_handshake(socket: &mut TcpStream) -> Result<()> {
+pub async fn send_handshake(socket: &mut TcpStream) -> Result<String> {
     let mut payload = Vec::new();
 
     payload.push(PROTO_VERSION);
@@ -71,13 +71,21 @@ pub async fn send_handshake(socket: &mut TcpStream) -> Result<()> {
 
     payload.extend_from_slice(&[0u8; 10]);
 
-    write_len_enc_str(&mut payload, AUTH_PLUGIN_DATA_PART1);
+    let challenge = generate_challenge();
+    write_len_enc_str(&mut payload, &challenge);
     payload.push(0);
 
     write_len_enc_str(&mut payload, AUTH_PLUGIN_NAME);
     payload.push(0);
 
-    send_packet(socket, 0, &payload).await
+    send_packet(socket, 0, &payload).await?;
+    Ok(challenge)
+}
+
+fn generate_challenge() -> String {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    (0..20).map(|_| rng.r#gen::<u8>() as char).collect()
 }
 
 pub async fn send_ok_packet(socket: &mut TcpStream, seq: u8, msg: &str) -> Result<()> {

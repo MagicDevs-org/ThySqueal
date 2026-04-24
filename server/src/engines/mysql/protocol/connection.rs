@@ -7,22 +7,29 @@ use super::types::*;
 use crate::engines::mysql::error::SqlError;
 use crate::squeal::exec::{Executor, Session};
 use anyhow::Result;
-use bcrypt::verify;
 use std::sync::Arc;
 use tracing::info;
 
 pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -> Result<()> {
-    send_handshake(&mut socket).await?;
+    let challenge = send_handshake(&mut socket).await?;
 
     let (seq, payload) = read_packet(&mut socket).await?;
 
-    let (username, _password_hash) = parse_handshake_response(&payload);
+    let (username, auth_response) = parse_handshake_response(&payload);
 
     let db = executor.db.read().await;
     let auth_ok = if let Some(user) = db.state().users.get(&username) {
-        user.password_hash.is_empty() || verify("", &user.password_hash).unwrap_or(true)
+        if user.password_hash.is_empty() && user.auth_string.is_none() {
+            true
+        } else if let Some(ref auth_string) = user.auth_string {
+            auth_response.as_ref().map_or(false, |r| {
+                verify_mysql_native_password(&challenge, auth_string, r)
+            })
+        } else {
+            false
+        }
     } else {
-        true
+        username.is_empty() || username == DEFAULT_USERNAME
     };
     drop(db);
 
@@ -39,6 +46,36 @@ pub async fn handle_connection(mut socket: TcpStream, executor: Arc<Executor>) -
     }
 
     process_commands(&mut socket, &executor).await
+}
+
+fn verify_mysql_native_password(challenge: &str, stored_hash: &str, response: &[u8]) -> bool {
+    use sha1::{Digest, Sha1};
+
+    if response.len() != 20 {
+        return false;
+    }
+
+    let hash_bytes = match hex::decode(stored_hash) {
+        Ok(h) if h.len() == 20 => h,
+        _ => return false,
+    };
+
+    let mut sha1 = Sha1::new();
+    sha1.update(response);
+    sha1.update(challenge.as_bytes());
+    let step1 = sha1.finalize();
+
+    let mut sha1 = Sha1::new();
+    sha1.update(step1);
+    let step2 = sha1.finalize();
+
+    for i in 0..20 {
+        if step2[i] != hash_bytes[i] {
+            return false;
+        }
+    }
+
+    true
 }
 
 async fn process_commands(socket: &mut TcpStream, executor: &Arc<Executor>) -> Result<()> {
