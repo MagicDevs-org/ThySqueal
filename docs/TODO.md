@@ -235,7 +235,7 @@ engines/elastic/
 - [x] **COM_STMT_EXECUTE**: Implement binary protocol parameter binding for prepared statements
 - [x] **Missing commands**: `USE db`, `SHOW TABLES`, `SHOW DATABASES`, `COM_CREATE_DB`, `COM_DROP_DB`
 - [x] **SSL/TLS**: Add rustls infrastructure + config
-- [ ] **Real TLS handshake**: Complete TLS acceptor for MySQL protocol
+- [ ] **Real TLS handshake**: Complete TLS acceptor for MySQL protocol (complex generics, deferred)
 - [x] **Real metrics**: `SHOW STATUS` with actual `Uptime`, `Threads_connected`, `Questions` values
 
 ### Low Priority
