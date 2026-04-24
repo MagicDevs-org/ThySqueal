@@ -1,4 +1,4 @@
-# AGENTS.md - Developer Guidelines for ThySqueal
+# CONTEXT.md - Developer Guidelines for ThySqueal
 
 ## Project Overview
 
@@ -18,6 +18,8 @@ ThySqueal is a SQL server with HTTP JSON API, built with Rust. It's a Cargo work
 - **Materialized Views**: Pre-calculated views with automatic data refresh on mutations
 - **Auto-Increment**: Support for `AUTO_INCREMENT` attribute and `SERIAL` data type
 - **MySQL Protocol**: Native TCP support on port 13306
+- **MySQL Authentication**: Native password auth with SHA1 challenge-response
+- **Server Metrics**: Real `SHOW STATUS` with Uptime, Connections, Questions, etc.
 - **Redis Protocol**: RESP-based TCP support on port 16379, routes through Squeal IR
 - **Storage**: Hybrid in-memory storage with Sled-based WAL and snapshotting
 - **Information Schema**: Virtual `information_schema` tables (tables, columns, indexes)
