@@ -8,6 +8,7 @@ pub use config::Config;
 pub use config::DummyConfig;
 pub use engine::Engine;
 pub use parser::DummyParser;
+pub use parser::MysqlParser;
 pub use parser::Parser;
 pub use protocol::Protocol;
 pub use registry::Registry;
