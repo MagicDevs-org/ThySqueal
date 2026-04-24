@@ -1,4 +1,4 @@
-use crate::storage::{Column, DataType, DatabaseState, Row, Table, Value};
+use crate::storage::{Column, DataType, DatabaseState, Row, Table};
 use std::collections::HashMap;
 
 pub fn get_info_schema_tables(db_state: &DatabaseState) -> HashMap<String, Table> {
